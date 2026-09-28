@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -11,7 +12,6 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -32,7 +32,7 @@ class QuoteRow(Base):
             "status IN ('submitted','expired','withdrawn','superseded')",
             name="ck_quotes_status",
         ),
-        CheckConstraint("char_length(currency) = 3 AND currency = upper(currency)", name="ck_quotes_currency"),
+        CheckConstraint(\n            "char_length(currency) = 3 AND currency = upper(currency)",\n            name="ck_quotes_currency",\n        ),
         CheckConstraint("base_amount_minor > 0", name="ck_quotes_base_positive"),
         CheckConstraint(
             "repositioning_amount_minor IS NULL OR repositioning_amount_minor >= 0",
