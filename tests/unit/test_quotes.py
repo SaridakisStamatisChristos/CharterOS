@@ -105,53 +105,54 @@ def test_mixed_currency_component_and_repositioning_are_rejected() -> None:
         )
 
 
-def test_total_overflow_remains_explicit() -> None:
+def test_total_overflow_rejects_submission_explicitly() -> None:
     eur = Currency("EUR")
-    quote = Quote.submit(
+    with pytest.raises(MoneyOverflowError):
+        Quote.submit(
+            rfq_id=RfqId(_id(1)),
+            aircraft_id=AircraftId(_id(2)),
+            base_price=Money(2**63 - 1, eur),
+            price_components=(
+                PriceComponent(
+                    category=PriceComponentCategory.OTHER,
+                    label="One more cent",
+                    amount=Money(1, eur),
+                ),
+            ),
+            repositioning_cost=None,
+            inclusions=(),
+            exclusions=(),
+            cancellation_terms=None,
+            payment_terms=None,
+            valid_until=VALID_UNTIL,
+            submitted_at=NOW,
+        )
+
+
+def _submit_simple_quote(*, valid_until: datetime, submitted_at: datetime) -> Quote:
+    return Quote.submit(
         rfq_id=RfqId(_id(1)),
         aircraft_id=AircraftId(_id(2)),
-        base_price=Money(2**63 - 1, eur),
-        price_components=(
-            PriceComponent(
-                category=PriceComponentCategory.OTHER,
-                label="One more cent",
-                amount=Money(1, eur),
-            ),
-        ),
+        base_price=Money(1_000, Currency("EUR")),
+        price_components=(),
         repositioning_cost=None,
         inclusions=(),
         exclusions=(),
         cancellation_terms=None,
         payment_terms=None,
-        valid_until=VALID_UNTIL,
-        submitted_at=NOW,
+        valid_until=valid_until,
+        submitted_at=submitted_at,
     )
-    with pytest.raises(MoneyOverflowError):
-        _ = quote.submitted_total
 
 
 def test_naive_or_impossible_validity_is_rejected() -> None:
-    eur = Currency("EUR")
-    common = {
-        "rfq_id": RfqId(_id(1)),
-        "aircraft_id": AircraftId(_id(2)),
-        "base_price": Money(1_000, eur),
-        "price_components": (),
-        "repositioning_cost": None,
-        "inclusions": (),
-        "exclusions": (),
-        "cancellation_terms": None,
-        "payment_terms": None,
-    }
     with pytest.raises(DomainValidationError, match="timezone-aware"):
-        Quote.submit(
-            **common,
+        _submit_simple_quote(
             valid_until=datetime(2026, 9, 30, 12),
             submitted_at=NOW,
         )
     with pytest.raises(DomainValidationError, match="after submitted_at"):
-        Quote.submit(
-            **common,
+        _submit_simple_quote(
             valid_until=NOW,
             submitted_at=NOW,
         )
