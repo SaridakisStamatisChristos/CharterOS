@@ -224,9 +224,7 @@ class AircraftAvailabilityRecord:
             "source": self.source,
             "reason": self.reason,
             "provenance": dict(self.provenance),
-            "supersedes_id": (
-                str(self.supersedes_id) if self.supersedes_id is not None else None
-            ),
+            "supersedes_id": (str(self.supersedes_id) if self.supersedes_id is not None else None),
         }
 
 
