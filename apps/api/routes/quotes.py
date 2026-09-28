@@ -167,7 +167,9 @@ def _response(quote: Quote) -> QuoteResponse:
     )
 
 
-def _terms(body: QuoteTermsRequest) -> tuple[
+def _terms(
+    body: QuoteTermsRequest,
+) -> tuple[
     AircraftId,
     Money,
     tuple[PriceComponent, ...],
