@@ -383,7 +383,7 @@ def test_expired_award_fails_without_partial_booking_or_state_transition() -> No
                 ).scalar_one()
                 == 0
             )
-            award_events = connection.execute(
+            award_events: int = connection.execute(
                 text(
                     "SELECT count(*) FROM outbox_events "
                     "WHERE event_type IN ('QUOTE_ACCEPTED','QUOTE_REJECTED','BOOKING_CREATED') "
@@ -441,14 +441,14 @@ def test_concurrent_acceptance_of_two_quotes_produces_exactly_one_booking() -> N
                 ).scalar_one()
                 == 1
             )
-            accepted = connection.execute(
+            accepted: int = connection.execute(
                 text(
                     "SELECT count(*) FROM quotes q JOIN rfqs r ON r.id = q.rfq_id "
                     "WHERE r.mission_id = :mission_id AND q.status = 'accepted'"
                 ),
                 {"mission_id": UUID(mission_id)},
             ).scalar_one()
-            rejected = connection.execute(
+            rejected: int = connection.execute(
                 text(
                     "SELECT count(*) FROM quotes q JOIN rfqs r ON r.id = q.rfq_id "
                     "WHERE r.mission_id = :mission_id AND q.status = 'rejected'"
