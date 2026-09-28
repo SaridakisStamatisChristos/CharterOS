@@ -35,7 +35,8 @@ class MissionRow(Base):
         ),
         CheckConstraint(
             "max_budget_currency IS NULL OR "
-            "(char_length(max_budget_currency) = 3 AND max_budget_currency = upper(max_budget_currency))",
+            "(char_length(max_budget_currency) = 3 AND "
+            "max_budget_currency = upper(max_budget_currency))",
             name="ck_missions_budget_currency",
         ),
         CheckConstraint(
