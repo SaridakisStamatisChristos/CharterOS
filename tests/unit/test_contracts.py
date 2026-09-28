@@ -34,7 +34,7 @@ def _contract() -> Contract:
 def test_contract_creation_canonicalizes_document_evidence_and_emits_event() -> None:
     contract = _contract()
 
-    assert contract.status is ContractStatus.PENDING_ACCEPTANCE
+    assert contract.status.value == "pending_acceptance"
     assert contract.version == 1
     assert contract.document_reference == "object://contracts/booking-1-v1.pdf"
     assert contract.document_version == 1
@@ -93,14 +93,14 @@ def test_bilateral_acceptance_records_each_signature_and_final_acceptance() -> N
     operator_time = NOW + timedelta(minutes=7)
 
     contract.accept_buyer(signed_at=buyer_time)
-    assert contract.status is ContractStatus.PARTIALLY_ACCEPTED
+    assert contract.status.value == "partially_accepted"
     assert contract.version == 2
     assert contract.buyer_signed_at == buyer_time
     assert contract.operator_signed_at is None
     assert contract.accepted_at is None
 
     contract.accept_operator(signed_at=operator_time)
-    assert contract.status is ContractStatus.ACCEPTED
+    assert contract.status.value == "accepted"
     assert contract.version == 4
     assert contract.operator_signed_at == operator_time
     assert contract.accepted_at == operator_time
@@ -118,10 +118,10 @@ def test_operator_can_accept_first_and_final_timestamp_is_later_signature() -> N
     buyer_time = NOW + timedelta(minutes=9)
 
     contract.accept_operator(signed_at=operator_time)
-    assert contract.status is ContractStatus.PARTIALLY_ACCEPTED
+    assert contract.status.value == "partially_accepted"
 
     contract.accept_buyer(signed_at=buyer_time)
-    assert contract.status is ContractStatus.ACCEPTED
+    assert contract.status.value == "accepted"
     assert contract.accepted_at == buyer_time
 
 
