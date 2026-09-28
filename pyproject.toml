@@ -12,8 +12,10 @@ dependencies = [
   "alembic>=1.16,<2",
   "fastapi>=0.118,<1",
   "psycopg[binary]>=3.2,<4",
+  "pydantic>=2.12,<3",
   "pydantic-settings>=2.10,<3",
   "sqlalchemy>=2.0,<3",
+  "tzdata>=2025.2; platform_system == 'Windows'",
   "uvicorn[standard]>=0.37,<1",
 ]
 
