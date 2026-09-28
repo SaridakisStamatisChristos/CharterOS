@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
@@ -118,7 +119,7 @@ def _run_idempotent(
     scope: str,
     key: str,
     request_hash: str,
-    action: callable,
+    action: Callable[[], Rfq],
 ) -> RfqResponse:
     idempotency = SqlAlchemyIdempotencyRepository(session)
     idempotency.lock(scope, key)
