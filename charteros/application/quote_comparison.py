@@ -22,8 +22,8 @@ from charteros.domain.quotes.comparison import (
 from charteros.domain.quotes.normalization import QuoteNormalization, normalize_quote
 from charteros.domain.shared.currency import Currency
 from charteros.domain.shared.exceptions import DomainValidationError
+from charteros.matching import POLICY_VERSION as MATCHING_POLICY_VERSION
 from charteros.matching import (
-    POLICY_VERSION as MATCHING_POLICY_VERSION,
     MatchReasonCode,
     evaluate_candidate,
     haversine_distance_tenths_nm,
@@ -145,7 +145,11 @@ class QuoteComparisonService:
             availability_to=mission.departure_window.end,
         )
         candidate_by_id = {candidate.aircraft_id: candidate for candidate in candidates}
-        missing = [aircraft_id for aircraft_id in aircraft_ids if aircraft_id not in candidate_by_id]
+        missing = [
+            aircraft_id
+            for aircraft_id in aircraft_ids
+            if aircraft_id not in candidate_by_id
+        ]
         if missing:
             raise EntityConflictError(
                 "quoted aircraft is missing from the canonical operational snapshot"
