@@ -51,8 +51,26 @@ def upgrade() -> None:
             name="ck_rfqs_deadline_requires_sent",
         ),
         sa.CheckConstraint(
+            "sent_at IS NULL OR sent_at >= created_at",
+            name="ck_rfqs_sent_after_created",
+        ),
+        sa.CheckConstraint(
             "response_deadline IS NULL OR response_deadline > sent_at",
             name="ck_rfqs_deadline_after_sent",
+        ),
+        sa.CheckConstraint(
+            "acknowledged_at IS NULL OR "
+            "(acknowledged_at >= sent_at AND acknowledged_at < response_deadline)",
+            name="ck_rfqs_acknowledged_in_window",
+        ),
+        sa.CheckConstraint(
+            "declined_at IS NULL OR "
+            "(declined_at >= sent_at AND declined_at < response_deadline)",
+            name="ck_rfqs_declined_in_window",
+        ),
+        sa.CheckConstraint(
+            "expired_at IS NULL OR expired_at >= response_deadline",
+            name="ck_rfqs_expired_after_deadline",
         ),
         sa.CheckConstraint(
             "(status = 'created' AND sent_at IS NULL AND response_deadline IS NULL "
