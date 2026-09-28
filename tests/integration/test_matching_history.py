@@ -49,9 +49,7 @@ def test_matching_is_deterministic_explainable_and_no_hindsight_safe() -> None:
         assert body["policy_version"] == "matching-v1"
         assert body["reference_currency"] == "EUR"
         assert body["feasible_count"] >= 1
-        match = next(
-            item for item in body["matches"] if item["aircraft_id"] == aircraft_id
-        )
+        match = next(item for item in body["matches"] if item["aircraft_id"] == aircraft_id)
         assert match["reason_codes"][0] == "feasible"
         assert match["reference_profile"]["source"] == "validated-test-reference"
         assert match["position"]["recorded_at"] <= body["known_as_of"]
@@ -83,9 +81,7 @@ def test_matching_is_deterministic_explainable_and_no_hindsight_safe() -> None:
             params={"known_as_of": cutoff.isoformat()},
         )
         assert historical_k1.status_code == 200
-        assert aircraft_id in {
-            item["aircraft_id"] for item in historical_k1.json()["matches"]
-        }
+        assert aircraft_id in {item["aircraft_id"] for item in historical_k1.json()["matches"]}
 
         current_reserved = client.get(f"/v1/missions/{mission_id}/matches")
         assert current_reserved.status_code == 200
@@ -148,18 +144,13 @@ def test_matching_is_deterministic_explainable_and_no_hindsight_safe() -> None:
         assert historical_k2_after.status_code == 200
         assert historical_k2_after.json() == historical_k2_before.json()
 
-        current_after_late_position = client.get(
-            f"/v1/missions/{mission_id}/matches"
-        )
+        current_after_late_position = client.get(f"/v1/missions/{mission_id}/matches")
         assert current_after_late_position.status_code == 200
         assert aircraft_id not in {
-            item["aircraft_id"]
-            for item in current_after_late_position.json()["matches"]
+            item["aircraft_id"] for item in current_after_late_position.json()["matches"]
         }
 
-        missing = client.get(
-            "/v1/missions/00000000-0000-0000-0000-000000000999/matches"
-        )
+        missing = client.get("/v1/missions/00000000-0000-0000-0000-000000000999/matches")
         assert missing.status_code == 404
 
     engine = create_engine(settings_value.database_url)
