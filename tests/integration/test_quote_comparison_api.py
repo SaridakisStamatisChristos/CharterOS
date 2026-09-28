@@ -283,8 +283,18 @@ def test_mission_quote_comparison_is_explainable_and_operationally_grounded() ->
         assert opened.status_code == 200
 
         now = datetime.now(UTC)
-        _insert_profile(settings_value, type_a, recorded_at=now - timedelta(minutes=10), suffix="A1")
-        _insert_profile(settings_value, type_b, recorded_at=now - timedelta(minutes=10), suffix="B1")
+        _insert_profile(
+            settings_value,
+            type_a,
+            recorded_at=now - timedelta(minutes=10),
+            suffix="A1",
+        )
+        _insert_profile(
+            settings_value,
+            type_b,
+            recorded_at=now - timedelta(minutes=10),
+            suffix="B1",
+        )
         _record_operational_state(
             client,
             aircraft_id=aircraft_a,
