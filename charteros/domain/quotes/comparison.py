@@ -44,8 +44,7 @@ class ComparisonDraft:
         if self.expected_total.currency != self.worst_case_total.currency:
             raise DomainValidationError("comparison draft totals must use the same currency")
         if self.eligible and (
-            self.reposition_distance_tenths_nm is None
-            or self.schedule_risk_basis_points is None
+            self.reposition_distance_tenths_nm is None or self.schedule_risk_basis_points is None
         ):
             raise DomainValidationError(
                 "eligible comparison draft requires reposition and operational risk metrics"
@@ -88,11 +87,9 @@ def _relative_points(value: int, values: tuple[int, ...], *, weight: int) -> int
     maximum = max(values)
     if minimum == maximum:
         return weight
-    points = (
-        Decimal(weight)
-        * Decimal(maximum - value)
-        / Decimal(maximum - minimum)
-    ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    points = (Decimal(weight) * Decimal(maximum - value) / Decimal(maximum - minimum)).quantize(
+        Decimal("1"), rounding=ROUND_HALF_UP
+    )
     return int(points)
 
 
@@ -217,9 +214,7 @@ def score_comparison_drafts(
                         worst_case_total_points=None,
                         reposition_points=None,
                         operational_risk_points=None,
-                        pricing_confidence_points=_confidence_points(
-                            draft.pricing_confidence
-                        ),
+                        pricing_confidence_points=_confidence_points(draft.pricing_confidence),
                         currency_scope=currency,
                         cohort_size=len(eligible),
                     ),
