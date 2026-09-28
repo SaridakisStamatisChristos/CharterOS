@@ -78,9 +78,10 @@ class SqlAlchemyMissionRepository:
             update(MissionRow)
             .where(MissionRow.id == mission.id.value, MissionRow.version == expected_version)
             .values(version=mission.version, status=mission.status.value)
+            .returning(MissionRow.id)
         )
-        result = self._session.execute(statement)
-        if result.rowcount != 1:
+        updated_id = self._session.scalar(statement)
+        if updated_id is None:
             raise OptimisticConcurrencyError(
                 f"expected aggregate version {expected_version} for mission {mission.id}"
             )
