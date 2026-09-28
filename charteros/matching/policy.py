@@ -6,7 +6,11 @@ from math import asin, cos, radians, sin, sqrt
 
 from charteros.domain.aircraft import AircraftStatus, AvailabilityStatus
 from charteros.domain.missions import Mission
-from charteros.domain.operators import (\n    CommercialStatus,\n    InsuranceStatus,\n    VerificationStatus,\n)
+from charteros.domain.operators import (
+    CommercialStatus,
+    InsuranceStatus,
+    VerificationStatus,
+)
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.money import Money
 from charteros.matching.types import (
@@ -16,8 +20,8 @@ from charteros.matching.types import (
     BudgetComparison,
     CandidateEvaluation,
     MatchDraft,
-    MatchReasonCode,
     MatchingCandidateSnapshot,
+    MatchReasonCode,
     ensure_utc,
 )
 
