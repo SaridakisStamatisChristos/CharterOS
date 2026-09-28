@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import StoredResponse
-from charteros.domain.aircraft import Aircraft, AircraftType, AircraftTypeId
+from charteros.domain.aircraft import (
+    Aircraft,
+    AircraftId,
+    AircraftStatus,
+    AircraftType,
+    AircraftTypeId,
+)
 from charteros.domain.airports import Airport, AirportId
 from charteros.domain.missions import Mission
 from charteros.domain.operators import (
@@ -22,6 +28,7 @@ from charteros.domain.organizations import (
     OrganizationStatus,
     OrganizationType,
 )
+from charteros.domain.quotes import Quote
 from charteros.domain.rfqs import Rfq
 from charteros.infrastructure.db.models.catalog import (
     AircraftRow,
@@ -227,6 +234,23 @@ class SqlAlchemyAircraftRepository:
         )
         _flush(self._session, conflict_message="aircraft registration already exists")
 
+    def get(self, aircraft_id: AircraftId) -> Aircraft | None:
+        row = self._session.get(AircraftRow, aircraft_id.value)
+        if row is None:
+            return None
+        return Aircraft(
+            AircraftId(row.id),
+            operator_id=OperatorId(row.operator_id),
+            registration=row.registration,
+            aircraft_type_id=AircraftTypeId(row.aircraft_type_id),
+            seat_capacity=row.seat_capacity,
+            cargo_capacity=row.cargo_capacity,
+            range_nm=row.range_nm,
+            home_base_id=AirportId(row.home_base_id),
+            status=AircraftStatus(row.status),
+            version=row.version,
+        )
+
 
 class SqlAlchemyIdempotencyRepository:
     def __init__(self, session: Session) -> None:
@@ -277,7 +301,7 @@ class SqlAlchemyDomainEventRepository:
 
     def add_aggregate_events(
         self,
-        aggregate: Organization | Operator | Airport | Aircraft | Mission | Rfq,
+        aggregate: Organization | Operator | Airport | Aircraft | Mission | Rfq | Quote,
     ) -> None:
         for event in aggregate.collect_events():
             self._session.add(
