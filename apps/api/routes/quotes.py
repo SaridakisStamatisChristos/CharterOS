@@ -16,14 +16,23 @@ from charteros.application.idempotency import (
     StoredResponse,
     canonical_request_hash,
 )
+from charteros.application.quote_normalization import QuoteNormalizationService
 from charteros.application.quotes import QuoteService
 from charteros.domain.aircraft import AircraftId
 from charteros.domain.quotes import (
     PriceComponent,
+    PriceComponentApplicability,
     PriceComponentCategory,
     Quote,
     QuoteId,
     QuoteStatus,
+)
+from charteros.domain.quotes.normalization import (
+    NormalizationCaveatCode,
+    NormalizedFeeCategory,
+    PricingConfidence,
+    QuoteNormalization,
+    UnresolvedComponentReason,
 )
 from charteros.domain.rfqs import RfqId
 from charteros.domain.shared.currency import Currency
@@ -54,6 +63,7 @@ class PriceComponentRequest(BaseModel):
     category: PriceComponentCategory
     label: str = Field(min_length=1, max_length=200)
     amount_minor: int = Field(ge=0)
+    applicability: PriceComponentApplicability = PriceComponentApplicability.KNOWN
     condition: str | None = Field(default=None, max_length=500)
 
 
@@ -81,6 +91,7 @@ class PriceComponentResponse(BaseModel):
     category: PriceComponentCategory
     label: str
     amount: MoneyResponse
+    applicability: PriceComponentApplicability
     condition: str | None
 
 
@@ -114,6 +125,40 @@ class QuoteListResponse(BaseModel):
     quotes: list[QuoteResponse]
 
 
+class NormalizedFeeResponse(BaseModel):
+    category: NormalizedFeeCategory
+    label: str
+    amount: MoneyResponse
+    condition: str | None
+
+
+class UnresolvedPricingComponentResponse(BaseModel):
+    label: str
+    reason: UnresolvedComponentReason
+
+
+class NormalizationCaveatResponse(BaseModel):
+    code: NormalizationCaveatCode
+    message: str
+
+
+class QuoteNormalizationResponse(BaseModel):
+    normalization_version: str
+    quote_id: UUID
+    quote_revision_number: int
+    currency: str
+    base_price: MoneyResponse
+    known_fees: list[NormalizedFeeResponse]
+    conditional_fees: list[NormalizedFeeResponse]
+    excluded_fees: list[str]
+    expected_total: MoneyResponse
+    worst_case_total: MoneyResponse
+    totals_complete: bool
+    confidence: PricingConfidence
+    caveats: list[NormalizationCaveatResponse]
+    unresolved_components: list[UnresolvedPricingComponentResponse]
+
+
 def _service(session: Session) -> QuoteService:
     return QuoteService(
         quotes=SqlAlchemyQuoteRepository(session),
@@ -124,8 +169,53 @@ def _service(session: Session) -> QuoteService:
     )
 
 
+def _normalization_service(session: Session) -> QuoteNormalizationService:
+    return QuoteNormalizationService(quotes=SqlAlchemyQuoteRepository(session))
+
+
 def _money(value: Money) -> MoneyResponse:
     return MoneyResponse(amount_minor=value.amount_minor, currency=str(value.currency))
+
+
+def _normalization_response(value: QuoteNormalization) -> QuoteNormalizationResponse:
+    return QuoteNormalizationResponse(
+        normalization_version=value.normalization_version,
+        quote_id=value.quote_id.value,
+        quote_revision_number=value.quote_revision_number,
+        currency=str(value.currency),
+        base_price=_money(value.base_price),
+        known_fees=[
+            NormalizedFeeResponse(
+                category=fee.category,
+                label=fee.label,
+                amount=_money(fee.amount),
+                condition=fee.condition,
+            )
+            for fee in value.known_fees
+        ],
+        conditional_fees=[
+            NormalizedFeeResponse(
+                category=fee.category,
+                label=fee.label,
+                amount=_money(fee.amount),
+                condition=fee.condition,
+            )
+            for fee in value.conditional_fees
+        ],
+        excluded_fees=list(value.excluded_fees),
+        expected_total=_money(value.expected_total),
+        worst_case_total=_money(value.worst_case_total),
+        totals_complete=value.totals_complete,
+        confidence=value.confidence,
+        caveats=[
+            NormalizationCaveatResponse(code=item.code, message=item.message)
+            for item in value.caveats
+        ],
+        unresolved_components=[
+            UnresolvedPricingComponentResponse(label=item.label, reason=item.reason)
+            for item in value.unresolved_components
+        ],
+    )
 
 
 def _response(quote: Quote) -> QuoteResponse:
@@ -145,6 +235,7 @@ def _response(quote: Quote) -> QuoteResponse:
                 category=component.category,
                 label=component.label,
                 amount=_money(component.amount),
+                applicability=component.applicability,
                 condition=component.condition,
             )
             for component in quote.price_components
@@ -187,6 +278,7 @@ def _terms(
             category=item.category,
             label=item.label,
             amount=Money(item.amount_minor, currency),
+            applicability=item.applicability,
             condition=item.condition,
         )
         for item in body.price_components
@@ -288,6 +380,18 @@ def list_quotes(rfq_id: UUID, session: SessionDep) -> QuoteListResponse:
 @router.get("/quotes/{quote_id}", response_model=QuoteResponse)
 def get_quote(quote_id: UUID, session: SessionDep) -> QuoteResponse:
     return _response(_service(session).get(QuoteId(quote_id)))
+
+
+@router.get(
+    "/quotes/{quote_id}/normalization",
+    response_model=QuoteNormalizationResponse,
+)
+def get_quote_normalization(
+    quote_id: UUID,
+    session: SessionDep,
+) -> QuoteNormalizationResponse:
+    normalized = _normalization_service(session).normalize(QuoteId(quote_id))
+    return _normalization_response(normalized)
 
 
 @router.post(
