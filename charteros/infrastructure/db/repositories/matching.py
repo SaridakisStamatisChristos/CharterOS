@@ -206,7 +206,6 @@ def _profile(mapping: RowMapping) -> MatchingReferenceProfile | None:
     )
 
 
-
 def _candidate(mapping: RowMapping) -> MatchingCandidateSnapshot:
     return MatchingCandidateSnapshot(
         aircraft_id=AircraftId(_uuid(mapping["aircraft_id"])),
