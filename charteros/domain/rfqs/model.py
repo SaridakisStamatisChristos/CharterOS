@@ -106,8 +106,7 @@ class Rfq(AggregateRoot[RfqId]):
         if self.response_deadline <= self.sent_at:
             raise DomainValidationError("response_deadline must be after sent_at")
         if self.acknowledged_at is not None and (
-            self.acknowledged_at < self.sent_at
-            or self.acknowledged_at >= self.response_deadline
+            self.acknowledged_at < self.sent_at or self.acknowledged_at >= self.response_deadline
         ):
             raise DomainValidationError("acknowledged_at must fall within the response window")
         if self.declined_at is not None and (
