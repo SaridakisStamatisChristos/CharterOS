@@ -60,9 +60,7 @@ def test_booking_creation_is_minimal_and_emits_creation_event() -> None:
     assert booking.state is BookingState.PENDING_CONTRACT
     assert booking.version == 1
     assert booking.pending_events[-1].event_type == "BOOKING_CREATED"
-    assert booking.pending_events[-1].payload["accepted_quote_id"] == str(
-        booking.accepted_quote_id
-    )
+    assert booking.pending_events[-1].payload["accepted_quote_id"] == str(booking.accepted_quote_id)
 
 
 def test_quote_accept_and_losing_quote_reject_are_explicit_terminal_states() -> None:
