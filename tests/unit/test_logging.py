@@ -16,7 +16,7 @@ def test_json_formatter_emits_structured_context() -> None:
         args=(),
         exc_info=None,
     )
-    setattr(record, "event", "test_event")
+    record.__dict__["event"] = "test_event"
     token = bind_correlation_id("7eb2f9b8-fad3-4c62-b0cb-b33f582ac51a")
 
     try:
