@@ -9,7 +9,6 @@ from charteros.application.ports.matching import MatchingSnapshotRepository
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
-from charteros.domain.aircraft import AircraftId
 from charteros.domain.missions import MissionId
 from charteros.domain.operators import OperatorId
 from charteros.domain.quotes import Quote, QuoteId, QuoteStatus
@@ -21,10 +20,8 @@ from charteros.domain.quotes.comparison import (
     score_comparison_drafts,
 )
 from charteros.domain.quotes.normalization import QuoteNormalization, normalize_quote
-from charteros.domain.rfqs import RfqId
 from charteros.domain.shared.currency import Currency
 from charteros.domain.shared.exceptions import DomainValidationError
-from charteros.domain.shared.money import Money
 from charteros.matching import (
     POLICY_VERSION as MATCHING_POLICY_VERSION,
     MatchReasonCode,
@@ -138,9 +135,7 @@ class QuoteComparisonService:
                 entries=(),
             )
 
-        aircraft_ids = tuple(
-            dict.fromkeys(quote.aircraft_id for quote in quotes)
-        )
+        aircraft_ids = tuple(dict.fromkeys(quote.aircraft_id for quote in quotes))
         position_event_cutoff = min(cutoff, mission.departure_window.start)
         candidates = self._snapshots.load_candidates_by_aircraft_ids(
             aircraft_ids=aircraft_ids,
