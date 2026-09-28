@@ -5,6 +5,7 @@ def load_models() -> None:
         AircraftTypeRow,
         AirportRow,
         IdempotencyRecordRow,
+        MissionRow,
         OperatorRow,
         OrganizationRow,
         OutboxEventRow,
@@ -13,6 +14,7 @@ def load_models() -> None:
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
     )
+    from charteros.infrastructure.db.models.missions import MissionRow
 
     _ = (
         AircraftAvailabilityRecordRow,
