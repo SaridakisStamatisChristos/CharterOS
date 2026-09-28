@@ -1,5 +1,6 @@
 from charteros.domain.quotes.model import (
     PriceComponent,
+    PriceComponentApplicability,
     PriceComponentCategory,
     Quote,
     QuoteId,
@@ -8,6 +9,7 @@ from charteros.domain.quotes.model import (
 
 __all__ = [
     "PriceComponent",
+    "PriceComponentApplicability",
     "PriceComponentCategory",
     "Quote",
     "QuoteId",

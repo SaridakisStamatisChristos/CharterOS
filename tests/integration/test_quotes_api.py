@@ -689,3 +689,85 @@ def test_concurrent_revisions_and_terminal_transitions_are_single_use() -> None:
             assert current_events.count("QUOTE_WITHDRAWN") == 1
     finally:
         engine.dispose()
+
+
+@pytest.mark.integration
+def test_quote_normalization_api_is_deterministic_and_explainable() -> None:
+    settings = _settings()
+    with TestClient(create_app(settings)) as client:
+        _, rfq_id, _, aircraft_id, departure, _ = _setup_rfq(client, suffix="QL")
+        body = _quote_body(aircraft_id, departure - timedelta(days=1))
+        body["price_components"] = [
+            {
+                "category": "handling",
+                "label": "Airport handling",
+                "amount_minor": 125_000,
+                "applicability": "known",
+            },
+            {
+                "category": "deicing",
+                "label": "Deicing",
+                "amount_minor": 80_000,
+                "applicability": "conditional",
+                "condition": "Only if required before departure",
+            },
+            {
+                "category": "other",
+                "label": "Local authority charge",
+                "amount_minor": 50_000,
+                "applicability": "known",
+            },
+        ]
+        body["exclusions"] = ["Crew overnight"]
+
+        submitted = client.post(
+            f"/v1/rfqs/{rfq_id}/quotes",
+            headers={"Idempotency-Key": "pr9-normalization-ql"},
+            json=body,
+        )
+        assert submitted.status_code == 201
+        quote_id = submitted.json()["id"]
+
+        normalized = client.get(f"/v1/quotes/{quote_id}/normalization")
+        assert normalized.status_code == 200
+        payload = normalized.json()
+        assert payload["normalization_version"] == "v1"
+        assert payload["quote_id"] == quote_id
+        assert payload["quote_revision_number"] == 1
+        assert payload["currency"] == "EUR"
+        assert payload["base_price"] == {"amount_minor": 7_400_000, "currency": "EUR"}
+        assert [item["category"] for item in payload["known_fees"]] == [
+            "repositioning",
+            "handling",
+            "other",
+        ]
+        assert [item["category"] for item in payload["conditional_fees"]] == ["deicing"]
+        assert payload["expected_total"] == {
+            "amount_minor": 7_875_000,
+            "currency": "EUR",
+        }
+        assert payload["worst_case_total"] == {
+            "amount_minor": 7_955_000,
+            "currency": "EUR",
+        }
+        assert payload["excluded_fees"] == ["Crew overnight"]
+        assert payload["totals_complete"] is False
+        assert payload["confidence"] == "low"
+        assert [item["code"] for item in payload["caveats"]] == [
+            "conditional_fees",
+            "unpriced_exclusions",
+            "operator_defined_other",
+        ]
+        assert payload["unresolved_components"] == [
+            {
+                "label": "Crew overnight",
+                "reason": "excluded_without_price",
+            }
+        ]
+
+        replay = client.get(f"/v1/quotes/{quote_id}/normalization")
+        assert replay.status_code == 200
+        assert replay.json() == payload
+
+        unknown = client.get(f"/v1/quotes/{UUID(int=999003)}/normalization")
+        assert unknown.status_code == 404

@@ -38,6 +38,11 @@ class PriceComponentCategory(StrEnum):
     OTHER = "other"
 
 
+class PriceComponentApplicability(StrEnum):
+    KNOWN = "known"
+    CONDITIONAL = "conditional"
+
+
 def _utc(value: datetime, *, field_name: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise DomainValidationError(f"{field_name} must be timezone-aware")
@@ -81,6 +86,7 @@ class PriceComponent:
     category: PriceComponentCategory
     label: str
     amount: Money
+    applicability: PriceComponentApplicability = PriceComponentApplicability.KNOWN
     condition: str | None = None
 
     def __post_init__(self) -> None:
@@ -94,6 +100,8 @@ class PriceComponent:
             field_name="price component condition",
             max_length=500,
         )
+        if self.applicability is PriceComponentApplicability.CONDITIONAL and condition is None:
+            raise DomainValidationError("conditional price component requires a condition")
         object.__setattr__(self, "label", label)
         object.__setattr__(self, "condition", condition)
 
@@ -426,6 +434,7 @@ class Quote(AggregateRoot[QuoteId]):
                     "category": component.category.value,
                     "label": component.label,
                     "amount_minor": component.amount.amount_minor,
+                    "applicability": component.applicability.value,
                     "condition": component.condition,
                 }
                 for component in self.price_components
