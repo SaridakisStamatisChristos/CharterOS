@@ -198,9 +198,7 @@ class Quote(AggregateRoot[QuoteId]):
             _utc(withdrawn_at, field_name="withdrawn_at") if withdrawn_at is not None else None
         )
         self.superseded_at = (
-            _utc(superseded_at, field_name="superseded_at")
-            if superseded_at is not None
-            else None
+            _utc(superseded_at, field_name="superseded_at") if superseded_at is not None else None
         )
         self._validate_state()
 
