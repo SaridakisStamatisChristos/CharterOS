@@ -156,7 +156,9 @@ class Quote(AggregateRoot[QuoteId]):
             raise DomainValidationError("repositioning_cost currency must match quote currency")
         for component in components:
             if component.amount.currency != currency:
-                raise DomainValidationError(\n                    "all price component currencies must match quote currency"\n                )
+                raise DomainValidationError(
+                    "all price component currencies must match quote currency"
+                )
 
         canonical_inclusions = _canonical_items(inclusions, field_name="inclusions")
         canonical_exclusions = _canonical_items(exclusions, field_name="exclusions")
@@ -224,18 +226,32 @@ class Quote(AggregateRoot[QuoteId]):
         if self.is_current:
             raise DomainValidationError("terminal quote cannot be current")
         if self.status is QuoteStatus.EXPIRED:
-            if (\n                self.expired_at is None\n                or self.withdrawn_at is not None\n                or self.superseded_at is not None\n            ):
+            if (
+                self.expired_at is None
+                or self.withdrawn_at is not None
+                or self.superseded_at is not None
+            ):
                 raise DomainValidationError("expired quote has inconsistent lifecycle timestamps")
             if self.expired_at < self.valid_until:
                 raise DomainValidationError("expired_at cannot precede valid_until")
         elif self.status is QuoteStatus.WITHDRAWN:
-            if (\n                self.withdrawn_at is None\n                or self.expired_at is not None\n                or self.superseded_at is not None\n            ):
+            if (
+                self.withdrawn_at is None
+                or self.expired_at is not None
+                or self.superseded_at is not None
+            ):
                 raise DomainValidationError("withdrawn quote has inconsistent lifecycle timestamps")
             if self.withdrawn_at < self.submitted_at:
                 raise DomainValidationError("withdrawn_at cannot precede submitted_at")
         elif self.status is QuoteStatus.SUPERSEDED:
-            if (\n                self.superseded_at is None\n                or self.expired_at is not None\n                or self.withdrawn_at is not None\n            ):
-                raise DomainValidationError(\n                    "superseded quote has inconsistent lifecycle timestamps"\n                )
+            if (
+                self.superseded_at is None
+                or self.expired_at is not None
+                or self.withdrawn_at is not None
+            ):
+                raise DomainValidationError(
+                    "superseded quote has inconsistent lifecycle timestamps"
+                )
             if self.superseded_at < self.submitted_at:
                 raise DomainValidationError("superseded_at cannot precede submitted_at")
 
