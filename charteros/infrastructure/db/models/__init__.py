@@ -13,6 +13,7 @@ def load_models() -> None:
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
     )
+    from charteros.infrastructure.db.models.matching import MatchingReferenceProfileRow
     from charteros.infrastructure.db.models.missions import MissionRow
 
     _ = (
@@ -22,6 +23,7 @@ def load_models() -> None:
         AircraftTypeRow,
         AirportRow,
         IdempotencyRecordRow,
+        MatchingReferenceProfileRow,
         MissionRow,
         OperatorRow,
         OrganizationRow,
