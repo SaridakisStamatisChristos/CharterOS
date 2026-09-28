@@ -22,6 +22,7 @@ from charteros.domain.organizations import (
     OrganizationStatus,
     OrganizationType,
 )
+from charteros.domain.rfqs import Rfq
 from charteros.infrastructure.db.models.catalog import (
     AircraftRow,
     AircraftTypeRow,
@@ -276,7 +277,7 @@ class SqlAlchemyDomainEventRepository:
 
     def add_aggregate_events(
         self,
-        aggregate: Organization | Operator | Airport | Aircraft | Mission,
+        aggregate: Organization | Operator | Airport | Aircraft | Mission | Rfq,
     ) -> None:
         for event in aggregate.collect_events():
             self._session.add(

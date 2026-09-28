@@ -6,7 +6,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from apps.api.routes import catalog_router, fleet_router, mission_router
+from apps.api.routes import (
+    catalog_router,
+    fleet_router,
+    matching_router,
+    mission_router,
+    rfq_router,
+)
 from charteros import __version__
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.domain.shared.exceptions import DomainValidationError
@@ -48,6 +54,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(fleet_router)
     app.include_router(mission_router)
+    app.include_router(matching_router)
+    app.include_router(rfq_router)
 
     @app.exception_handler(DomainValidationError)
     async def domain_validation_handler(

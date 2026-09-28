@@ -6,14 +6,18 @@ from charteros.application.ports.catalog import (
     OperatorRepository,
     OrganizationRepository,
 )
+from charteros.application.ports.matching import MatchingSnapshotRepository
 from charteros.application.ports.missions import MissionRepository
+from charteros.application.ports.rfqs import RfqRepository
 
 __all__ = [
     "AircraftRepository",
     "AircraftTypeRepository",
     "AirportRepository",
     "DomainEventRepository",
+    "MatchingSnapshotRepository",
     "MissionRepository",
     "OperatorRepository",
     "OrganizationRepository",
+    "RfqRepository",
 ]

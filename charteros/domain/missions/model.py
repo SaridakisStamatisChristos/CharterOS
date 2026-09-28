@@ -142,3 +142,13 @@ class Mission(AggregateRoot[MissionId]):
             {"status": self.status.value},
             correlation_id=correlation_id,
         )
+
+    def start_sourcing(self, *, correlation_id: CorrelationId | None = None) -> None:
+        if self.status is not MissionStatus.OPEN:
+            raise DomainValidationError("only open missions can enter sourcing")
+        self.status = MissionStatus.SOURCING
+        self._record_event(
+            "MISSION_SOURCING",
+            {"status": self.status.value},
+            correlation_id=correlation_id,
+        )
