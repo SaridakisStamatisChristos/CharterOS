@@ -146,9 +146,7 @@ class QuoteComparisonService:
         )
         candidate_by_id = {candidate.aircraft_id: candidate for candidate in candidates}
         missing = [
-            aircraft_id
-            for aircraft_id in aircraft_ids
-            if aircraft_id not in candidate_by_id
+            aircraft_id for aircraft_id in aircraft_ids if aircraft_id not in candidate_by_id
         ]
         if missing:
             raise EntityConflictError(
@@ -164,14 +162,17 @@ class QuoteComparisonService:
         required_range = required_range_nm(route_distance)
 
         drafts: list[ComparisonDraft] = []
-        prepared: dict[QuoteId, tuple[
-            Quote,
-            OperatorId,
-            QuoteNormalization,
-            bool,
-            tuple[ComparisonEligibilityReason, ...],
-            AircraftSuitabilityComparison,
-        ]] = {}
+        prepared: dict[
+            QuoteId,
+            tuple[
+                Quote,
+                OperatorId,
+                QuoteNormalization,
+                bool,
+                tuple[ComparisonEligibilityReason, ...],
+                AircraftSuitabilityComparison,
+            ],
+        ] = {}
 
         for quote in quotes:
             rfq = rfq_by_id.get(quote.rfq_id)
@@ -197,9 +198,7 @@ class QuoteComparisonService:
 
             eligibility: list[ComparisonEligibilityReason] = []
             if not commercial_valid:
-                eligibility.append(
-                    ComparisonEligibilityReason.QUOTE_NOT_COMMERCIALLY_VALID
-                )
+                eligibility.append(ComparisonEligibilityReason.QUOTE_NOT_COMMERCIALLY_VALID)
             if not operationally_feasible:
                 eligibility.append(ComparisonEligibilityReason.AIRCRAFT_INFEASIBLE)
 
@@ -256,14 +255,10 @@ class QuoteComparisonService:
                     expected_total=normalization.expected_total,
                     worst_case_total=normalization.worst_case_total,
                     reposition_distance_tenths_nm=(
-                        suitability.reposition_distance_tenths_nm
-                        if decision_eligible
-                        else None
+                        suitability.reposition_distance_tenths_nm if decision_eligible else None
                     ),
                     schedule_risk_basis_points=(
-                        suitability.schedule_risk_basis_points
-                        if decision_eligible
-                        else None
+                        suitability.schedule_risk_basis_points if decision_eligible else None
                     ),
                     pricing_confidence=normalization.confidence,
                     eligible=decision_eligible,
