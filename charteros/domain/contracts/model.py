@@ -238,7 +238,9 @@ class Contract(AggregateRoot[ContractId]):
         )
         if self.status is ContractStatus.PENDING_ACCEPTANCE:
             if signed_count != 0 or self.accepted_at is not None:
-                raise DomainValidationError("pending contract has inconsistent acceptance timestamps")
+                raise DomainValidationError(
+                    "pending contract has inconsistent acceptance timestamps"
+                )
         elif self.status is ContractStatus.PARTIALLY_ACCEPTED:
             if signed_count != 1 or self.accepted_at is not None:
                 raise DomainValidationError(

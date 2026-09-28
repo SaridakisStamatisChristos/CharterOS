@@ -43,6 +43,14 @@ class DomainEventRepository(Protocol):
     def add_aggregate_events(
         self,
         aggregate: (
-            Organization | Operator | Airport | Aircraft | Mission | Rfq | Quote | Booking | Contract
+            Organization
+            | Operator
+            | Airport
+            | Aircraft
+            | Mission
+            | Rfq
+            | Quote
+            | Booking
+            | Contract
         ),
     ) -> None: ...
