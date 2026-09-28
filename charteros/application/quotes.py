@@ -8,8 +8,8 @@ from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
 from charteros.domain.aircraft import AircraftId
-from charteros.domain.quotes import PriceComponent, Quote, QuoteId, QuoteStatus
 from charteros.domain.operators import OperatorId
+from charteros.domain.quotes import PriceComponent, Quote, QuoteId, QuoteStatus
 from charteros.domain.rfqs import RfqId, RfqStatus
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.ids import CorrelationId
