@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from math import asin, cos, radians, sin, sqrt
 
 from charteros.domain.aircraft import AircraftStatus, AvailabilityStatus
 from charteros.domain.missions import Mission
-from charteros.domain.operators import CommercialStatus, InsuranceStatus, VerificationStatus
+from charteros.domain.operators import (\n    CommercialStatus,\n    InsuranceStatus,\n    VerificationStatus,\n)
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.money import Money
 from charteros.matching.types import (
