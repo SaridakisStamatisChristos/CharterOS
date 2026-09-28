@@ -39,9 +39,7 @@ def _canonical_requirements(values: tuple[str, ...]) -> tuple[str, ...]:
     for raw in values:
         value = " ".join(raw.split())
         if not 1 <= len(value) <= 200:
-            raise DomainValidationError(
-                "each special requirement must contain 1 to 200 characters"
-            )
+            raise DomainValidationError("each special requirement must contain 1 to 200 characters")
         key = value.casefold()
         if key not in seen:
             seen.add(key)
