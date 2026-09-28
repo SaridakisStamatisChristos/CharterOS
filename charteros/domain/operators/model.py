@@ -64,9 +64,7 @@ class Operator(AggregateRoot[OperatorId]):
         super().__init__(operator_id, version=version)
         self.organization_id = organization_id
         self.aoc_reference = _canonical_token(aoc_reference, field_name="aoc_reference")
-        self.operating_regions = _canonical_list(
-            operating_regions, field_name="operating_regions"
-        )
+        self.operating_regions = _canonical_list(operating_regions, field_name="operating_regions")
         self.verification_status = VerificationStatus(verification_status)
         self.insurance_status = InsuranceStatus(insurance_status)
         self.safety_documents = tuple(
