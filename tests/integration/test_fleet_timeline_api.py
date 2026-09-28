@@ -23,9 +23,7 @@ def _settings() -> Settings:
     )
 
 
-def _create_aircraft(
-    client: TestClient, *, suffix: str, icao: str, iata: str
-) -> tuple[str, str]:
+def _create_aircraft(client: TestClient, *, suffix: str, icao: str, iata: str) -> tuple[str, str]:
     airport = client.post(
         "/v1/airports",
         headers={"Idempotency-Key": f"pr4-airport-{suffix}"},
