@@ -8,6 +8,7 @@ from charteros.application.exceptions import EntityConflictError
 from charteros.domain.aircraft import AircraftId
 from charteros.domain.quotes import (
     PriceComponent,
+    PriceComponentApplicability,
     PriceComponentCategory,
     Quote,
     QuoteId,
@@ -27,6 +28,7 @@ def _to_domain(row: QuoteRow) -> Quote:
             category=PriceComponentCategory(component.category),
             label=component.label,
             amount=Money(component.amount_minor, currency),
+            applicability=PriceComponentApplicability(component.applicability),
             condition=component.condition,
         )
         for component in row.components
@@ -102,6 +104,7 @@ class SqlAlchemyQuoteRepository:
                 category=component.category.value,
                 label=component.label,
                 amount_minor=component.amount.amount_minor,
+                applicability=component.applicability.value,
                 condition=component.condition,
             )
             for index, component in enumerate(quote.price_components)
