@@ -358,10 +358,7 @@ def test_mission_quote_comparison_is_explainable_and_operationally_grounded() ->
         assert all(item["decision_eligible"] is True for item in payload["quotes"])
         assert all(item["aircraft_suitability"]["feasible"] is True for item in payload["quotes"])
         assert by_id[quote_a]["aircraft_suitability"]["reposition_distance_nm"] == "0.0"
-        assert (
-            by_id[quote_b]["aircraft_suitability"]["reposition_distance_nm"]
-            != "0.0"
-        )
+        assert by_id[quote_b]["aircraft_suitability"]["reposition_distance_nm"] != "0.0"
         assert by_id[quote_a]["normalization"]["confidence"] == "high"
         assert by_id[quote_b]["normalization"]["confidence"] == "medium"
         assert by_id[quote_a]["cancellation_terms"] == "Cancellation policy A1"
