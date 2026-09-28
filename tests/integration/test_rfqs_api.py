@@ -346,7 +346,7 @@ def test_expiry_is_explicit_idempotent_and_terminal() -> None:
 
 @pytest.mark.integration
 @pytest.mark.concurrency
-def test_concurrent_acknowledge_and_decline_only_one_transition_commits() -> None:
+def test_concurrent_acknowledge_attempts_only_one_transition_commits() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
         mission_id, departure, operator_id = _setup_open_mission(client, suffix="RF")
@@ -362,26 +362,17 @@ def test_concurrent_acknowledge_and_decline_only_one_transition_commits() -> Non
         rfq_id = created.json()["id"]
         barrier = Barrier(2)
 
-        def acknowledge() -> int:
+        def acknowledge(key: str) -> int:
             barrier.wait()
             response = client.post(
                 f"/v1/rfqs/{rfq_id}/acknowledge",
-                headers={"Idempotency-Key": "pr7-race-ack"},
-            )
-            return int(response.status_code)
-
-        def decline() -> int:
-            barrier.wait()
-            response = client.post(
-                f"/v1/rfqs/{rfq_id}/decline",
-                headers={"Idempotency-Key": "pr7-race-decline"},
-                json={},
+                headers={"Idempotency-Key": key},
             )
             return int(response.status_code)
 
         with ThreadPoolExecutor(max_workers=2) as executor:
-            first = executor.submit(acknowledge)
-            second = executor.submit(decline)
+            first = executor.submit(acknowledge, "pr7-race-ack-1")
+            second = executor.submit(acknowledge, "pr7-race-ack-2")
             statuses = sorted((first.result(), second.result()))
 
         assert statuses == [200, 409]
@@ -389,7 +380,7 @@ def test_concurrent_acknowledge_and_decline_only_one_transition_commits() -> Non
         assert listed.status_code == 200
         final = listed.json()["rfqs"][0]
         assert final["version"] == 3
-        assert final["status"] in {"acknowledged", "declined"}
+        assert final["status"] == "acknowledged"
 
     engine = create_engine(settings.database_url)
     try:
