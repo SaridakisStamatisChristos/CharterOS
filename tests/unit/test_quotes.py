@@ -233,10 +233,14 @@ def test_withdrawal_and_expiry_are_explicit_single_use_transitions() -> None:
     with pytest.raises(DomainValidationError, match="current submitted"):
         withdrawn.withdraw(withdrawn_at=NOW + timedelta(hours=2))
 
-    expired = _quote()
+    expiry_valid_until = NOW - timedelta(minutes=30)
+    expired = _submit_simple_quote(
+        valid_until=expiry_valid_until,
+        submitted_at=NOW - timedelta(hours=1),
+    )
     with pytest.raises(DomainValidationError, match="before valid_until"):
-        expired.expire(expired_at=VALID_UNTIL - timedelta(seconds=1))
-    expired.expire(expired_at=VALID_UNTIL)
+        expired.expire(expired_at=expiry_valid_until - timedelta(seconds=1))
+    expired.expire(expired_at=expiry_valid_until)
     assert expired.status is QuoteStatus.EXPIRED
     assert expired.is_current is False
     assert expired.pending_events[-1].event_type == "QUOTE_EXPIRED"
