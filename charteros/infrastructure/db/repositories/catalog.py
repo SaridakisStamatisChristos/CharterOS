@@ -234,10 +234,7 @@ class SqlAlchemyIdempotencyRepository:
         bind = self._session.get_bind()
         if bind.dialect.name == "postgresql":
             self._session.execute(
-                text(
-                    "SELECT pg_advisory_xact_lock("
-                    "hashtextextended(:idempotency_lock_key, 0))"
-                ),
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:idempotency_lock_key, 0))"),
                 {"idempotency_lock_key": f"{scope}:{key}"},
             )
 
@@ -292,9 +289,7 @@ class SqlAlchemyDomainEventRepository:
                     occurred_at=event.occurred_at,
                     recorded_at=event.recorded_at,
                     actor_id=event.actor_id.value if event.actor_id else None,
-                    correlation_id=(
-                        event.correlation_id.value if event.correlation_id else None
-                    ),
+                    correlation_id=(event.correlation_id.value if event.correlation_id else None),
                     causation_id=event.causation_id.value if event.causation_id else None,
                     canonical_json=event.to_json(),
                     publish_attempts=0,
