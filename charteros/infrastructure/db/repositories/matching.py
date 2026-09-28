@@ -118,9 +118,6 @@ _QUERY_BY_AIRCRAFT = text(
 ).bindparams(bindparam("aircraft_ids", expanding=True))
 
 
-
-
-
 def _uuid(value: object) -> UUID:
     if isinstance(value, UUID):
         return value
@@ -225,6 +222,7 @@ def _candidate(mapping: RowMapping) -> MatchingCandidateSnapshot:
         availability=_availability(mapping),
         reference_profile=_profile(mapping),
     )
+
 
 class SqlAlchemyMatchingSnapshotRepository:
     def __init__(self, session: Session) -> None:
