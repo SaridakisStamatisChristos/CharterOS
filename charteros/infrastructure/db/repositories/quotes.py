@@ -141,6 +141,19 @@ class SqlAlchemyQuoteRepository:
         ).all()
         return tuple(_to_domain(row) for row in rows)
 
+    def list_current_for_rfqs(self, rfq_ids: tuple[RfqId, ...]) -> tuple[Quote, ...]:
+        if not rfq_ids:
+            return ()
+        rows = self._session.scalars(
+            select(QuoteRow)
+            .where(
+                QuoteRow.rfq_id.in_([rfq_id.value for rfq_id in rfq_ids]),
+                QuoteRow.is_current.is_(True),
+            )
+            .order_by(QuoteRow.rfq_id, QuoteRow.id)
+        ).all()
+        return tuple(_to_domain(row) for row in rows)
+
     def save(self, quote: Quote, *, expected_version: int) -> None:
         statement = (
             update(QuoteRow)

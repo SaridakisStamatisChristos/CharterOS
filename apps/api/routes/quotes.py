@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_correlation_id, get_session
@@ -16,9 +18,14 @@ from charteros.application.idempotency import (
     StoredResponse,
     canonical_request_hash,
 )
+from charteros.application.quote_comparison import (
+    MissionQuoteComparison,
+    QuoteComparisonService,
+)
 from charteros.application.quote_normalization import QuoteNormalizationService
 from charteros.application.quotes import QuoteService
 from charteros.domain.aircraft import AircraftId
+from charteros.domain.missions import MissionId
 from charteros.domain.quotes import (
     PriceComponent,
     PriceComponentApplicability,
@@ -26,6 +33,14 @@ from charteros.domain.quotes import (
     Quote,
     QuoteId,
     QuoteStatus,
+)
+from charteros.domain.quotes.comparison import (
+    EXPECTED_TOTAL_WEIGHT,
+    OPERATIONAL_RISK_WEIGHT,
+    PRICING_CONFIDENCE_WEIGHT,
+    REPOSITION_WEIGHT,
+    WORST_CASE_TOTAL_WEIGHT,
+    ComparisonEligibilityReason,
 )
 from charteros.domain.quotes.normalization import (
     NormalizationCaveatCode,
@@ -45,7 +60,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyQuoteRepository,
     SqlAlchemyRfqRepository,
 )
-from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.infrastructure.db.repositories.catalog import (
+    SqlAlchemyAirportRepository,
+    SqlAlchemyIdempotencyRepository,
+)
+from charteros.infrastructure.db.repositories.matching import SqlAlchemyMatchingSnapshotRepository
 
 router = APIRouter(prefix="/v1", tags=["quotes"])
 
@@ -159,6 +178,78 @@ class QuoteNormalizationResponse(BaseModel):
     unresolved_components: list[UnresolvedPricingComponentResponse]
 
 
+class ComparisonWeightsResponse(BaseModel):
+    expected_total_points: int
+    worst_case_total_points: int
+    reposition_points: int
+    operational_risk_points: int
+    pricing_confidence_points: int
+
+
+class ComparisonScoreResponse(BaseModel):
+    method: str
+    total_basis_points: int | None
+    expected_total_points: int | None
+    worst_case_total_points: int | None
+    reposition_points: int | None
+    operational_risk_points: int | None
+    pricing_confidence_points: int
+    currency_scope: str
+    cohort_size: int
+
+
+class AircraftSuitabilityResponse(BaseModel):
+    feasible: bool
+    reason_codes: list[str]
+    rejection_reasons: list[str]
+    seat_capacity: int
+    aircraft_range_nm: int
+    required_range_nm: int
+    reposition_distance_nm: Decimal | None
+    timing_buffer_minutes: int | None
+    schedule_risk_basis_points: int | None
+    position_event_time: datetime | None
+    position_recorded_at: datetime | None
+    availability_recorded_at: datetime | None
+    reference_profile_recorded_at: datetime | None
+
+
+class QuoteComparisonEntryResponse(BaseModel):
+    quote_id: UUID
+    rfq_id: UUID
+    operator_id: UUID
+    aircraft_id: UUID
+    quote_revision_number: int
+    quote_status: QuoteStatus
+    valid_until: datetime
+    commercial_valid: bool
+    decision_eligible: bool
+    eligibility_reasons: list[ComparisonEligibilityReason]
+    normalization: QuoteNormalizationResponse
+    submitted_repositioning_cost: MoneyResponse | None
+    inclusions: list[str]
+    exclusions: list[str]
+    cancellation_terms: str | None
+    payment_terms: str | None
+    aircraft_suitability: AircraftSuitabilityResponse
+    currency_rank: int | None
+    score: ComparisonScoreResponse
+
+
+class MissionQuoteComparisonResponse(BaseModel):
+    comparison_policy_version: str
+    matching_policy_version: str
+    mission_id: UUID
+    evaluated_at: datetime
+    pricing_currencies: list[str]
+    global_rank_available: bool
+    ranking_scope: str
+    free_text_terms_scored: bool
+    score_weights: ComparisonWeightsResponse
+    returned_count: int
+    quotes: list[QuoteComparisonEntryResponse]
+
+
 def _service(session: Session) -> QuoteService:
     return QuoteService(
         quotes=SqlAlchemyQuoteRepository(session),
@@ -171,6 +262,16 @@ def _service(session: Session) -> QuoteService:
 
 def _normalization_service(session: Session) -> QuoteNormalizationService:
     return QuoteNormalizationService(quotes=SqlAlchemyQuoteRepository(session))
+
+
+def _comparison_service(session: Session) -> QuoteComparisonService:
+    return QuoteComparisonService(
+        missions=SqlAlchemyMissionRepository(session),
+        rfqs=SqlAlchemyRfqRepository(session),
+        quotes=SqlAlchemyQuoteRepository(session),
+        airports=SqlAlchemyAirportRepository(session),
+        snapshots=SqlAlchemyMatchingSnapshotRepository(session),
+    )
 
 
 def _money(value: Money) -> MoneyResponse:
@@ -255,6 +356,89 @@ def _response(quote: Quote) -> QuoteResponse:
         expired_at=quote.expired_at,
         withdrawn_at=quote.withdrawn_at,
         superseded_at=quote.superseded_at,
+    )
+
+
+def _nm(tenths: int | None) -> Decimal | None:
+    if tenths is None:
+        return None
+    return (Decimal(tenths) / Decimal(10)).quantize(Decimal("0.1"))
+
+
+def _comparison_response(value: MissionQuoteComparison) -> MissionQuoteComparisonResponse:
+    quotes: list[QuoteComparisonEntryResponse] = []
+    for item in value.entries:
+        suitability = item.aircraft_suitability
+        quotes.append(
+            QuoteComparisonEntryResponse(
+                quote_id=item.quote.id.value,
+                rfq_id=item.quote.rfq_id.value,
+                operator_id=item.operator_id.value,
+                aircraft_id=item.quote.aircraft_id.value,
+                quote_revision_number=item.quote.revision_number,
+                quote_status=item.quote.status,
+                valid_until=item.quote.valid_until,
+                commercial_valid=item.commercial_valid,
+                decision_eligible=item.decision_eligible,
+                eligibility_reasons=list(item.eligibility_reasons),
+                normalization=_normalization_response(item.normalization),
+                submitted_repositioning_cost=(
+                    _money(item.quote.repositioning_cost)
+                    if item.quote.repositioning_cost is not None
+                    else None
+                ),
+                inclusions=list(item.quote.inclusions),
+                exclusions=list(item.quote.exclusions),
+                cancellation_terms=item.quote.cancellation_terms,
+                payment_terms=item.quote.payment_terms,
+                aircraft_suitability=AircraftSuitabilityResponse(
+                    feasible=suitability.feasible,
+                    reason_codes=[reason.value for reason in suitability.reason_codes],
+                    rejection_reasons=[reason.value for reason in suitability.rejection_reasons],
+                    seat_capacity=suitability.seat_capacity,
+                    aircraft_range_nm=suitability.aircraft_range_nm,
+                    required_range_nm=suitability.required_range_nm,
+                    reposition_distance_nm=_nm(suitability.reposition_distance_tenths_nm),
+                    timing_buffer_minutes=suitability.timing_buffer_minutes,
+                    schedule_risk_basis_points=suitability.schedule_risk_basis_points,
+                    position_event_time=suitability.position_event_time,
+                    position_recorded_at=suitability.position_recorded_at,
+                    availability_recorded_at=suitability.availability_recorded_at,
+                    reference_profile_recorded_at=suitability.reference_profile_recorded_at,
+                ),
+                currency_rank=item.currency_rank,
+                score=ComparisonScoreResponse(
+                    method=item.score.method,
+                    total_basis_points=item.score.total_basis_points,
+                    expected_total_points=item.score.expected_total_points,
+                    worst_case_total_points=item.score.worst_case_total_points,
+                    reposition_points=item.score.reposition_points,
+                    operational_risk_points=item.score.operational_risk_points,
+                    pricing_confidence_points=item.score.pricing_confidence_points,
+                    currency_scope=str(item.score.currency_scope),
+                    cohort_size=item.score.cohort_size,
+                ),
+            )
+        )
+
+    return MissionQuoteComparisonResponse(
+        comparison_policy_version=value.comparison_policy_version,
+        matching_policy_version=value.matching_policy_version,
+        mission_id=value.mission_id.value,
+        evaluated_at=value.evaluated_at,
+        pricing_currencies=[str(currency) for currency in value.pricing_currencies],
+        global_rank_available=value.global_rank_available,
+        ranking_scope="currency",
+        free_text_terms_scored=False,
+        score_weights=ComparisonWeightsResponse(
+            expected_total_points=EXPECTED_TOTAL_WEIGHT,
+            worst_case_total_points=WORST_CASE_TOTAL_WEIGHT,
+            reposition_points=REPOSITION_WEIGHT,
+            operational_risk_points=OPERATIONAL_RISK_WEIGHT,
+            pricing_confidence_points=PRICING_CONFIDENCE_WEIGHT,
+        ),
+        returned_count=len(quotes),
+        quotes=quotes,
     )
 
 
@@ -375,6 +559,23 @@ def submit_quote(
 def list_quotes(rfq_id: UUID, session: SessionDep) -> QuoteListResponse:
     items = _service(session).list_for_rfq(RfqId(rfq_id))
     return QuoteListResponse(rfq_id=rfq_id, quotes=[_response(item) for item in items])
+
+
+@router.get(
+    "/missions/{mission_id}/quotes/compare",
+    response_model=MissionQuoteComparisonResponse,
+)
+def compare_mission_quotes(
+    mission_id: UUID,
+    session: SessionDep,
+) -> MissionQuoteComparisonResponse:
+    with session.begin():
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        comparison = _comparison_service(session).compare(
+            mission_id=MissionId(mission_id),
+            evaluated_at=datetime.now(UTC),
+        )
+    return _comparison_response(comparison)
 
 
 @router.get("/quotes/{quote_id}", response_model=QuoteResponse)
