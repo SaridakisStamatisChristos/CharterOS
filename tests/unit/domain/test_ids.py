@@ -20,7 +20,7 @@ def test_typed_ids_preserve_runtime_type_separation() -> None:
 
     assert mission_id.value == UUID(raw)
     assert str(mission_id) == raw
-    assert mission_id.__eq__(quote_id) is False
+    assert len({mission_id, quote_id}) == 2
 
 
 def test_typed_id_rejects_invalid_uuid() -> None:
