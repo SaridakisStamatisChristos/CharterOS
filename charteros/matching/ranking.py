@@ -26,11 +26,9 @@ def _normalized_points(
     if minimum == maximum:
         return COMPONENT_POINTS
     numerator = maximum - value if lower_is_better else value - minimum
-    points = (
-        Decimal(COMPONENT_POINTS)
-        * Decimal(numerator)
-        / Decimal(maximum - minimum)
-    ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    points = (Decimal(COMPONENT_POINTS) * Decimal(numerator) / Decimal(maximum - minimum)).quantize(
+        Decimal("1"), rounding=ROUND_HALF_UP
+    )
     return int(points)
 
 
@@ -100,6 +98,4 @@ def rejection_summary(
     counter: Counter[MatchReasonCode] = Counter()
     for evaluation in evaluations:
         counter.update(evaluation.rejection_reasons)
-    return MappingProxyType(
-        dict(sorted(counter.items(), key=lambda item: item[0].value))
-    )
+    return MappingProxyType(dict(sorted(counter.items(), key=lambda item: item[0].value)))
