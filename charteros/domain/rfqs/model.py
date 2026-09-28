@@ -105,14 +105,21 @@ class Rfq(AggregateRoot[RfqId]):
             raise DomainValidationError("sent_at cannot precede created_at")
         if self.response_deadline <= self.sent_at:
             raise DomainValidationError("response_deadline must be after sent_at")
-        if self.acknowledged_at is not None:
-            if self.acknowledged_at < self.sent_at or self.acknowledged_at >= self.response_deadline:
-                raise DomainValidationError("acknowledged_at must fall within the response window")
-        if self.declined_at is not None:
-            if self.declined_at < self.sent_at or self.declined_at >= self.response_deadline:
-                raise DomainValidationError("declined_at must fall within the response window")
-            if self.acknowledged_at is not None and self.declined_at < self.acknowledged_at:
-                raise DomainValidationError("declined_at cannot precede acknowledged_at")
+        if self.acknowledged_at is not None and (
+            self.acknowledged_at < self.sent_at
+            or self.acknowledged_at >= self.response_deadline
+        ):
+            raise DomainValidationError("acknowledged_at must fall within the response window")
+        if self.declined_at is not None and (
+            self.declined_at < self.sent_at or self.declined_at >= self.response_deadline
+        ):
+            raise DomainValidationError("declined_at must fall within the response window")
+        if (
+            self.declined_at is not None
+            and self.acknowledged_at is not None
+            and self.declined_at < self.acknowledged_at
+        ):
+            raise DomainValidationError("declined_at cannot precede acknowledged_at")
         if self.expired_at is not None and self.expired_at < self.response_deadline:
             raise DomainValidationError("expired_at cannot precede response_deadline")
         if self.status is RfqStatus.SENT:
@@ -121,15 +128,19 @@ class Rfq(AggregateRoot[RfqId]):
                 for value in (self.acknowledged_at, self.declined_at, self.expired_at)
             ):
                 raise DomainValidationError("sent RFQ cannot have terminal response timestamps")
-        elif self.status is RfqStatus.ACKNOWLEDGED:
-            if self.acknowledged_at is None or self.declined_at is not None or self.expired_at is not None:
-                raise DomainValidationError("acknowledged RFQ has inconsistent timestamps")
+        elif self.status is RfqStatus.ACKNOWLEDGED and (
+            self.acknowledged_at is None
+            or self.declined_at is not None
+            or self.expired_at is not None
+        ):
+            raise DomainValidationError("acknowledged RFQ has inconsistent timestamps")
         elif self.status is RfqStatus.DECLINED:
             if self.declined_at is None or self.expired_at is not None:
                 raise DomainValidationError("declined RFQ has inconsistent timestamps")
-        elif self.status is RfqStatus.EXPIRED:
-            if self.expired_at is None or self.declined_at is not None:
-                raise DomainValidationError("expired RFQ has inconsistent timestamps")
+        elif self.status is RfqStatus.EXPIRED and (
+            self.expired_at is None or self.declined_at is not None
+        ):
+            raise DomainValidationError("expired RFQ has inconsistent timestamps")
 
     @classmethod
     def create(
