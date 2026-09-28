@@ -8,6 +8,7 @@ def load_models() -> None:
         OperatorRow,
         OrganizationRow,
         OutboxEventRow,
+        RfqRow,
     )
     from charteros.infrastructure.db.models.fleet import (
         AircraftAvailabilityRecordRow,
