@@ -7,6 +7,7 @@ from charteros.infrastructure.db.repositories.catalog import (
     SqlAlchemyOperatorRepository,
     SqlAlchemyOrganizationRepository,
 )
+from charteros.infrastructure.db.repositories.missions import SqlAlchemyMissionRepository
 
 __all__ = [
     "SqlAlchemyAircraftRepository",
@@ -14,6 +15,7 @@ __all__ = [
     "SqlAlchemyAirportRepository",
     "SqlAlchemyDomainEventRepository",
     "SqlAlchemyIdempotencyRepository",
+    "SqlAlchemyMissionRepository",
     "SqlAlchemyOperatorRepository",
     "SqlAlchemyOrganizationRepository",
 ]

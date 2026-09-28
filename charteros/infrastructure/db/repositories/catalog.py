@@ -8,6 +8,7 @@ from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import StoredResponse
 from charteros.domain.aircraft import Aircraft, AircraftType, AircraftTypeId
 from charteros.domain.airports import Airport, AirportId
+from charteros.domain.missions import Mission
 from charteros.domain.operators import (
     CommercialStatus,
     InsuranceStatus,
@@ -275,7 +276,7 @@ class SqlAlchemyDomainEventRepository:
 
     def add_aggregate_events(
         self,
-        aggregate: Organization | Operator | Airport | Aircraft,
+        aggregate: Organization | Operator | Airport | Aircraft | Mission,
     ) -> None:
         for event in aggregate.collect_events():
             self._session.add(
