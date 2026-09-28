@@ -1,0 +1,182 @@
+CharterOS Proprietary License v1.0
+Copyright (c) 2026 Stamatis-Christos Saridakis
+All Rights Reserved.
+
+IMPORTANT: CharterOS is proprietary software. Public availability of the source code does not make
+the Software open source and does not grant any license except the limited evaluation permission
+expressly stated below.
+
+1. DEFINITIONS
+
+"Software" means CharterOS and all source code, object code, documentation, schemas, migrations,
+tests, workflows, architecture, interfaces, designs, data models, specifications, and other materials
+made available in this repository or distributed with CharterOS.
+
+"Licensor" means Stamatis-Christos Saridakis.
+
+"You" or "Licensee" means any individual or legal entity accessing, copying, evaluating, executing,
+or otherwise using the Software.
+
+"Commercial Use" means any use intended for, connected with, or reasonably capable of producing
+direct or indirect commercial advantage, financial benefit, revenue, customer value, operational
+benefit, or competitive advantage. Commercial Use includes internal production use, customer work,
+consulting, resale, integration into a product or service, hosted or managed services, and use by or
+for a business in its operations.
+
+2. OWNERSHIP AND RESERVATION OF RIGHTS
+
+The Software is licensed, not sold. Licensor retains all right, title, and interest in and to the
+Software, including all copyright, patent, trade secret, trademark, database, design, and other
+intellectual-property rights.
+
+Except for the narrow permission in Section 3, no rights are granted by implication, estoppel,
+exhaustion, waiver, or otherwise. All rights not expressly granted are reserved.
+
+3. LIMITED NON-COMMERCIAL EVALUATION PERMISSION
+
+Subject to full compliance with this License, Licensor grants You a limited, revocable,
+non-exclusive, non-transferable, non-sublicensable permission to:
+
+(a) view and inspect the Software;
+(b) clone or download reasonable copies solely for internal evaluation, technical review,
+    security review, due diligence, education about the Software itself, or interoperability
+    assessment; and
+(c) execute the Software in a non-production environment solely to evaluate its capabilities.
+
+This permission does not authorize production use, use with real customer or production data,
+external service delivery, public deployment, commercialization, redistribution, or creation of a
+competing implementation.
+
+You may make temporary local modifications strictly necessary for evaluation, but You may not
+publish, distribute, commercialize, or retain those modifications for any other purpose.
+
+4. PROHIBITED USES
+
+Without a separate written agreement signed by Licensor, You must not, directly or indirectly:
+
+(a) use the Software for any Commercial Use;
+(b) deploy the Software in production or use it to provide services to any third party;
+(c) sell, resell, rent, lease, license, sublicense, assign, transfer, host, outsource, or otherwise
+    make the Software or any substantial portion of it available to another person or entity;
+(d) copy, publish, redistribute, mirror, package, or distribute the Software, except for the limited
+    evaluation copies permitted by Section 3;
+(e) modify, adapt, translate, transform, port, extend, or create derivative works based on the
+    Software, except for temporary local evaluation modifications permitted by Section 3;
+(f) use the Software, its architecture, implementation, interfaces, workflows, tests, schemas,
+    data models, documentation, or other expressive or structural elements to create, train,
+    validate, improve, or materially assist a competing or substitutable product, service, or
+    implementation;
+(g) use the Software or any portion of it to train, fine-tune, distill, evaluate, benchmark,
+    ground, retrieve-augment, embed, index into a training corpus, or otherwise improve any
+    machine-learning, foundation, generative-AI, or code-generation model or system, except for
+    transient processing strictly necessary to host, search, or display this repository through
+    the repository hosting provider;
+(h) publish, disclose, or distribute performance, security, scalability, or comparative benchmark
+    results derived from the Software without Licensor's prior written consent;
+(i) remove, obscure, alter, or bypass copyright, license, attribution, access-control, or other
+    proprietary notices or technical restrictions;
+(j) represent that the Software is open source, public domain, community licensed, or otherwise
+    available under terms broader than this License; or
+(k) use any trademark, service mark, product name, project name, logo, or branding of CharterOS
+    except solely to identify the Software accurately.
+
+5. PUBLIC REPOSITORY AND HOSTING-PLATFORM RIGHTS
+
+The repository may be publicly visible. Public visibility is not a waiver of proprietary rights and
+does not grant permission to exploit the Software.
+
+Any rights supplied independently by the repository hosting platform under its mandatory terms are
+limited to those platform rights alone. No broader copyright, patent, commercial, derivative-work,
+distribution, or sublicensing rights are granted by Licensor merely because the repository can be
+viewed, cloned, cached, indexed, or forked through platform functionality.
+
+6. COMMERCIAL LICENSING
+
+Commercial, production, redistribution, OEM, embedded, hosted, managed-service, enterprise,
+integration, white-label, source-code, or other broader rights are available only under a separate
+written agreement signed by Licensor.
+
+No purchase order, click-through term, procurement term, customer policy, or other unilateral
+document modifies this License unless expressly accepted in writing by Licensor.
+
+7. NO PATENT LICENSE
+
+No patent license is granted under this License. Any patent rights owned or controlled by Licensor,
+including rights covering methods, systems, workflows, protocols, data structures, or technical
+implementations embodied in the Software, are expressly reserved unless granted in a separate
+written agreement.
+
+8. THIRD-PARTY MATERIALS
+
+The Software may depend on or interact with third-party software, libraries, services, standards,
+or materials. Those items remain subject to their respective licenses and terms. This License does
+not expand or restrict rights granted by third parties in their own materials.
+
+9. CONTRIBUTIONS
+
+No contribution, pull request, patch, issue submission, suggestion, or other material grants You
+rights in the Software. Licensor is not obligated to accept contributions.
+
+A contribution does not modify this License. Licensor may require a separate contributor agreement
+before accepting material that would create third-party intellectual-property rights in CharterOS.
+
+10. TERMINATION
+
+The limited permission in Section 3 terminates automatically and immediately if You breach this
+License.
+
+Upon termination, You must cease all use of the Software and delete or destroy all copies and
+derivative materials in Your possession or control, except copies retained solely where applicable
+law requires archival retention. Sections concerning ownership, prohibited uses, patents,
+warranties, liability, remedies, and other provisions that by their nature should survive will
+survive termination.
+
+11. INJUNCTIVE AND EQUITABLE RELIEF
+
+You acknowledge that unauthorized use, copying, disclosure, distribution, commercialization, model
+training, or creation of derivative or competing works may cause harm for which monetary damages
+alone may be inadequate. To the extent permitted by applicable law, Licensor may seek injunctive,
+equitable, or other available relief in addition to any other remedies.
+
+12. DISCLAIMER OF WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY KIND, EXPRESS,
+IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, SECURITY, RELIABILITY, OR AVAILABILITY.
+
+YOU ASSUME ALL RISK ARISING FROM ACCESS TO, EVALUATION OF, OR USE OF THE SOFTWARE.
+
+13. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, LICENSOR WILL NOT BE LIABLE FOR ANY INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR LOSS OF PROFITS, REVENUE,
+BUSINESS, DATA, GOODWILL, OR OPPORTUNITY, ARISING OUT OF OR RELATING TO THE SOFTWARE OR THIS LICENSE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, LICENSOR'S AGGREGATE LIABILITY ARISING OUT OF OR
+RELATING TO THIS LICENSE OR THE SOFTWARE WILL NOT EXCEED THE AMOUNT, IF ANY, ACTUALLY PAID BY YOU TO
+LICENSOR FOR THE SPECIFIC RIGHTS GIVING RISE TO THE CLAIM.
+
+14. NO WAIVER; SEVERABILITY
+
+Failure to enforce any provision is not a waiver. If any provision is held unenforceable, it will
+be enforced to the maximum extent permitted, and the remaining provisions will remain in effect.
+
+15. PRECEDENCE AND ENTIRE AGREEMENT
+
+A separate written commercial or enterprise agreement signed by Licensor may grant additional
+rights and, to the extent of an express conflict, will control over this License.
+
+Otherwise, this License states the complete terms under which Licensor permits access to and
+evaluation of the Software. No oral statement or course of dealing grants additional rights.
+
+16. ACCEPTANCE
+
+By copying, cloning, downloading, executing, modifying for evaluation, or otherwise exercising any
+permission described in Section 3, You acknowledge that You have read, understood, and agreed to
+this License.
+
+If You do not agree, do not copy, execute, modify, or otherwise use the Software beyond viewing it
+through the repository hosting interface.
+
+END OF LICENSE

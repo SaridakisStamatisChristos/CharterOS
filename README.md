@@ -49,3 +49,14 @@ See [`docs/architecture/README.md`](docs/architecture/README.md) and the ADRs in
 ## Scope of PR1
 
 PR1 contains repository and runtime foundations only. It deliberately does **not** implement missions, RFQs, quotes, bookings, matching, graph projection, pricing, or other later-roadmap domain functionality.
+
+## License
+
+**CharterOS is proprietary software. It is not open source.**
+
+Public repository access grants only the limited non-commercial internal evaluation rights stated in
+[`LICENSE`](LICENSE). Production use, commercial use, redistribution, derivative works, hosted or
+managed-service use, competitive implementation, AI/ML training use, sublicensing, and other broader
+rights require a separate written agreement from the copyright holder.
+
+Copyright © 2026 Stamatis-Christos Saridakis. All Rights Reserved.
