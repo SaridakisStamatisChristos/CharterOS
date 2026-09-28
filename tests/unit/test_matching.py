@@ -3,7 +3,7 @@ from decimal import Decimal
 from uuid import UUID
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given\nfrom hypothesis import strategies as st
 
 from charteros.domain.aircraft import (
     AircraftId,
