@@ -30,12 +30,14 @@ def test_aggregate_version_advances_with_recorded_events() -> None:
     aggregate.change_name("CharterOS")
 
     assert aggregate.version == 5
-    assert len(aggregate.pending_events) == 1
-    assert aggregate.pending_events[0].aggregate_version == 5
+    pending_before = aggregate.pending_events
+    assert len(pending_before) == 1
+    assert pending_before[0].aggregate_version == 5
 
     collected = aggregate.collect_events()
+    pending_after = aggregate.pending_events
     assert len(collected) == 1
-    assert len(aggregate.pending_events) == 0
+    assert len(pending_after) == 0
     assert aggregate.version == 5
 
 
