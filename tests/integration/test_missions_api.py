@@ -79,7 +79,7 @@ def _mission_body(buyer_id: str, origin_id: str, destination_id: str) -> dict[st
 def test_mission_create_get_open_idempotency_and_outbox() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        buyer_id, origin_id, destination_id = _create_foundation(client, suffix="5A")
+        buyer_id, origin_id, destination_id = _create_foundation(client, suffix="XA")
         body = _mission_body(buyer_id, origin_id, destination_id)
 
         created = client.post(
@@ -172,7 +172,7 @@ def test_mission_create_get_open_idempotency_and_outbox() -> None:
 def test_concurrent_mission_open_attempts_only_advance_once() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        buyer_id, origin_id, destination_id = _create_foundation(client, suffix="5B")
+        buyer_id, origin_id, destination_id = _create_foundation(client, suffix="XB")
         created = client.post(
             "/v1/missions",
             headers={"Idempotency-Key": "pr5-race-create"},
