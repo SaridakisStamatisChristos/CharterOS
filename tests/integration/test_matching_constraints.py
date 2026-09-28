@@ -37,9 +37,7 @@ def test_required_hard_constraints_are_enforced_on_persisted_state() -> None:
 
         baseline = client.get(f"/v1/missions/{mission_id}/matches")
         assert baseline.status_code == 200
-        assert aircraft_id in {
-            item["aircraft_id"] for item in baseline.json()["matches"]
-        }
+        assert aircraft_id in {item["aircraft_id"] for item in baseline.json()["matches"]}
 
         engine = create_engine(settings_value.database_url)
         try:
@@ -149,8 +147,7 @@ def test_required_hard_constraints_are_enforced_on_persisted_state() -> None:
                 position.airport_id = mission.destination_airport_id
                 profile = session.scalar(
                     select(MatchingReferenceProfileRow).where(
-                        MatchingReferenceProfileRow.aircraft_type_id
-                        == aircraft_type_id,
+                        MatchingReferenceProfileRow.aircraft_type_id == aircraft_type_id,
                         MatchingReferenceProfileRow.superseded_at.is_(None),
                     )
                 )
@@ -166,8 +163,7 @@ def test_required_hard_constraints_are_enforced_on_persisted_state() -> None:
                 )
                 profile = session.scalar(
                     select(MatchingReferenceProfileRow).where(
-                        MatchingReferenceProfileRow.aircraft_type_id
-                        == aircraft_type_id,
+                        MatchingReferenceProfileRow.aircraft_type_id == aircraft_type_id,
                         MatchingReferenceProfileRow.superseded_at.is_(None),
                     )
                 )
