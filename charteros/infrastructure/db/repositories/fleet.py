@@ -93,11 +93,7 @@ class SqlAlchemyFleetAircraftRepository:
         return _aircraft_from_row(row) if row is not None else None
 
     def get_for_update(self, aircraft_id: AircraftId) -> Aircraft | None:
-        statement = (
-            select(AircraftRow)
-            .where(AircraftRow.id == aircraft_id.value)
-            .with_for_update()
-        )
+        statement = select(AircraftRow).where(AircraftRow.id == aircraft_id.value).with_for_update()
         row = self._session.scalar(statement)
         return _aircraft_from_row(row) if row is not None else None
 
@@ -180,10 +176,14 @@ class SqlAlchemyFleetTimelineRepository:
         ]
         if exclude_id is not None:
             conditions.append(AircraftAvailabilityRecordRow.id != exclude_id.value)
-        statement = select(AircraftAvailabilityRecordRow).where(*conditions).order_by(
-            AircraftAvailabilityRecordRow.valid_from,
-            AircraftAvailabilityRecordRow.recorded_at,
-            AircraftAvailabilityRecordRow.id,
+        statement = (
+            select(AircraftAvailabilityRecordRow)
+            .where(*conditions)
+            .order_by(
+                AircraftAvailabilityRecordRow.valid_from,
+                AircraftAvailabilityRecordRow.recorded_at,
+                AircraftAvailabilityRecordRow.id,
+            )
         )
         return tuple(_availability_from_row(row) for row in self._session.scalars(statement))
 
