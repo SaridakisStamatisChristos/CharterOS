@@ -50,26 +50,32 @@ def test_mission_open_is_explicit_and_monotonic() -> None:
 def test_mission_rejects_invalid_route_passengers_and_budget() -> None:
     start = datetime(2026, 10, 1, 10, tzinfo=UTC)
     airport = AirportId(uuid4())
-    common = {
-        "buyer_id": OrganizationId(uuid4()),
-        "origin_airport_id": airport,
-        "destination_airport_id": airport,
-        "departure_window": TimeRange(start, start + timedelta(hours=2)),
-        "passenger_count": 1,
-    }
-    with pytest.raises(DomainValidationError):
-        Mission.create(**common)
-
+    buyer_id = OrganizationId(uuid4())
+    window = TimeRange(start, start + timedelta(hours=2))
     with pytest.raises(DomainValidationError):
         Mission.create(
-            **{**common, "destination_airport_id": AirportId(uuid4()), "passenger_count": 0}
+            buyer_id=buyer_id,
+            origin_airport_id=airport,
+            destination_airport_id=airport,
+            departure_window=window,
+            passenger_count=1,
         )
 
     with pytest.raises(DomainValidationError):
         Mission.create(
-            **{
-                **common,
-                "destination_airport_id": AirportId(uuid4()),
-                "max_budget": Money(0, Currency("EUR")),
-            }
+            buyer_id=buyer_id,
+            origin_airport_id=airport,
+            destination_airport_id=AirportId(uuid4()),
+            departure_window=window,
+            passenger_count=0,
+        )
+
+    with pytest.raises(DomainValidationError):
+        Mission.create(
+            buyer_id=buyer_id,
+            origin_airport_id=airport,
+            destination_airport_id=AirportId(uuid4()),
+            departure_window=window,
+            passenger_count=1,
+            max_budget=Money(0, Currency("EUR")),
         )
