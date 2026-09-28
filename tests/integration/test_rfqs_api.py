@@ -394,7 +394,7 @@ def test_concurrent_acknowledge_and_decline_only_one_transition_commits() -> Non
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            versions = (
+            versions: Sequence[int] = (
                 connection.execute(
                     text(
                         "SELECT aggregate_version FROM outbox_events "
