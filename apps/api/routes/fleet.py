@@ -299,9 +299,7 @@ def record_availability(
             reason=body.reason,
             provenance=body.provenance,
             supersedes_id=(
-                AvailabilityRecordId(body.supersedes_id)
-                if body.supersedes_id is not None
-                else None
+                AvailabilityRecordId(body.supersedes_id) if body.supersedes_id is not None else None
             ),
             correlation_id=correlation_id,
         )
