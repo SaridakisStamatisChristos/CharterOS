@@ -19,4 +19,9 @@ class QuoteRepository(Protocol):
 
     def list_current_for_rfqs(self, rfq_ids: tuple[RfqId, ...]) -> tuple[Quote, ...]: ...
 
+    def list_current_for_rfqs_for_update(
+        self,
+        rfq_ids: tuple[RfqId, ...],
+    ) -> tuple[Quote, ...]: ...
+
     def save(self, quote: Quote, *, expected_version: int) -> None: ...

@@ -51,6 +51,12 @@ def _iso(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
+def _utc(value: datetime, *, field_name: str) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise DomainValidationError(f"{field_name} must be timezone-aware")
+    return value.astimezone(UTC)
+
+
 class Mission(AggregateRoot[MissionId]):
     aggregate_type = "mission"
 
@@ -151,4 +157,40 @@ class Mission(AggregateRoot[MissionId]):
             "MISSION_SOURCING",
             {"status": self.status.value},
             correlation_id=correlation_id,
+        )
+
+    def select_quote(
+        self,
+        *,
+        quote_id: str,
+        booking_id: str,
+        selected_at: datetime,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        if self.status not in (MissionStatus.SOURCING, MissionStatus.QUOTED):
+            raise DomainValidationError("only sourcing or quoted missions can select a quote")
+        if not quote_id.strip():
+            raise DomainValidationError("quote_id is required")
+        if not booking_id.strip():
+            raise DomainValidationError("booking_id is required")
+        when = _utc(selected_at, field_name="selected_at")
+        if self.status is MissionStatus.SOURCING:
+            self.status = MissionStatus.QUOTED
+            self._record_event(
+                "MISSION_QUOTED",
+                {"status": self.status.value},
+                correlation_id=correlation_id,
+                occurred_at=when,
+            )
+        self.status = MissionStatus.SELECTED
+        self._record_event(
+            "MISSION_SELECTED",
+            {
+                "status": self.status.value,
+                "quote_id": quote_id,
+                "booking_id": booking_id,
+                "selected_at": _iso(when),
+            },
+            correlation_id=correlation_id,
+            occurred_at=when,
         )
