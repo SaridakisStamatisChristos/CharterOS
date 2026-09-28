@@ -4,12 +4,19 @@ import re
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from charteros.domain.airports import AirportId
 from charteros.domain.operators import OperatorId
 from charteros.domain.shared.aggregate import AggregateRoot
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.ids import CorrelationId, TypedId
+
+if TYPE_CHECKING:
+    from charteros.domain.aircraft.timeline import (
+        AircraftAvailabilityRecord,
+        AircraftPositionObservation,
+    )
 
 _REGISTRATION = re.compile(r"^[A-Z0-9][A-Z0-9-]{1,15}$")
 
@@ -166,3 +173,33 @@ class Aircraft(AggregateRoot[AircraftId]):
             correlation_id=correlation_id,
         )
         return aircraft
+
+    def record_position_observation(
+        self,
+        observation: AircraftPositionObservation,
+        *,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        if observation.aircraft_id != self.id:
+            raise DomainValidationError("position observation belongs to a different aircraft")
+        self._record_event(
+            "AIRCRAFT_POSITION_RECORDED",
+            observation.event_payload(),
+            correlation_id=correlation_id,
+            occurred_at=observation.recorded_at,
+        )
+
+    def record_availability_change(
+        self,
+        record: AircraftAvailabilityRecord,
+        *,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        if record.aircraft_id != self.id:
+            raise DomainValidationError("availability record belongs to a different aircraft")
+        self._record_event(
+            "AIRCRAFT_AVAILABILITY_CHANGED",
+            record.event_payload(),
+            correlation_id=correlation_id,
+            occurred_at=record.recorded_at,
+        )
