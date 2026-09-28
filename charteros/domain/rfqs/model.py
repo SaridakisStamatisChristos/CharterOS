@@ -101,8 +101,20 @@ class Rfq(AggregateRoot[RfqId]):
             return
         if self.response_deadline is None or self.sent_at is None:
             raise DomainValidationError("sent RFQ states require sent_at and response_deadline")
+        if self.sent_at < self.created_at:
+            raise DomainValidationError("sent_at cannot precede created_at")
         if self.response_deadline <= self.sent_at:
             raise DomainValidationError("response_deadline must be after sent_at")
+        if self.acknowledged_at is not None:
+            if self.acknowledged_at < self.sent_at or self.acknowledged_at >= self.response_deadline:
+                raise DomainValidationError("acknowledged_at must fall within the response window")
+        if self.declined_at is not None:
+            if self.declined_at < self.sent_at or self.declined_at >= self.response_deadline:
+                raise DomainValidationError("declined_at must fall within the response window")
+            if self.acknowledged_at is not None and self.declined_at < self.acknowledged_at:
+                raise DomainValidationError("declined_at cannot precede acknowledged_at")
+        if self.expired_at is not None and self.expired_at < self.response_deadline:
+            raise DomainValidationError("expired_at cannot precede response_deadline")
         if self.status is RfqStatus.SENT:
             if any(
                 value is not None
