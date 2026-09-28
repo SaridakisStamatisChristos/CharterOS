@@ -14,11 +14,7 @@ class AirportId(TypedId):
 
 def _airport_code(value: str, *, field_name: str, length: int) -> str:
     normalized = value.strip().upper()
-    if (
-        len(normalized) != length
-        or not normalized.isascii()
-        or not normalized.isalpha()
-    ):
+    if len(normalized) != length or not normalized.isascii() or not normalized.isalpha():
         raise DomainValidationError(
             f"{field_name} must contain exactly {length} uppercase ASCII letters"
         )
