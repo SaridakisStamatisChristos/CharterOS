@@ -119,6 +119,14 @@ class QuotePriceComponentRow(Base):
             "'broker_service_fee','other')",
             name="ck_quote_components_category",
         ),
+        CheckConstraint(
+            "applicability IN ('known','conditional')",
+            name="ck_quote_components_applicability",
+        ),
+        CheckConstraint(
+            "applicability = 'known' OR condition IS NOT NULL",
+            name="ck_quote_components_conditional_condition",
+        ),
     )
 
     quote_id: Mapped[UUID] = mapped_column(
@@ -130,6 +138,11 @@ class QuotePriceComponentRow(Base):
     category: Mapped[str] = mapped_column(String(40), nullable=False)
     label: Mapped[str] = mapped_column(String(200), nullable=False)
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    applicability: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        server_default="known",
+    )
     condition: Mapped[str | None] = mapped_column(String(500))
 
     quote: Mapped[QuoteRow] = relationship(back_populates="components")
