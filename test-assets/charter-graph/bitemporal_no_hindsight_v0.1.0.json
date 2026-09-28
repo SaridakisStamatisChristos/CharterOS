@@ -1,0 +1,26 @@
+{
+  "source": "charter_graph_testbench_v0.1.0",
+  "invariant": "Historical decisions must not use aircraft facts learned after the knowledge cutoff.",
+  "aircraft_id": "00000000-0000-0000-0000-000000000201",
+  "positions": [
+    {
+      "id": "00000000-0000-0000-0000-000000000211",
+      "airport_id": "00000000-0000-0000-0000-000000000221",
+      "event_time": "2026-09-28T07:00:00Z",
+      "recorded_at": "2026-09-28T07:00:00Z",
+      "source": "synthetic-feed"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000212",
+      "airport_id": "00000000-0000-0000-0000-000000000222",
+      "event_time": "2026-09-28T08:30:00Z",
+      "recorded_at": "2026-09-28T10:30:00Z",
+      "source": "late-synthetic-feed"
+    }
+  ],
+  "decision_event_time": "2026-09-28T10:00:00Z",
+  "historical_known_as_of": "2026-09-28T09:00:00Z",
+  "later_known_as_of": "2026-09-28T11:00:00Z",
+  "expected_historical_airport_id": "00000000-0000-0000-0000-000000000221",
+  "expected_later_airport_id": "00000000-0000-0000-0000-000000000222"
+}
