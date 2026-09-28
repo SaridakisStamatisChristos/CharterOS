@@ -25,6 +25,7 @@ from charteros.application.quote_comparison import (
 from charteros.application.quote_normalization import QuoteNormalizationService
 from charteros.application.quotes import QuoteService
 from charteros.domain.aircraft import AircraftId
+from charteros.domain.missions import MissionId
 from charteros.domain.quotes import (
     PriceComponent,
     PriceComponentApplicability,
@@ -48,7 +49,6 @@ from charteros.domain.quotes.normalization import (
     QuoteNormalization,
     UnresolvedComponentReason,
 )
-from charteros.domain.missions import MissionId
 from charteros.domain.rfqs import RfqId
 from charteros.domain.shared.currency import Currency
 from charteros.domain.shared.ids import CorrelationId
