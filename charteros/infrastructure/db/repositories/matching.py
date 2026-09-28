@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.orm import Session
 
@@ -110,6 +110,15 @@ _QUERY = text(
     LIMIT :limit_plus_one
     """
 )
+_QUERY_BY_AIRCRAFT = text(
+    str(_QUERY).replace(
+        "ORDER BY a.id\n    LIMIT :limit_plus_one",
+        "WHERE a.id IN :aircraft_ids\n    ORDER BY a.id",
+    )
+).bindparams(bindparam("aircraft_ids", expanding=True))
+
+
+
 
 
 def _uuid(value: object) -> UUID:
@@ -200,6 +209,23 @@ def _profile(mapping: RowMapping) -> MatchingReferenceProfile | None:
     )
 
 
+
+def _candidate(mapping: RowMapping) -> MatchingCandidateSnapshot:
+    return MatchingCandidateSnapshot(
+        aircraft_id=AircraftId(_uuid(mapping["aircraft_id"])),
+        operator_id=OperatorId(_uuid(mapping["operator_id"])),
+        aircraft_type_id=AircraftTypeId(_uuid(mapping["aircraft_type_id"])),
+        seat_capacity=int(mapping["seat_capacity"]),
+        range_nm=int(mapping["range_nm"]),
+        aircraft_status=AircraftStatus(str(mapping["aircraft_status"])),
+        verification_status=VerificationStatus(str(mapping["verification_status"])),
+        insurance_status=InsuranceStatus(str(mapping["insurance_status"])),
+        commercial_status=CommercialStatus(str(mapping["commercial_status"])),
+        position=_position(mapping),
+        availability=_availability(mapping),
+        reference_profile=_profile(mapping),
+    )
+
 class SqlAlchemyMatchingSnapshotRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -233,22 +259,31 @@ class SqlAlchemyMatchingSnapshotRepository:
             raise EntityConflictError(
                 f"matching candidate set exceeds bounded v1 limit of {limit} aircraft"
             )
-        result: list[MatchingCandidateSnapshot] = []
-        for mapping in rows:
-            result.append(
-                MatchingCandidateSnapshot(
-                    aircraft_id=AircraftId(_uuid(mapping["aircraft_id"])),
-                    operator_id=OperatorId(_uuid(mapping["operator_id"])),
-                    aircraft_type_id=AircraftTypeId(_uuid(mapping["aircraft_type_id"])),
-                    seat_capacity=int(mapping["seat_capacity"]),
-                    range_nm=int(mapping["range_nm"]),
-                    aircraft_status=AircraftStatus(str(mapping["aircraft_status"])),
-                    verification_status=VerificationStatus(str(mapping["verification_status"])),
-                    insurance_status=InsuranceStatus(str(mapping["insurance_status"])),
-                    commercial_status=CommercialStatus(str(mapping["commercial_status"])),
-                    position=_position(mapping),
-                    availability=_availability(mapping),
-                    reference_profile=_profile(mapping),
-                )
+        return tuple(_candidate(mapping) for mapping in rows)
+
+    def load_candidates_by_aircraft_ids(
+        self,
+        *,
+        aircraft_ids: tuple[AircraftId, ...],
+        known_as_of: datetime,
+        position_event_cutoff: datetime,
+        availability_from: datetime,
+        availability_to: datetime,
+    ) -> tuple[MatchingCandidateSnapshot, ...]:
+        if not aircraft_ids:
+            return ()
+        rows = (
+            self._session.execute(
+                _QUERY_BY_AIRCRAFT,
+                {
+                    "aircraft_ids": [aircraft_id.value for aircraft_id in aircraft_ids],
+                    "known_as_of": known_as_of,
+                    "position_event_cutoff": position_event_cutoff,
+                    "availability_from": availability_from,
+                    "availability_to": availability_to,
+                },
             )
-        return tuple(result)
+            .mappings()
+            .all()
+        )
+        return tuple(_candidate(mapping) for mapping in rows)
