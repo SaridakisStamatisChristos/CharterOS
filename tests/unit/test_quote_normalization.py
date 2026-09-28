@@ -95,9 +95,7 @@ def test_normalization_partitions_fees_and_surfaces_unresolved_exclusions() -> N
         NormalizedFeeCategory.HANDLING,
         NormalizedFeeCategory.OTHER,
     ]
-    assert [fee.category for fee in result.conditional_fees] == [
-        NormalizedFeeCategory.DEICING
-    ]
+    assert [fee.category for fee in result.conditional_fees] == [NormalizedFeeCategory.DEICING]
     assert result.expected_total == Money(7_875_000, EUR)
     assert result.worst_case_total == Money(7_955_000, EUR)
     assert result.excluded_fees == ("Crew overnight",)
