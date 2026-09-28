@@ -1,4 +1,5 @@
-"""Pure domain model boundary.
+"""CharterOS domain layer.
 
-Business aggregates and domain primitives are intentionally deferred to later roadmap PRs.
+The domain package is framework-independent. Shared value objects, event envelopes, aggregate
+versioning, and domain exceptions live in :mod:`charteros.domain.shared`.
 """
