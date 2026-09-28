@@ -54,6 +54,12 @@ class SqlAlchemyBookingRepository:
         row = self._session.get(BookingRow, booking_id.value)
         return _to_domain(row) if row is not None else None
 
+    def get_for_update(self, booking_id: BookingId) -> Booking | None:
+        row = self._session.scalar(
+            select(BookingRow).where(BookingRow.id == booking_id.value).with_for_update()
+        )
+        return _to_domain(row) if row is not None else None
+
     def get_for_mission(self, mission_id: MissionId) -> Booking | None:
         row = self._session.scalar(
             select(BookingRow).where(BookingRow.mission_id == mission_id.value)

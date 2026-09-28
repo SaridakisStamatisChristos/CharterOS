@@ -10,6 +10,7 @@ def load_models() -> None:
         OrganizationRow,
         OutboxEventRow,
     )
+    from charteros.infrastructure.db.models.contracts import ContractRow
     from charteros.infrastructure.db.models.fleet import (
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
@@ -26,6 +27,7 @@ def load_models() -> None:
         AircraftTypeRow,
         AirportRow,
         BookingRow,
+        ContractRow,
         IdempotencyRecordRow,
         MatchingReferenceProfileRow,
         MissionRow,
