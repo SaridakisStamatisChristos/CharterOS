@@ -91,7 +91,7 @@ class PriceComponentResponse(BaseModel):
     category: PriceComponentCategory
     label: str
     amount: MoneyResponse
-    applicability: PriceComponentApplicability
+    applicability: PriceComponentApplicability = PriceComponentApplicability.KNOWN
     condition: str | None
 
 
