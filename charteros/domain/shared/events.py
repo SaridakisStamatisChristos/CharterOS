@@ -34,9 +34,7 @@ def _freeze_json(value: object) -> object:
         return MappingProxyType(frozen)
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return tuple(_freeze_json(item) for item in value)
-    raise DomainValidationError(
-        f"unsupported event payload value type: {type(value).__name__}"
-    )
+    raise DomainValidationError(f"unsupported event payload value type: {type(value).__name__}")
 
 
 def _thaw_json(value: object) -> Any:
@@ -96,12 +94,8 @@ class DomainEvent:
             raise DomainValidationError("recorded_at cannot precede occurred_at")
         if self.actor_id is not None and not isinstance(self.actor_id, TypedId):
             raise DomainValidationError("actor_id must be a TypedId when present")
-        if self.correlation_id is not None and not isinstance(
-            self.correlation_id, CorrelationId
-        ):
-            raise DomainValidationError(
-                "correlation_id must be a CorrelationId when present"
-            )
+        if self.correlation_id is not None and not isinstance(self.correlation_id, CorrelationId):
+            raise DomainValidationError("correlation_id must be a CorrelationId when present")
         if self.causation_id is not None and not isinstance(self.causation_id, EventId):
             raise DomainValidationError("causation_id must be an EventId when present")
         if not isinstance(self.payload, Mapping):
