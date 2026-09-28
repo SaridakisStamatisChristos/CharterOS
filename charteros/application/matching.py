@@ -84,9 +84,7 @@ class MatchingService:
             for candidate in candidates
         )
         drafts = tuple(
-            evaluation.draft
-            for evaluation in evaluations
-            if evaluation.draft is not None
+            evaluation.draft for evaluation in evaluations if evaluation.draft is not None
         )
         matches = rank_matches(drafts)
         return MatchingDecision(
