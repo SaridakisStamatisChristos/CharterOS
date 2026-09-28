@@ -44,8 +44,7 @@ class RfqRow(Base):
             name="ck_rfqs_acknowledged_in_window",
         ),
         CheckConstraint(
-            "declined_at IS NULL OR "
-            "(declined_at >= sent_at AND declined_at < response_deadline)",
+            "declined_at IS NULL OR (declined_at >= sent_at AND declined_at < response_deadline)",
             name="ck_rfqs_declined_in_window",
         ),
         CheckConstraint(
