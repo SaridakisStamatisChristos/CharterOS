@@ -29,7 +29,7 @@ class QuoteRow(Base):
         UniqueConstraint("rfq_id", "revision_number", name="uq_quotes_rfq_revision"),
         UniqueConstraint("supersedes_quote_id", name="uq_quotes_supersedes_quote"),
         CheckConstraint(
-            "status IN ('submitted','expired','withdrawn','superseded')",
+            "status IN ('submitted','accepted','rejected','expired','withdrawn','superseded')",
             name="ck_quotes_status",
         ),
         CheckConstraint(
@@ -50,12 +50,22 @@ class QuoteRow(Base):
         ),
         CheckConstraint(
             "(status = 'submitted' AND is_current = true "
+            "AND accepted_at IS NULL AND rejected_at IS NULL "
             "AND expired_at IS NULL AND withdrawn_at IS NULL AND superseded_at IS NULL) OR "
+            "(status = 'accepted' AND is_current = false AND accepted_at IS NOT NULL "
+            "AND rejected_at IS NULL AND expired_at IS NULL "
+            "AND withdrawn_at IS NULL AND superseded_at IS NULL) OR "
+            "(status = 'rejected' AND is_current = false AND rejected_at IS NOT NULL "
+            "AND accepted_at IS NULL AND expired_at IS NULL "
+            "AND withdrawn_at IS NULL AND superseded_at IS NULL) OR "
             "(status = 'expired' AND is_current = false AND expired_at IS NOT NULL "
+            "AND accepted_at IS NULL AND rejected_at IS NULL "
             "AND withdrawn_at IS NULL AND superseded_at IS NULL) OR "
             "(status = 'withdrawn' AND is_current = false AND withdrawn_at IS NOT NULL "
+            "AND accepted_at IS NULL AND rejected_at IS NULL "
             "AND expired_at IS NULL AND superseded_at IS NULL) OR "
             "(status = 'superseded' AND is_current = false AND superseded_at IS NOT NULL "
+            "AND accepted_at IS NULL AND rejected_at IS NULL "
             "AND expired_at IS NULL AND withdrawn_at IS NULL)",
             name="ck_quotes_status_timestamps",
         ),
@@ -97,6 +107,8 @@ class QuoteRow(Base):
     )
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

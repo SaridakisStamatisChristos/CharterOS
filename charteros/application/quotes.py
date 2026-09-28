@@ -8,6 +8,7 @@ from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
 from charteros.domain.aircraft import AircraftId
+from charteros.domain.missions import MissionStatus
 from charteros.domain.operators import OperatorId
 from charteros.domain.quotes import PriceComponent, Quote, QuoteId, QuoteStatus
 from charteros.domain.rfqs import RfqId, RfqStatus
@@ -67,9 +68,11 @@ class QuoteService:
         if self._quotes.get_current_for_rfq(rfq_id) is not None:
             raise EntityConflictError("an authoritative quote already exists for this RFQ")
 
-        mission = self._missions.get(rfq.mission_id)
+        mission = self._missions.get_for_update(rfq.mission_id)
         if mission is None:
             raise EntityNotFoundError("RFQ mission does not exist")
+        if mission.status not in (MissionStatus.SOURCING, MissionStatus.QUOTED):
+            raise EntityConflictError("mission is no longer accepting quotes")
         self._validate_valid_until(
             valid_until=valid,
             now=submitted_at,
@@ -121,20 +124,27 @@ class QuoteService:
     ) -> Quote:
         submitted_at = _utc(now, field_name="now")
         valid = _utc(valid_until, field_name="valid_until")
+        observed = self._quotes.get(quote_id)
+        if observed is None:
+            raise EntityNotFoundError("quote does not exist")
+        rfq = self._rfqs.get(observed.rfq_id)
+        if rfq is None:
+            raise EntityNotFoundError("quote RFQ does not exist")
+        mission = self._missions.get_for_update(rfq.mission_id)
+        if mission is None:
+            raise EntityNotFoundError("RFQ mission does not exist")
+        if mission.status not in (MissionStatus.SOURCING, MissionStatus.QUOTED):
+            raise EntityConflictError("mission is no longer accepting quote revisions")
+
         previous = self._get_for_update(quote_id)
         if previous.status is not QuoteStatus.SUBMITTED or not previous.is_current:
             raise EntityConflictError("only the current submitted quote can be revised")
         if submitted_at >= previous.valid_until:
             raise EntityConflictError("expired quote cannot be revised")
-
-        rfq = self._rfqs.get(previous.rfq_id)
-        if rfq is None:
-            raise EntityNotFoundError("quote RFQ does not exist")
+        if previous.rfq_id != rfq.id:
+            raise EntityConflictError("quote RFQ changed while locking award state")
         if rfq.status is not RfqStatus.QUOTED:
             raise EntityConflictError("quote RFQ is not in quoted state")
-        mission = self._missions.get(rfq.mission_id)
-        if mission is None:
-            raise EntityNotFoundError("RFQ mission does not exist")
         self._validate_valid_until(
             valid_until=valid,
             now=submitted_at,

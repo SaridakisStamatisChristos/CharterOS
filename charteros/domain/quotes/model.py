@@ -19,6 +19,8 @@ class QuoteId(TypedId):
 
 class QuoteStatus(StrEnum):
     SUBMITTED = "submitted"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
     EXPIRED = "expired"
     WITHDRAWN = "withdrawn"
     SUPERSEDED = "superseded"
@@ -128,6 +130,8 @@ class Quote(AggregateRoot[QuoteId]):
         supersedes_quote_id: QuoteId | None,
         submitted_at: datetime,
         is_current: bool,
+        accepted_at: datetime | None = None,
+        rejected_at: datetime | None = None,
         expired_at: datetime | None = None,
         withdrawn_at: datetime | None = None,
         superseded_at: datetime | None = None,
@@ -197,6 +201,12 @@ class Quote(AggregateRoot[QuoteId]):
         self.supersedes_quote_id = supersedes_quote_id
         self.submitted_at = submitted
         self.is_current = is_current
+        self.accepted_at = (
+            _utc(accepted_at, field_name="accepted_at") if accepted_at is not None else None
+        )
+        self.rejected_at = (
+            _utc(rejected_at, field_name="rejected_at") if rejected_at is not None else None
+        )
         self.expired_at = (
             _utc(expired_at, field_name="expired_at") if expired_at is not None else None
         )
@@ -222,36 +232,80 @@ class Quote(AggregateRoot[QuoteId]):
         return total
 
     def _validate_state(self) -> None:
-        terminal = (self.expired_at, self.withdrawn_at, self.superseded_at)
+        terminal = (
+            self.accepted_at,
+            self.rejected_at,
+            self.expired_at,
+            self.withdrawn_at,
+            self.superseded_at,
+        )
         if self.status is QuoteStatus.SUBMITTED:
             if not self.is_current or any(value is not None for value in terminal):
                 raise DomainValidationError("submitted quote has inconsistent lifecycle state")
             return
         if self.is_current:
             raise DomainValidationError("terminal quote cannot be current")
-        if self.status is QuoteStatus.EXPIRED:
-            if (
-                self.expired_at is None
-                or self.withdrawn_at is not None
-                or self.superseded_at is not None
+        if self.status is QuoteStatus.ACCEPTED:
+            if self.accepted_at is None or any(
+                value is not None
+                for value in (
+                    self.rejected_at,
+                    self.expired_at,
+                    self.withdrawn_at,
+                    self.superseded_at,
+                )
+            ):
+                raise DomainValidationError("accepted quote has inconsistent lifecycle timestamps")
+            if self.accepted_at < self.submitted_at or self.accepted_at >= self.valid_until:
+                raise DomainValidationError("accepted_at must be within quote validity")
+        elif self.status is QuoteStatus.REJECTED:
+            if self.rejected_at is None or any(
+                value is not None
+                for value in (
+                    self.accepted_at,
+                    self.expired_at,
+                    self.withdrawn_at,
+                    self.superseded_at,
+                )
+            ):
+                raise DomainValidationError("rejected quote has inconsistent lifecycle timestamps")
+            if self.rejected_at < self.submitted_at:
+                raise DomainValidationError("rejected_at cannot precede submitted_at")
+        elif self.status is QuoteStatus.EXPIRED:
+            if self.expired_at is None or any(
+                value is not None
+                for value in (
+                    self.accepted_at,
+                    self.rejected_at,
+                    self.withdrawn_at,
+                    self.superseded_at,
+                )
             ):
                 raise DomainValidationError("expired quote has inconsistent lifecycle timestamps")
             if self.expired_at < self.valid_until:
                 raise DomainValidationError("expired_at cannot precede valid_until")
         elif self.status is QuoteStatus.WITHDRAWN:
-            if (
-                self.withdrawn_at is None
-                or self.expired_at is not None
-                or self.superseded_at is not None
+            if self.withdrawn_at is None or any(
+                value is not None
+                for value in (
+                    self.accepted_at,
+                    self.rejected_at,
+                    self.expired_at,
+                    self.superseded_at,
+                )
             ):
                 raise DomainValidationError("withdrawn quote has inconsistent lifecycle timestamps")
             if self.withdrawn_at < self.submitted_at:
                 raise DomainValidationError("withdrawn_at cannot precede submitted_at")
         elif self.status is QuoteStatus.SUPERSEDED:
-            if (
-                self.superseded_at is None
-                or self.expired_at is not None
-                or self.withdrawn_at is not None
+            if self.superseded_at is None or any(
+                value is not None
+                for value in (
+                    self.accepted_at,
+                    self.rejected_at,
+                    self.expired_at,
+                    self.withdrawn_at,
+                )
             ):
                 raise DomainValidationError(
                     "superseded quote has inconsistent lifecycle timestamps"
@@ -370,6 +424,60 @@ class Quote(AggregateRoot[QuoteId]):
         self._record_event(
             "QUOTE_SUPERSEDED",
             {"replacement_quote_id": str(replacement_quote_id)},
+            correlation_id=correlation_id,
+            occurred_at=when,
+        )
+
+    def accept(
+        self,
+        *,
+        accepted_at: datetime,
+        booking_id: str,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        if self.status is not QuoteStatus.SUBMITTED or not self.is_current:
+            raise DomainValidationError("only the current submitted quote can be accepted")
+        if not booking_id.strip():
+            raise DomainValidationError("booking_id is required")
+        when = _utc(accepted_at, field_name="accepted_at")
+        if when < self.submitted_at or when >= self.valid_until:
+            raise DomainValidationError("quote can only be accepted within its validity window")
+        self.status = QuoteStatus.ACCEPTED
+        self.is_current = False
+        self.accepted_at = when
+        self._record_event(
+            "QUOTE_ACCEPTED",
+            {
+                "booking_id": booking_id,
+                "accepted_at": when.isoformat().replace("+00:00", "Z"),
+            },
+            correlation_id=correlation_id,
+            occurred_at=when,
+        )
+
+    def reject(
+        self,
+        *,
+        rejected_at: datetime,
+        accepted_quote_id: str,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        if self.status is not QuoteStatus.SUBMITTED or not self.is_current:
+            raise DomainValidationError("only the current submitted quote can be rejected")
+        if not accepted_quote_id.strip():
+            raise DomainValidationError("accepted_quote_id is required")
+        when = _utc(rejected_at, field_name="rejected_at")
+        if when < self.submitted_at:
+            raise DomainValidationError("rejected_at cannot precede submitted_at")
+        self.status = QuoteStatus.REJECTED
+        self.is_current = False
+        self.rejected_at = when
+        self._record_event(
+            "QUOTE_REJECTED",
+            {
+                "accepted_quote_id": accepted_quote_id,
+                "rejected_at": when.isoformat().replace("+00:00", "Z"),
+            },
             correlation_id=correlation_id,
             occurred_at=when,
         )

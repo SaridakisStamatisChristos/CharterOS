@@ -134,6 +134,8 @@ class QuoteResponse(BaseModel):
     supersedes_quote_id: UUID | None
     submitted_at: datetime
     is_current: bool
+    accepted_at: datetime | None
+    rejected_at: datetime | None
     expired_at: datetime | None
     withdrawn_at: datetime | None
     superseded_at: datetime | None
@@ -353,6 +355,8 @@ def _response(quote: Quote) -> QuoteResponse:
         ),
         submitted_at=quote.submitted_at,
         is_current=quote.is_current,
+        accepted_at=quote.accepted_at,
+        rejected_at=quote.rejected_at,
         expired_at=quote.expired_at,
         withdrawn_at=quote.withdrawn_at,
         superseded_at=quote.superseded_at,

@@ -4,6 +4,7 @@ from typing import Protocol
 
 from charteros.domain.aircraft import Aircraft, AircraftId, AircraftType, AircraftTypeId
 from charteros.domain.airports import Airport, AirportId
+from charteros.domain.bookings import Booking
 from charteros.domain.missions import Mission
 from charteros.domain.operators import Operator, OperatorId
 from charteros.domain.organizations import Organization, OrganizationId
@@ -40,5 +41,5 @@ class AircraftRepository(Protocol):
 class DomainEventRepository(Protocol):
     def add_aggregate_events(
         self,
-        aggregate: Organization | Operator | Airport | Aircraft | Mission | Rfq | Quote,
+        aggregate: Organization | Operator | Airport | Aircraft | Mission | Rfq | Quote | Booking,
     ) -> None: ...

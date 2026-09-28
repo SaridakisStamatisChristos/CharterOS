@@ -1,3 +1,4 @@
+from charteros.application.ports.bookings import BookingRepository
 from charteros.application.ports.catalog import (
     AircraftRepository,
     AircraftTypeRepository,
@@ -15,6 +16,7 @@ __all__ = [
     "AircraftRepository",
     "AircraftTypeRepository",
     "AirportRepository",
+    "BookingRepository",
     "DomainEventRepository",
     "MatchingSnapshotRepository",
     "MissionRepository",

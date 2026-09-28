@@ -57,6 +57,8 @@ def _to_domain(row: QuoteRow) -> Quote:
         ),
         submitted_at=row.submitted_at,
         is_current=row.is_current,
+        accepted_at=row.accepted_at,
+        rejected_at=row.rejected_at,
         expired_at=row.expired_at,
         withdrawn_at=row.withdrawn_at,
         superseded_at=row.superseded_at,
@@ -93,6 +95,8 @@ class SqlAlchemyQuoteRepository:
             ),
             submitted_at=quote.submitted_at,
             is_current=quote.is_current,
+            accepted_at=quote.accepted_at,
+            rejected_at=quote.rejected_at,
             expired_at=quote.expired_at,
             withdrawn_at=quote.withdrawn_at,
             superseded_at=quote.superseded_at,
@@ -154,6 +158,23 @@ class SqlAlchemyQuoteRepository:
         ).all()
         return tuple(_to_domain(row) for row in rows)
 
+    def list_current_for_rfqs_for_update(
+        self,
+        rfq_ids: tuple[RfqId, ...],
+    ) -> tuple[Quote, ...]:
+        if not rfq_ids:
+            return ()
+        rows = self._session.scalars(
+            select(QuoteRow)
+            .where(
+                QuoteRow.rfq_id.in_([rfq_id.value for rfq_id in rfq_ids]),
+                QuoteRow.is_current.is_(True),
+            )
+            .order_by(QuoteRow.rfq_id, QuoteRow.id)
+            .with_for_update()
+        ).all()
+        return tuple(_to_domain(row) for row in rows)
+
     def save(self, quote: Quote, *, expected_version: int) -> None:
         statement = (
             update(QuoteRow)
@@ -162,6 +183,8 @@ class SqlAlchemyQuoteRepository:
                 version=quote.version,
                 status=quote.status.value,
                 is_current=quote.is_current,
+                accepted_at=quote.accepted_at,
+                rejected_at=quote.rejected_at,
                 expired_at=quote.expired_at,
                 withdrawn_at=quote.withdrawn_at,
                 superseded_at=quote.superseded_at,
