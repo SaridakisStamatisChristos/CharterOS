@@ -16,7 +16,7 @@ from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.money import Money
 from charteros.domain.shared.time_range import TimeRange
 
-NOW = datetime(2026, 9, 29, 8, tzinfo=UTC)
+NOW = datetime(2025, 9, 29, 8, tzinfo=UTC)
 
 
 def _id(value: int) -> UUID:
