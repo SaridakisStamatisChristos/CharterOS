@@ -100,10 +100,7 @@ class PriceComponent:
             field_name="price component condition",
             max_length=500,
         )
-        if (
-            self.applicability is PriceComponentApplicability.CONDITIONAL
-            and condition is None
-        ):
+        if self.applicability is PriceComponentApplicability.CONDITIONAL and condition is None:
             raise DomainValidationError("conditional price component requires a condition")
         object.__setattr__(self, "label", label)
         object.__setattr__(self, "condition", condition)
