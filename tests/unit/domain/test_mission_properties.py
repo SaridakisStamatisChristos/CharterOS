@@ -2,7 +2,8 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from charteros.domain.airports import AirportId
 from charteros.domain.missions import Mission
