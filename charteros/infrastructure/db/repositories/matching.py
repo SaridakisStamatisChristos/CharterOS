@@ -237,9 +237,7 @@ class SqlAlchemyMatchingSnapshotRepository:
                     seat_capacity=int(mapping["seat_capacity"]),
                     range_nm=int(mapping["range_nm"]),
                     aircraft_status=AircraftStatus(str(mapping["aircraft_status"])),
-                    verification_status=VerificationStatus(
-                        str(mapping["verification_status"])
-                    ),
+                    verification_status=VerificationStatus(str(mapping["verification_status"])),
                     insurance_status=InsuranceStatus(str(mapping["insurance_status"])),
                     commercial_status=CommercialStatus(str(mapping["commercial_status"])),
                     position=_position(mapping),
