@@ -133,6 +133,12 @@ class Rfq(AggregateRoot[RfqId]):
             or self.expired_at is not None
         ):
             raise DomainValidationError("acknowledged RFQ has inconsistent timestamps")
+        elif self.status is RfqStatus.QUOTED and (
+            self.acknowledged_at is None
+            or self.declined_at is not None
+            or self.expired_at is not None
+        ):
+            raise DomainValidationError("quoted RFQ has inconsistent timestamps")
         elif self.status is RfqStatus.DECLINED:
             if self.declined_at is None or self.expired_at is not None:
                 raise DomainValidationError("declined RFQ has inconsistent timestamps")
@@ -253,6 +259,32 @@ class Rfq(AggregateRoot[RfqId]):
         self._record_event(
             "RFQ_EXPIRED",
             {"expired_at": when.isoformat().replace("+00:00", "Z")},
+            correlation_id=correlation_id,
+            occurred_at=when,
+        )
+
+    def mark_quoted(
+        self,
+        *,
+        quoted_at: datetime,
+        quote_id: str,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        if self.status is not RfqStatus.ACKNOWLEDGED:
+            raise DomainValidationError("only acknowledged RFQs can be quoted")
+        when = _utc(quoted_at, field_name="quoted_at")
+        assert self.response_deadline is not None
+        if when >= self.response_deadline:
+            raise DomainValidationError("RFQ cannot be quoted at or after its deadline")
+        if not quote_id.strip():
+            raise DomainValidationError("quote_id is required")
+        self.status = RfqStatus.QUOTED
+        self._record_event(
+            "RFQ_QUOTED",
+            {
+                "quote_id": quote_id,
+                "quoted_at": when.isoformat().replace("+00:00", "Z"),
+            },
             correlation_id=correlation_id,
             occurred_at=when,
         )

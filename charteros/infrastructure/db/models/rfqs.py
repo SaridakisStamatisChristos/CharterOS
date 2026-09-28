@@ -58,11 +58,13 @@ class RfqRow(Base):
             "AND acknowledged_at IS NULL AND declined_at IS NULL AND expired_at IS NULL) OR "
             "(status = 'acknowledged' AND sent_at IS NOT NULL AND response_deadline IS NOT NULL "
             "AND acknowledged_at IS NOT NULL AND declined_at IS NULL AND expired_at IS NULL) OR "
+            "(status = 'quoted' AND sent_at IS NOT NULL AND response_deadline IS NOT NULL "
+            "AND acknowledged_at IS NOT NULL AND declined_at IS NULL AND expired_at IS NULL) OR "
             "(status = 'declined' AND sent_at IS NOT NULL AND response_deadline IS NOT NULL "
             "AND declined_at IS NOT NULL AND expired_at IS NULL) OR "
             "(status = 'expired' AND sent_at IS NOT NULL AND response_deadline IS NOT NULL "
             "AND expired_at IS NOT NULL AND declined_at IS NULL) OR "
-            "(status IN ('quoted','withdrawn') AND sent_at IS NOT NULL "
+            "(status = 'withdrawn' AND sent_at IS NOT NULL "
             "AND response_deadline IS NOT NULL)",
             name="ck_rfqs_status_timestamps",
         ),

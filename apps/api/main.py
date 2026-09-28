@@ -11,6 +11,7 @@ from apps.api.routes import (
     fleet_router,
     matching_router,
     mission_router,
+    quote_router,
     rfq_router,
 )
 from charteros import __version__
@@ -56,6 +57,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(mission_router)
     app.include_router(matching_router)
     app.include_router(rfq_router)
+    app.include_router(quote_router)
 
     @app.exception_handler(DomainValidationError)
     async def domain_validation_handler(

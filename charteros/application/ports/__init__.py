@@ -8,6 +8,7 @@ from charteros.application.ports.catalog import (
 )
 from charteros.application.ports.matching import MatchingSnapshotRepository
 from charteros.application.ports.missions import MissionRepository
+from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "MissionRepository",
     "OperatorRepository",
     "OrganizationRepository",
+    "QuoteRepository",
     "RfqRepository",
 ]
