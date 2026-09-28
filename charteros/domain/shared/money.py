@@ -39,9 +39,7 @@ class Money:
 
     def _require_same_currency(self, other: Money) -> None:
         if self.currency != other.currency:
-            raise CurrencyMismatchError(
-                f"currency mismatch: {self.currency} != {other.currency}"
-            )
+            raise CurrencyMismatchError(f"currency mismatch: {self.currency} != {other.currency}")
 
     def __add__(self, other: object) -> Money:
         if not isinstance(other, Money):
