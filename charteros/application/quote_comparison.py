@@ -281,7 +281,7 @@ class QuoteComparisonService:
                 operator_id,
                 normalization,
                 commercial_valid,
-                eligibility,
+                eligibility_reasons,
                 suitability,
             ) = prepared[scored_item.quote_id]
             entries.append(
@@ -290,8 +290,8 @@ class QuoteComparisonService:
                     operator_id=operator_id,
                     normalization=normalization,
                     commercial_valid=commercial_valid,
-                    decision_eligible=not eligibility,
-                    eligibility_reasons=eligibility,
+                    decision_eligible=not eligibility_reasons,
+                    eligibility_reasons=eligibility_reasons,
                     aircraft_suitability=suitability,
                     score=scored_item.score,
                     currency_rank=scored_item.currency_rank,
