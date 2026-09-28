@@ -33,7 +33,7 @@ def test_money_enforces_signed_int64_bounds() -> None:
 
 def test_money_rejects_boolean_minor_units() -> None:
     with pytest.raises(DomainValidationError):
-        Money(True, EUR)  # type: ignore[arg-type]
+        Money(True, EUR)
 
 
 def test_currency_requires_canonical_alpha_code() -> None:
