@@ -9,6 +9,7 @@ from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
 from charteros.domain.aircraft import AircraftId
 from charteros.domain.quotes import PriceComponent, Quote, QuoteId, QuoteStatus
+from charteros.domain.operators import OperatorId
 from charteros.domain.rfqs import RfqId, RfqStatus
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.ids import CorrelationId
@@ -222,7 +223,7 @@ class QuoteService:
             raise EntityNotFoundError("quote does not exist")
         return quote
 
-    def _validate_aircraft(self, *, aircraft_id: AircraftId, operator_id: object) -> None:
+    def _validate_aircraft(self, *, aircraft_id: AircraftId, operator_id: OperatorId) -> None:
         aircraft = self._aircraft.get(aircraft_id)
         if aircraft is None:
             raise EntityNotFoundError("aircraft does not exist")
