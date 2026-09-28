@@ -24,7 +24,8 @@ The roadmap requires comparison of:
 
 It also requires no hidden ranking and an exposed score decomposition.
 
-PR10 is decision support only. PR11 owns quote acceptance and booking creation.
+PR10 is decision support only. PR11 owns quote acceptance and booking creation. The comparator
+never auto-selects, awards, or marks a quote as the buyer's winner.
 
 ## Decision
 
