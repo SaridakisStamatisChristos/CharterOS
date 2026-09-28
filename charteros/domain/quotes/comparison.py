@@ -50,7 +50,10 @@ class ComparisonDraft:
             raise DomainValidationError(
                 "eligible comparison draft requires reposition and operational risk metrics"
             )
-        if self.reposition_distance_tenths_nm is not None and self.reposition_distance_tenths_nm < 0:
+        if (
+            self.reposition_distance_tenths_nm is not None
+            and self.reposition_distance_tenths_nm < 0
+        ):
             raise DomainValidationError("reposition distance cannot be negative")
         if self.schedule_risk_basis_points is not None and self.schedule_risk_basis_points < 0:
             raise DomainValidationError("schedule risk cannot be negative")
