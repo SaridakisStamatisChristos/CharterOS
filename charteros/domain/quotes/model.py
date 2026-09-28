@@ -84,8 +84,6 @@ class PriceComponent:
     condition: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.category, PriceComponentCategory):
-            object.__setattr__(self, "category", PriceComponentCategory(self.category))
         label = _canonical_text(self.label, field_name="price component label", max_length=200)
         if label is None:
             raise DomainValidationError("price component label is required")
