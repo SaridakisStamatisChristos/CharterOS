@@ -204,7 +204,7 @@ def test_explicit_award_is_atomic_idempotent_and_can_choose_higher_priced_quote(
     with TestClient(create_app(settings)) as client:
         mission_id, (lower_quote_id, chosen_quote_id), _, departure = _setup_two_quotes(
             client,
-            suffix="A1",
+            suffix="AA",
         )
 
         awarded = client.post(
@@ -339,7 +339,7 @@ def test_expired_award_fails_without_partial_booking_or_state_transition() -> No
     with TestClient(create_app(settings)) as client:
         mission_id, (expired_quote_id, other_quote_id), _, _ = _setup_two_quotes(
             client,
-            suffix="A2",
+            suffix="AB",
         )
 
         engine = create_engine(settings.database_url)
@@ -406,7 +406,7 @@ def test_expired_award_fails_without_partial_booking_or_state_transition() -> No
 def test_concurrent_acceptance_of_two_quotes_produces_exactly_one_booking() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        mission_id, quote_ids, _, _ = _setup_two_quotes(client, suffix="A3")
+        mission_id, quote_ids, _, _ = _setup_two_quotes(client, suffix="AC")
         barrier = Barrier(2)
 
         def accept(quote_id: str, key: str) -> int:
