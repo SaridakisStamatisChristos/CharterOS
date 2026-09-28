@@ -204,9 +204,7 @@ def test_capacity_and_range_boundaries_are_inclusive() -> None:
 
 def test_reposition_distance_and_timing_are_hard_filters() -> None:
     too_far = _candidate(position_lon=Decimal("-73.7781"))
-    assert _evaluate(too_far).rejection_reasons == (
-        MatchReasonCode.REPOSITION_TOO_FAR,
-    )
+    assert _evaluate(too_far).rejection_reasons == (MatchReasonCode.REPOSITION_TOO_FAR,)
     evaluation = evaluate_candidate(
         mission=_mission(),
         candidate=_candidate(),
@@ -215,9 +213,7 @@ def test_reposition_distance_and_timing_are_hard_filters() -> None:
         route_distance_tenths_nm=10_000,
         decision_time=DEPARTURE + timedelta(hours=1, minutes=30),
     )
-    assert evaluation.rejection_reasons == (
-        MatchReasonCode.REPOSITION_TOO_LATE,
-    )
+    assert evaluation.rejection_reasons == (MatchReasonCode.REPOSITION_TOO_LATE,)
 
 
 def test_exact_money_cost_and_explicit_budget_currency_semantics() -> None:
@@ -232,9 +228,7 @@ def test_exact_money_cost_and_explicit_budget_currency_semantics() -> None:
     assert evaluation.draft is not None
     assert MatchReasonCode.BUDGET_CURRENCY_MISMATCH in evaluation.draft.reason_codes
     assert evaluation.draft.estimated_operating_cost.currency == Currency("EUR")
-    assert operating_cost_for_minutes(
-        Money(100, Currency("EUR")), 61
-    ).amount_minor == 102
+    assert operating_cost_for_minutes(Money(100, Currency("EUR")), 61).amount_minor == 102
 
 
 def test_score_is_decomposed_and_tie_break_is_stable() -> None:
