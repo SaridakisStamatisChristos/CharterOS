@@ -15,6 +15,7 @@ def load_models() -> None:
     )
     from charteros.infrastructure.db.models.matching import MatchingReferenceProfileRow
     from charteros.infrastructure.db.models.missions import MissionRow
+    from charteros.infrastructure.db.models.rfqs import RfqRow
 
     _ = (
         AircraftAvailabilityRecordRow,
@@ -28,6 +29,7 @@ def load_models() -> None:
         OperatorRow,
         OrganizationRow,
         OutboxEventRow,
+        RfqRow,
     )
 
 
