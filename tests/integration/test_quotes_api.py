@@ -478,7 +478,7 @@ def test_revision_preserves_history_and_emits_lineage_events() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            first_events = (
+            first_events: Sequence[str] = (
                 connection.execute(
                     text(
                         "SELECT event_type FROM outbox_events "
@@ -489,7 +489,7 @@ def test_revision_preserves_history_and_emits_lineage_events() -> None:
                 .scalars()
                 .all()
             )
-            second_events = (
+            second_events: Sequence[str] = (
                 connection.execute(
                     text(
                         "SELECT event_type FROM outbox_events "
