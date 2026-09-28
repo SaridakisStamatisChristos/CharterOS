@@ -16,7 +16,7 @@ from charteros.domain.missions import MissionId
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyAirportRepository
 from charteros.infrastructure.db.repositories.matching import SqlAlchemyMatchingSnapshotRepository
 from charteros.infrastructure.db.repositories.missions import SqlAlchemyMissionRepository
-from charteros.matching import BudgetComparison, MatchReasonCode, MatchingDecision, RankedMatch
+from charteros.matching import BudgetComparison, MatchingDecision, MatchReasonCode, RankedMatch
 
 router = APIRouter(prefix="/v1", tags=["matching"])
 SessionDep = Annotated[Session, Depends(get_session)]
