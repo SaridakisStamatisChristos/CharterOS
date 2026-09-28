@@ -185,7 +185,8 @@ def test_lower_price_never_scores_worse_when_other_dimensions_match(
 
     result = score_comparison_drafts((expensive, cheaper))
     by_id = {item.quote_id: item for item in result}
-    assert (
-        by_id[cheaper.quote_id].score.total_basis_points
-        >= by_id[expensive.quote_id].score.total_basis_points
-    )
+    cheaper_score = by_id[cheaper.quote_id].score.total_basis_points
+    expensive_score = by_id[expensive.quote_id].score.total_basis_points
+    assert cheaper_score is not None
+    assert expensive_score is not None
+    assert cheaper_score >= expensive_score
