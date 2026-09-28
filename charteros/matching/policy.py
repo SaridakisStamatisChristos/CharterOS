@@ -51,18 +51,14 @@ def haversine_distance_tenths_nm(
     dlon = lon2 - lon1
     a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     distance_nm = 2 * _EARTH_RADIUS_NM * asin(min(1.0, sqrt(a)))
-    rounded = Decimal(str(distance_nm * 10)).quantize(
-        Decimal("1"), rounding=ROUND_HALF_UP
-    )
+    rounded = Decimal(str(distance_nm * 10)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return int(rounded)
 
 
 def required_range_nm(route_distance_tenths_nm: int) -> int:
     if route_distance_tenths_nm < 0:
         raise DomainValidationError("route distance cannot be negative")
-    required_tenths = _ceil_div(
-        route_distance_tenths_nm * (100 + RANGE_RESERVE_PERCENT), 100
-    )
+    required_tenths = _ceil_div(route_distance_tenths_nm * (100 + RANGE_RESERVE_PERCENT), 100)
     return _ceil_div(required_tenths, 10)
 
 
@@ -187,9 +183,7 @@ def evaluate_candidate(
             max(1, available_minutes),
         ),
     )
-    budget_comparison, budget_delta, budget_reason = _budget_comparison(
-        mission, estimated_cost
-    )
+    budget_comparison, budget_delta, budget_reason = _budget_comparison(mission, estimated_cost)
     reasons = (
         MatchReasonCode.FEASIBLE,
         MatchReasonCode.AIRCRAFT_ACTIVE,
