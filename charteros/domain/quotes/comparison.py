@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
+from enum import StrEnum
 
 from charteros.domain.quotes import QuoteId
 from charteros.domain.quotes.normalization import PricingConfidence
@@ -22,6 +23,11 @@ MAX_COMPARISON_POINTS = (
     + OPERATIONAL_RISK_WEIGHT
     + PRICING_CONFIDENCE_WEIGHT
 )
+
+
+class ComparisonEligibilityReason(StrEnum):
+    QUOTE_NOT_COMMERCIALLY_VALID = "quote_not_commercially_valid"
+    AIRCRAFT_INFEASIBLE = "aircraft_infeasible"
 
 
 @dataclass(frozen=True, slots=True)
