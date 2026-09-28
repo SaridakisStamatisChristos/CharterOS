@@ -1,4 +1,5 @@
 import os
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Barrier
@@ -260,7 +261,7 @@ def test_fleet_timeline_api_idempotency_history_correction_and_outbox() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            event_types: list[str] = (
+            event_types: Sequence[str] = (
                 connection.execute(
                     text(
                         "SELECT event_type FROM outbox_events "
