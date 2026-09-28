@@ -11,10 +11,8 @@ from charteros.domain.shared.exceptions import (
 )
 from charteros.domain.shared.ids import CorrelationId, EventId, TypedId
 
-IdT = TypeVar("IdT", bound=TypedId)
 
-
-class AggregateRoot(Generic[IdT]):
+class AggregateRoot[IdT: TypedId]:
     """Base aggregate with monotonic optimistic versioning and pending events."""
 
     aggregate_type: ClassVar[str] = ""
