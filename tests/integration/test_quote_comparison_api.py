@@ -213,8 +213,8 @@ def test_mission_quote_comparison_is_explainable_and_operationally_grounded() ->
             "/v1/airports",
             headers={"Idempotency-Key": "pr10-origin"},
             json={
-                "icao": "T10A",
-                "iata": "T1A",
+                "icao": "PTAA",
+                "iata": "PQA",
                 "lat": "37.9364",
                 "lon": "23.9445",
                 "timezone": "Europe/Athens",
@@ -224,8 +224,8 @@ def test_mission_quote_comparison_is_explainable_and_operationally_grounded() ->
             "/v1/airports",
             headers={"Idempotency-Key": "pr10-destination"},
             json={
-                "icao": "T10B",
-                "iata": "T1B",
+                "icao": "PTAB",
+                "iata": "PQB",
                 "lat": "40.5197",
                 "lon": "22.9709",
                 "timezone": "Europe/Athens",
