@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import text
+from sqlalchemy.engine import RowMapping
 from sqlalchemy.orm import Session
 
 from charteros.application.exceptions import EntityConflictError
@@ -124,6 +124,12 @@ def _datetime(value: object) -> datetime:
     return value
 
 
+def _integer(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise EntityConflictError("matching snapshot contains an invalid integer")
+    return value
+
+
 def _decimal(value: object) -> Decimal:
     try:
         return Decimal(str(value))
@@ -137,7 +143,7 @@ def _json_mapping(value: object) -> dict[str, object]:
     return {str(key): item for key, item in value.items()}
 
 
-def _position(mapping: Mapping[str, object]) -> PositionSnapshot | None:
+def _position(mapping: RowMapping) -> PositionSnapshot | None:
     if mapping["position_id"] is None:
         return None
     latitude = mapping["position_latitude"]
@@ -158,7 +164,7 @@ def _position(mapping: Mapping[str, object]) -> PositionSnapshot | None:
     )
 
 
-def _availability(mapping: Mapping[str, object]) -> AvailabilitySnapshot | None:
+def _availability(mapping: RowMapping) -> AvailabilitySnapshot | None:
     if mapping["availability_id"] is None:
         return None
     return AvailabilitySnapshot(
@@ -175,19 +181,19 @@ def _availability(mapping: Mapping[str, object]) -> AvailabilitySnapshot | None:
     )
 
 
-def _profile(mapping: Mapping[str, object]) -> MatchingReferenceProfile | None:
+def _profile(mapping: RowMapping) -> MatchingReferenceProfile | None:
     if mapping["profile_id"] is None:
         return None
     return MatchingReferenceProfile(
         id=MatchingProfileId(_uuid(mapping["profile_id"])),
         aircraft_type_id=AircraftTypeId(_uuid(mapping["aircraft_type_id"])),
-        cruise_speed_kts=int(mapping["cruise_speed_kts"]),
+        cruise_speed_kts=_integer(mapping["cruise_speed_kts"]),
         operating_cost_per_hour=Money(
-            int(mapping["operating_cost_per_hour_minor"]),
+            _integer(mapping["operating_cost_per_hour_minor"]),
             Currency(str(mapping["operating_cost_currency"])),
         ),
-        max_reposition_nm=int(mapping["max_reposition_nm"]),
-        turnaround_buffer_minutes=int(mapping["turnaround_buffer_minutes"]),
+        max_reposition_nm=_integer(mapping["max_reposition_nm"]),
+        turnaround_buffer_minutes=_integer(mapping["turnaround_buffer_minutes"]),
         source=str(mapping["profile_source"]),
         provenance=_json_mapping(mapping["profile_provenance"]),
         recorded_at=_datetime(mapping["profile_recorded_at"]),
