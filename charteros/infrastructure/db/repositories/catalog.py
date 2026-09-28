@@ -303,7 +303,9 @@ class SqlAlchemyDomainEventRepository:
 
     def add_aggregate_events(
         self,
-        aggregate: Organization | Operator | Airport | Aircraft | Mission | Rfq | Quote | Booking | Contract,
+        aggregate: (
+            Organization | Operator | Airport | Aircraft | Mission | Rfq | Quote | Booking | Contract
+        ),
     ) -> None:
         for event in aggregate.collect_events():
             self._session.add(
