@@ -260,7 +260,7 @@ def test_fleet_timeline_api_idempotency_history_correction_and_outbox() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            event_types = (
+            event_types: list[str] = (
                 connection.execute(
                     text(
                         "SELECT event_type FROM outbox_events "
@@ -303,7 +303,7 @@ def test_concurrent_overlapping_availability_writes_cannot_both_commit() -> None
                     "source": "concurrency-test",
                 },
             )
-            return response.status_code
+            return int(response.status_code)
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             first = executor.submit(write, "pr4-race-1", "available")
