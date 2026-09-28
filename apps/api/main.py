@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from apps.api.routes import (
     booking_router,
     catalog_router,
+    contract_router,
     fleet_router,
     matching_router,
     mission_router,
@@ -60,6 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(rfq_router)
     app.include_router(quote_router)
     app.include_router(booking_router)
+    app.include_router(contract_router)
 
     @app.exception_handler(DomainValidationError)
     async def domain_validation_handler(
