@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
