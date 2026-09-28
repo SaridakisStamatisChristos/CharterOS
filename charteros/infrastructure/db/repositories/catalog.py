@@ -14,6 +14,7 @@ from charteros.domain.aircraft import (
     AircraftTypeId,
 )
 from charteros.domain.airports import Airport, AirportId
+from charteros.domain.bookings import Booking
 from charteros.domain.missions import Mission
 from charteros.domain.operators import (
     CommercialStatus,
@@ -301,7 +302,7 @@ class SqlAlchemyDomainEventRepository:
 
     def add_aggregate_events(
         self,
-        aggregate: Organization | Operator | Airport | Aircraft | Mission | Rfq | Quote,
+        aggregate: Organization | Operator | Airport | Aircraft | Mission | Rfq | Quote | Booking,
     ) -> None:
         for event in aggregate.collect_events():
             self._session.add(

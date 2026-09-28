@@ -1,3 +1,4 @@
+from charteros.infrastructure.db.repositories.bookings import SqlAlchemyBookingRepository
 from charteros.infrastructure.db.repositories.catalog import (
     SqlAlchemyAircraftRepository,
     SqlAlchemyAircraftTypeRepository,
@@ -16,6 +17,7 @@ __all__ = [
     "SqlAlchemyAircraftRepository",
     "SqlAlchemyAircraftTypeRepository",
     "SqlAlchemyAirportRepository",
+    "SqlAlchemyBookingRepository",
     "SqlAlchemyDomainEventRepository",
     "SqlAlchemyIdempotencyRepository",
     "SqlAlchemyMatchingSnapshotRepository",
