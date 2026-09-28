@@ -394,15 +394,11 @@ def _comparison_response(value: MissionQuoteComparison) -> MissionQuoteCompariso
                 aircraft_suitability=AircraftSuitabilityResponse(
                     feasible=suitability.feasible,
                     reason_codes=[reason.value for reason in suitability.reason_codes],
-                    rejection_reasons=[
-                        reason.value for reason in suitability.rejection_reasons
-                    ],
+                    rejection_reasons=[reason.value for reason in suitability.rejection_reasons],
                     seat_capacity=suitability.seat_capacity,
                     aircraft_range_nm=suitability.aircraft_range_nm,
                     required_range_nm=suitability.required_range_nm,
-                    reposition_distance_nm=_nm(
-                        suitability.reposition_distance_tenths_nm
-                    ),
+                    reposition_distance_nm=_nm(suitability.reposition_distance_tenths_nm),
                     timing_buffer_minutes=suitability.timing_buffer_minutes,
                     schedule_risk_basis_points=suitability.schedule_risk_basis_points,
                     position_event_time=suitability.position_event_time,
