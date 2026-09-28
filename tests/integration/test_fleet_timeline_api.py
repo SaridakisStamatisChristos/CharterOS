@@ -16,63 +16,57 @@ def _settings() -> Settings:
     database_url = os.environ.get("CHARTEROS_DATABASE_URL")
     if not database_url:
         pytest.skip("CHARTEROS_DATABASE_URL is required")
-    return Settings(environment="test", database_url=database_url, _env_file=None)
+    return Settings(
+        environment="test",
+        database_url=database_url,
+        _env_file=None,
+    )
 
 
 def _create_aircraft(
-    client: TestClient,
-    *,
-    suffix: str,
-    icao: str,
-    iata: str,
+    client: TestClient, *, suffix: str, icao: str, iata: str
 ) -> tuple[str, str]:
-    airport_response = client.post(
+    airport = client.post(
         "/v1/airports",
         headers={"Idempotency-Key": f"pr4-airport-{suffix}"},
         json={
             "icao": icao,
             "iata": iata,
-            "lat": "37.10",
-            "lon": "23.10",
+            "lat": "37.9364",
+            "lon": "23.9445",
             "timezone": "Europe/Athens",
         },
     )
-    assert airport_response.status_code == 201
-    airport_id = airport_response.json()["id"]
-
-    organization_response = client.post(
+    assert airport.status_code == 201
+    organization = client.post(
         "/v1/organizations",
         headers={"Idempotency-Key": f"pr4-org-{suffix}"},
         json={
             "type": "operator",
-            "legal_name": f"PR4 Timeline Operator {suffix}",
+            "legal_name": f"PR4 Operator {suffix}",
             "country": "GR",
         },
     )
-    assert organization_response.status_code == 201
-    organization_id = organization_response.json()["id"]
-
-    operator_response = client.post(
+    assert organization.status_code == 201
+    operator = client.post(
         "/v1/operators",
         headers={"Idempotency-Key": f"pr4-operator-{suffix}"},
         json={
-            "organization_id": organization_id,
+            "organization_id": organization.json()["id"],
             "aoc_reference": f"GR-PR4-{suffix}",
             "operating_regions": ["EU"],
         },
     )
-    assert operator_response.status_code == 201
-    operator_id = operator_response.json()["id"]
-
-    aircraft_response = client.post(
+    assert operator.status_code == 201
+    aircraft = client.post(
         "/v1/aircraft",
         headers={"Idempotency-Key": f"pr4-aircraft-{suffix}"},
         json={
-            "operator_id": operator_id,
-            "registration": f"SX-P4{suffix}",
+            "operator_id": operator.json()["id"],
+            "registration": f"SX-P{suffix}",
             "aircraft_type": {
                 "manufacturer": "Airbus",
-                "model": f"A320-PR4-{suffix}",
+                "model": f"A320 PR4 {suffix}",
                 "category": "airliner",
                 "seats_min": 150,
                 "seats_max": 186,
@@ -81,11 +75,11 @@ def _create_aircraft(
             "seat_capacity": 180,
             "cargo_capacity": "1500",
             "range_nm": 3200,
-            "home_base": airport_id,
+            "home_base": airport.json()["id"],
         },
     )
-    assert aircraft_response.status_code == 201
-    return aircraft_response.json()["id"], airport_id
+    assert aircraft.status_code == 201
+    return aircraft.json()["id"], airport.json()["id"]
 
 
 def _parse(value: str) -> datetime:
@@ -98,9 +92,7 @@ def test_fleet_timeline_api_idempotency_history_correction_and_outbox() -> None:
     now = datetime.now(UTC)
 
     with TestClient(create_app(settings)) as client:
-        aircraft_id, airport_id = _create_aircraft(
-            client, suffix="A", icao="PRTA", iata="PRA"
-        )
+        aircraft_id, airport_id = _create_aircraft(client, suffix="A", icao="PRTA", iata="PRA")
         UUID(aircraft_id)
 
         position_body = {
@@ -189,9 +181,7 @@ def test_fleet_timeline_api_idempotency_history_correction_and_outbox() -> None:
             params={
                 "from": window_from.isoformat(),
                 "to": window_to.isoformat(),
-                "known_as_of": (
-                    availability_recorded_at - timedelta(microseconds=1)
-                ).isoformat(),
+                "known_as_of": (availability_recorded_at - timedelta(microseconds=1)).isoformat(),
                 "at": (now + timedelta(hours=3)).isoformat(),
             },
         )
@@ -259,9 +249,7 @@ def test_fleet_timeline_api_idempotency_history_correction_and_outbox() -> None:
         assert current.status_code == 200
         current_body = current.json()
         assert current_body["state"]["availability"]["id"] == correction["id"]
-        authority = {
-            row["id"]: row["authoritative_as_of"] for row in current_body["availability"]
-        }
+        authority = {row["id"]: row["authoritative_as_of"] for row in current_body["availability"]}
         assert authority[availability["id"]] is False
         assert authority[correction["id"]] is True
 
@@ -274,13 +262,17 @@ def test_fleet_timeline_api_idempotency_history_correction_and_outbox() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            event_types = connection.execute(
-                text(
-                    "SELECT event_type FROM outbox_events "
-                    "WHERE aggregate_id = :aircraft_id ORDER BY aggregate_version"
-                ),
-                {"aircraft_id": UUID(aircraft_id)},
-            ).scalars().all()
+            event_types = (
+                connection.execute(
+                    text(
+                        "SELECT event_type FROM outbox_events "
+                        "WHERE aggregate_id = :aircraft_id ORDER BY aggregate_version"
+                    ),
+                    {"aircraft_id": UUID(aircraft_id)},
+                )
+                .scalars()
+                .all()
+            )
             assert event_types == [
                 "AIRCRAFT_REGISTERED",
                 "AIRCRAFT_POSITION_RECORDED",
