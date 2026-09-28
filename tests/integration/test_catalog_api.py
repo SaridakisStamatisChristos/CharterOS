@@ -174,10 +174,10 @@ def test_catalog_creation_flow_constraints_and_outbox() -> None:
     engine = create_engine(database_url)
     try:
         with engine.connect() as connection:
-            outbox_count = connection.execute(
+            outbox_count: int = connection.execute(
                 text("SELECT count(*) FROM outbox_events")
             ).scalar_one()
-            idempotency_count = connection.execute(
+            idempotency_count: int = connection.execute(
                 text("SELECT count(*) FROM idempotency_records")
             ).scalar_one()
             assert outbox_count == 4
