@@ -37,7 +37,7 @@ def _create_foundation(client: TestClient, *, suffix: str) -> tuple[str, str, st
         headers={"Idempotency-Key": f"pr5-origin-{suffix}"},
         json={
             "icao": f"P{suffix}A",
-            "iata": f"{suffix}OA",
+            "iata": f"{suffix}A",
             "lat": "37.9364",
             "lon": "23.9445",
             "timezone": "Europe/Athens",
@@ -49,7 +49,7 @@ def _create_foundation(client: TestClient, *, suffix: str) -> tuple[str, str, st
         headers={"Idempotency-Key": f"pr5-destination-{suffix}"},
         json={
             "icao": f"P{suffix}B",
-            "iata": f"{suffix}OB",
+            "iata": f"{suffix}B",
             "lat": "40.5197",
             "lon": "22.9709",
             "timezone": "Europe/Athens",
