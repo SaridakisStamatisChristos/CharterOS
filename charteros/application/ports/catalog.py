@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from charteros.domain.aircraft import Aircraft, AircraftType, AircraftTypeId
+from charteros.domain.aircraft import Aircraft, AircraftId, AircraftType, AircraftTypeId
 from charteros.domain.airports import Airport, AirportId
 from charteros.domain.missions import Mission
 from charteros.domain.operators import Operator, OperatorId
 from charteros.domain.organizations import Organization, OrganizationId
+from charteros.domain.quotes import Quote
 from charteros.domain.rfqs import Rfq
 
 
@@ -33,10 +34,11 @@ class AircraftTypeRepository(Protocol):
 
 class AircraftRepository(Protocol):
     def add(self, aircraft: Aircraft) -> None: ...
+    def get(self, aircraft_id: AircraftId) -> Aircraft | None: ...
 
 
 class DomainEventRepository(Protocol):
     def add_aggregate_events(
         self,
-        aggregate: Organization | Operator | Airport | Aircraft | Mission | Rfq,
+        aggregate: Organization | Operator | Airport | Aircraft | Mission | Rfq | Quote,
     ) -> None: ...
