@@ -35,7 +35,7 @@ def test_aggregate_version_advances_with_recorded_events() -> None:
 
     collected = aggregate.collect_events()
     assert len(collected) == 1
-    assert aggregate.pending_events == ()
+    assert len(aggregate.pending_events) == 0
     assert aggregate.version == 5
 
 
