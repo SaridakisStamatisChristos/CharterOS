@@ -67,9 +67,7 @@ def _validate_structural_lineage(
         or following.origin_airport_id != item.to_airport_id
         or following.departure_from != item.window_end
     ):
-        raise EntityConflictError(
-            "PR16 empty-leg candidate conflicts with next booking lineage"
-        )
+        raise EntityConflictError("PR16 empty-leg candidate conflicts with next booking lineage")
 
 
 class RepositioningService:
@@ -115,12 +113,8 @@ class RepositioningService:
         projection_version = self._graph.projection_version
         structural_items: list[StructuralEmptyLeg] = []
         for item in graph_items:
-            previous = self._graph.booking_flight_lineage(
-                booking_id=item.previous_booking_id
-            )
-            following = self._graph.booking_flight_lineage(
-                booking_id=item.next_booking_id
-            )
+            previous = self._graph.booking_flight_lineage(booking_id=item.previous_booking_id)
+            following = self._graph.booking_flight_lineage(booking_id=item.next_booking_id)
             _validate_structural_lineage(item, previous, following)
             structural_items.append(
                 StructuralEmptyLeg(
@@ -200,11 +194,11 @@ class RepositioningService:
             limit=opportunity_limit,
         )
 
-        airport_ids: set[AirportId] = {
-            AirportId(item.previous_origin_airport_id) for item in structural
-        } | {AirportId(item.from_airport_id) for item in structural} | {
-            AirportId(item.to_airport_id) for item in structural
-        }
+        airport_ids: set[AirportId] = (
+            {AirportId(item.previous_origin_airport_id) for item in structural}
+            | {AirportId(item.from_airport_id) for item in structural}
+            | {AirportId(item.to_airport_id) for item in structural}
+        )
         for item in opportunities:
             airport_ids.add(item.origin_airport_id)
             airport_ids.add(item.destination_airport_id)
@@ -217,9 +211,7 @@ class RepositioningService:
             baseline_eval = evaluate_baseline(
                 structural=item,
                 candidate=snapshot,
-                previous_origin_airport=airports[
-                    AirportId(item.previous_origin_airport_id)
-                ],
+                previous_origin_airport=airports[AirportId(item.previous_origin_airport_id)],
                 from_airport=airports[AirportId(item.from_airport_id)],
                 continuity_airport=airports[AirportId(item.to_airport_id)],
             )
@@ -227,8 +219,8 @@ class RepositioningService:
             if baseline_eval.baseline is not None:
                 baselines.append((item, baseline_eval.baseline))
 
-        opportunities_by_aircraft: dict[tuple[UUID, UUID], list[QuotedFutureLeg]] = (
-            defaultdict(list)
+        opportunities_by_aircraft: dict[tuple[UUID, UUID], list[QuotedFutureLeg]] = defaultdict(
+            list
         )
         for opportunity in opportunities:
             opportunities_by_aircraft[
@@ -258,10 +250,7 @@ class RepositioningService:
         grouped: dict[str, list[FeasibleInsertion]] = defaultdict(list)
         for item in feasible:
             grouped[str(item.currency)].append(item)
-        plans = tuple(
-            build_currency_plan(tuple(grouped[currency]))
-            for currency in sorted(grouped)
-        )
+        plans = tuple(build_currency_plan(tuple(grouped[currency])) for currency in sorted(grouped))
 
         return RepositionOptimization(
             policy_version=POLICY_VERSION,
