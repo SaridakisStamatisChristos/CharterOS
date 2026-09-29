@@ -222,7 +222,10 @@ def test_completed_missions_are_causally_linked_and_repositioning_preserves_cont
             assert previous.completed_at <= mission.departed_at
             if previous.destination_icao != mission.origin_icao:
                 assert mission.preceding_empty_leg_id is not None
-                assert empty_legs[mission.preceding_empty_leg_id].from_icao == previous.destination_icao
+                assert (
+                    empty_legs[mission.preceding_empty_leg_id].from_icao
+                    == previous.destination_icao
+                )
         previous_by_operator[mission.operator_key] = mission
 
 
