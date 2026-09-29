@@ -380,9 +380,7 @@ class SimulatedConversion:
         expected_conversion = self.conversion_draw_ppm < self.conversion_probability_ppm
         if self.converted != expected_conversion:
             raise DomainValidationError("converted must match conversion probability and draw")
-        object.__setattr__(
-            self, "decided_at", ensure_utc(self.decided_at, field_name="decided_at")
-        )
+        object.__setattr__(self, "decided_at", ensure_utc(self.decided_at, field_name="decided_at"))
         selected = self.selected_quote_id is not None and self.selected_operator_key is not None
         if self.converted != selected:
             raise DomainValidationError("conversion selection fields must match converted state")
