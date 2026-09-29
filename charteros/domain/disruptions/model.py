@@ -94,6 +94,17 @@ def _text(
     return normalized
 
 
+def _required_text(value: str, *, field_name: str, max_length: int) -> str:
+    normalized = _text(
+        value,
+        field_name=field_name,
+        max_length=max_length,
+        required=True,
+    )
+    assert normalized is not None
+    return normalized
+
+
 def _iso(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
@@ -138,7 +149,7 @@ class ReplacementProposal:
             raise DomainValidationError("current disruption proposal cannot be superseded")
         if status is DisruptionProposalStatus.SUPERSEDED and superseded_at is None:
             raise DomainValidationError("superseded disruption proposal requires superseded_at")
-        source = _text(self.source, field_name="proposal source", max_length=64, required=True)
+        source = _required_text(self.source, field_name="proposal source", max_length=64)
         evidence = _text(
             self.source_evidence,
             field_name="proposal source_evidence",
@@ -183,11 +194,10 @@ class DisruptionCommercialChange:
             raise DomainValidationError("revised commercial change must identify its predecessor")
         if self.supersedes_change_id == self.id:
             raise DomainValidationError("commercial change cannot supersede itself")
-        normalization_version = _text(
+        normalization_version = _required_text(
             self.normalization_version,
             field_name="normalization_version",
             max_length=64,
-            required=True,
         )
         values = (
             self.original_expected_total,
@@ -300,7 +310,7 @@ class Disruption(AggregateRoot[DisruptionId]):
         self.effective_at = (
             _utc(effective_at, field_name="effective_at") if effective_at is not None else None
         )
-        self.reason = _text(reason, field_name="reason", max_length=2000, required=True)
+        self.reason = _required_text(reason, field_name="reason", max_length=2000)
         self.current_proposal_id = current_proposal_id
         self.current_commercial_change_id = current_commercial_change_id
         self.latest_buyer_decision_id = latest_buyer_decision_id
@@ -601,11 +611,10 @@ class Disruption(AggregateRoot[DisruptionId]):
         when = _utc(resolved_at, field_name="resolved_at")
         if when < proposal.proposed_at:
             raise DomainValidationError("resolved_at cannot precede the selected proposal")
-        resolution = _text(
+        resolution = _required_text(
             outcome,
             field_name="resolution outcome",
             max_length=2000,
-            required=True,
         )
         self.status = DisruptionStatus.RESOLVED
         self.selected_proposal_id = proposal.id
