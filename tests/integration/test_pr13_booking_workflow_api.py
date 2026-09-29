@@ -176,8 +176,7 @@ def test_booking_workflow_contract_guard_idempotency_mission_coupling_and_outbox
             ]
 
             booking_state_query = (
-                "SELECT state, version, state_changed_at, created_at "
-                "FROM bookings WHERE id=:id"
+                "SELECT state, version, state_changed_at, created_at FROM bookings WHERE id=:id"
             )
             persisted = connection.execute(
                 text(booking_state_query),
