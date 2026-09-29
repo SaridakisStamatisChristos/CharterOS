@@ -159,6 +159,17 @@ global_plan_available = false
 Currency plans are therefore scoped alternatives, not a globally ranked executable plan. No
 cross-currency total margin is emitted.
 
+### Knowledge-time boundary
+
+The active Charter Graph is a current materialized projection rather than an arbitrary historical
+snapshot. PR18 therefore reads the active projection checkpoint's `max_recorded_at` and exposes it
+as `graph_knowledge_cutoff`.
+
+If the requested `evaluated_at` precedes that cutoff, PR18 fails closed. It does not combine a
+historical canonical Quote/profile cutoff with graph evidence that was learned later. Historical
+optimization replay requires a future explicit as-of graph projection capability rather than
+silently leaking future graph knowledge.
+
 ### Read-only execution
 
 PR18 is a recommendation/query capability. It does not mutate Mission, Quote, Booking, aircraft,
@@ -176,7 +187,7 @@ and exposes bounded limits for structural empty legs and quoted future opportuni
 
 The optimizer is deterministic for the same:
 
-- active graph projection;
+- active graph projection and its knowledge checkpoint;
 - canonical database state;
 - evaluation timestamp;
 - query horizon;
