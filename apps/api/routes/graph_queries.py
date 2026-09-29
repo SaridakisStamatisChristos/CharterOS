@@ -291,9 +291,7 @@ def feasible_aircraft_for_mission(
                 route_distance_nm=_nm(item.draft.route_distance_tenths_nm),
                 reposition_distance_nm=_nm(item.draft.reposition_distance_tenths_nm),
                 estimated_operating_cost_minor=item.draft.estimated_operating_cost.amount_minor,
-                estimated_operating_cost_currency=str(
-                    item.draft.estimated_operating_cost.currency
-                ),
+                estimated_operating_cost_currency=str(item.draft.estimated_operating_cost.currency),
             )
             for item in matches
         ],
