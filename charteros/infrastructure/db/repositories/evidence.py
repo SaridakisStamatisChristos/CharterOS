@@ -585,6 +585,9 @@ class SqlAlchemyEvidenceRepository:
         invoice_lines: list[OperatorInvoiceLineRow],
         disputes: list[ReconciliationDisputeRow],
         variance_approvals: list[VarianceApprovalRow],
+        fx_locks: list[FxLockRow],
+        fx_conversions: list[FxLockConversionRow],
+        fx_rates: list[FxRateRow],
     ) -> None:
         quote_by_id = {row.id: row for row in quotes}
         booking_by_id = {row.id: row for row in bookings}
@@ -752,6 +755,9 @@ class SqlAlchemyEvidenceRepository:
         invoice_lines: list[OperatorInvoiceLineRow],
         disputes: list[ReconciliationDisputeRow],
         variance_approvals: list[VarianceApprovalRow],
+        fx_locks: list[FxLockRow],
+        fx_conversions: list[FxLockConversionRow],
+        fx_rates: list[FxRateRow],
     ) -> list[EvidenceSourceRecord]:
         sources: list[EvidenceSourceRecord] = [
             _record(
