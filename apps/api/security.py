@@ -27,7 +27,6 @@ from charteros.shared.config import Settings
 logger = logging.getLogger(__name__)
 
 
-
 def _uuid_header(request: Request, name: str) -> UUID | None:
     raw = request.headers.get(name)
     if raw is None:
@@ -39,9 +38,8 @@ def _uuid_header(request: Request, name: str) -> UUID | None:
 
 
 def _has_tenant_admin(principal: AuthenticatedPrincipal) -> bool:
-    return (
-        principal.principal_type is PrincipalType.ADMINISTRATOR
-        and principal.has(Permission.TENANT_ADMIN)
+    return principal.principal_type is PrincipalType.ADMINISTRATOR and principal.has(
+        Permission.TENANT_ADMIN
     )
 
 
@@ -148,9 +146,7 @@ def _deny(
         extra={
             "event": "authorization_denied",
             "subject": principal.subject if principal is not None else None,
-            "principal_type": (
-                principal.principal_type.value if principal is not None else None
-            ),
+            "principal_type": (principal.principal_type.value if principal is not None else None),
             "method": request.method,
             "path": request.url.path,
             "reason": reason,

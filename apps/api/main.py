@@ -64,9 +64,7 @@ def create_app(
         lifespan=_lifespan,
         docs_url="/docs" if resolved_settings.environment != "production" else None,
         redoc_url=None,
-        openapi_url=(
-            "/openapi.json" if resolved_settings.environment != "production" else None
-        ),
+        openapi_url=("/openapi.json" if resolved_settings.environment != "production" else None),
         swagger_ui_oauth2_redirect_url=None,
     )
     app.state.settings = resolved_settings

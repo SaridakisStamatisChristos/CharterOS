@@ -34,9 +34,7 @@ class RoutePolicy:
 ADMIN = frozenset({PrincipalType.ADMINISTRATOR})
 BUYER = frozenset({PrincipalType.BUYER, PrincipalType.ADMINISTRATOR})
 OPERATOR = frozenset({PrincipalType.OPERATOR, PrincipalType.ADMINISTRATOR})
-PARTIES = frozenset(
-    {PrincipalType.BUYER, PrincipalType.OPERATOR, PrincipalType.ADMINISTRATOR}
-)
+PARTIES = frozenset({PrincipalType.BUYER, PrincipalType.OPERATOR, PrincipalType.ADMINISTRATOR})
 
 
 def _policy(
