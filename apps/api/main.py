@@ -11,6 +11,7 @@ from apps.api.routes import (
     catalog_router,
     contract_router,
     fleet_router,
+    graph_query_router,
     matching_router,
     mission_router,
     quote_router,
@@ -56,6 +57,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(CorrelationIdMiddleware)
     app.include_router(catalog_router)
     app.include_router(fleet_router)
+    app.include_router(graph_query_router)
     app.include_router(mission_router)
     app.include_router(matching_router)
     app.include_router(rfq_router)

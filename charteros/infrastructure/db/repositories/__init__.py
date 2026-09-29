@@ -13,6 +13,7 @@ from charteros.infrastructure.db.repositories.graph import (
     GraphProjectionStatus,
     SqlAlchemyGraphProjectionStore,
 )
+from charteros.infrastructure.db.repositories.graph_queries import SqlAlchemyGraphQueryRepository
 from charteros.infrastructure.db.repositories.graph_verification import GraphVerificationReport
 from charteros.infrastructure.db.repositories.matching import SqlAlchemyMatchingSnapshotRepository
 from charteros.infrastructure.db.repositories.missions import SqlAlchemyMissionRepository
@@ -33,6 +34,7 @@ __all__ = [
     "SqlAlchemyContractRepository",
     "SqlAlchemyDomainEventRepository",
     "SqlAlchemyGraphProjectionStore",
+    "SqlAlchemyGraphQueryRepository",
     "SqlAlchemyIdempotencyRepository",
     "SqlAlchemyIdempotentConsumerRunner",
     "SqlAlchemyMatchingSnapshotRepository",
