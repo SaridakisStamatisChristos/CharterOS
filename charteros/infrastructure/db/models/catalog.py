@@ -156,7 +156,7 @@ class AircraftRow(Base):
 class IdempotencyRecordRow(Base):
     __tablename__ = "idempotency_records"
 
-    scope: Mapped[str] = mapped_column(String(96), primary_key=True)
+    scope: Mapped[str] = mapped_column(String(192), primary_key=True)
     key: Mapped[str] = mapped_column(String(128), primary_key=True)
     request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     status_code: Mapped[int] = mapped_column(Integer, nullable=False)

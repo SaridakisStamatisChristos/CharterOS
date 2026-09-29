@@ -23,6 +23,7 @@ from charteros.infrastructure.db.repositories.outbox import (
 )
 from charteros.infrastructure.db.repositories.quotes import SqlAlchemyQuoteRepository
 from charteros.infrastructure.db.repositories.rfqs import SqlAlchemyRfqRepository
+from charteros.infrastructure.db.repositories.tenders import SqlAlchemyTenderRepository
 
 __all__ = [
     "GraphProjectionStatus",
@@ -44,4 +45,5 @@ __all__ = [
     "SqlAlchemyOutboxDeliveryRepository",
     "SqlAlchemyQuoteRepository",
     "SqlAlchemyRfqRepository",
+    "SqlAlchemyTenderRepository",
 ]

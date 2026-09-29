@@ -27,6 +27,7 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyMissionRepository,
     SqlAlchemyQuoteRepository,
     SqlAlchemyRfqRepository,
+    SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
 
@@ -59,6 +60,7 @@ def _service(session: Session) -> BookingService:
         missions=SqlAlchemyMissionRepository(session),
         events=SqlAlchemyDomainEventRepository(session),
         contracts=SqlAlchemyContractRepository(session),
+        tenders=SqlAlchemyTenderRepository(session),
     )
 
 

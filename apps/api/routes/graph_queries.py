@@ -13,13 +13,17 @@ from sqlalchemy.orm import Session
 from apps.api.dependencies import get_session
 from charteros.application.graph_queries import GraphQueryService, HistoricalPosition
 from charteros.application.matching import MatchingService
+from charteros.application.tender_visibility import TenderVisibilityPolicy
 from charteros.domain.missions import MissionId
+from charteros.domain.quotes import QuoteId
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyAirportRepository
 from charteros.infrastructure.db.repositories.graph_queries import (
     SqlAlchemyGraphQueryRepository,
 )
 from charteros.infrastructure.db.repositories.matching import SqlAlchemyMatchingSnapshotRepository
 from charteros.infrastructure.db.repositories.missions import SqlAlchemyMissionRepository
+from charteros.infrastructure.db.repositories.quotes import SqlAlchemyQuoteRepository
+from charteros.infrastructure.db.repositories.tenders import SqlAlchemyTenderRepository
 from charteros.matching import MatchReasonCode
 
 router = APIRouter(prefix="/v1/graph", tags=["graph-queries"])
@@ -173,6 +177,13 @@ class BookingFlightLineageResponse(BaseModel):
 
 def _service(session: Session) -> GraphQueryService:
     return GraphQueryService(SqlAlchemyGraphQueryRepository(session))
+
+
+def _visibility_policy(session: Session) -> TenderVisibilityPolicy:
+    return TenderVisibilityPolicy(
+        tenders=SqlAlchemyTenderRepository(session),
+        quotes=SqlAlchemyQuoteRepository(session),
+    )
 
 
 def _position_response(item: HistoricalPosition) -> HistoricalPositionResponse:
@@ -345,6 +356,7 @@ def quote_history(
 ) -> QuoteHistoryResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        _visibility_policy(session).get_visible_quote(QuoteId(quote_id))
         service = _service(session)
         item = service.quote_history(quote_id=quote_id)
         version = service.projection_version

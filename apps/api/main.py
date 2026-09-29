@@ -16,6 +16,7 @@ from apps.api.routes import (
     mission_router,
     quote_router,
     rfq_router,
+    tender_router,
 )
 from charteros import __version__
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
@@ -61,6 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(mission_router)
     app.include_router(matching_router)
     app.include_router(rfq_router)
+    app.include_router(tender_router)
     app.include_router(quote_router)
     app.include_router(booking_router)
     app.include_router(contract_router)

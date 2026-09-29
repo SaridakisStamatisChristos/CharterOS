@@ -9,6 +9,7 @@ from charteros.application.ports.contracts import ContractRepository
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
+from charteros.application.ports.tenders import TenderRepository
 from charteros.domain.bookings import Booking, BookingId, BookingState
 from charteros.domain.contracts import ContractStatus
 from charteros.domain.missions import Mission, MissionStatus
@@ -16,6 +17,7 @@ from charteros.domain.quotes import QuoteId, QuoteStatus
 from charteros.domain.rfqs import RfqStatus
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.ids import CorrelationId
+from charteros.domain.tenders import TenderId, TenderStatus
 
 
 def _utc(value: datetime, *, field_name: str) -> datetime:
@@ -34,6 +36,7 @@ class BookingService:
         missions: MissionRepository,
         events: DomainEventRepository,
         contracts: ContractRepository | None = None,
+        tenders: TenderRepository | None = None,
     ) -> None:
         self._bookings = bookings
         self._quotes = quotes
@@ -41,6 +44,7 @@ class BookingService:
         self._missions = missions
         self._events = events
         self._contracts = contracts
+        self._tenders = tenders
 
     def accept_quote(
         self,
@@ -48,6 +52,7 @@ class BookingService:
         quote_id: QuoteId,
         now: datetime,
         correlation_id: CorrelationId,
+        tender_id: TenderId | None = None,
     ) -> Booking:
         accepted_at = _utc(now, field_name="now")
 
@@ -57,6 +62,23 @@ class BookingService:
         observed_rfq = self._rfqs.get(observed.rfq_id)
         if observed_rfq is None:
             raise EntityNotFoundError("quote RFQ does not exist")
+
+        if self._tenders is not None:
+            invitation = self._tenders.find_invitation_for_rfq(observed.rfq_id)
+            if invitation is not None:
+                tender = self._tenders.get_for_update(invitation.tender_id)
+                if tender is None:
+                    raise EntityNotFoundError("tender for quote invitation does not exist")
+                if tender_id is None or tender.id != tender_id:
+                    raise EntityConflictError(
+                        "tender quotes must be awarded through the tender workflow"
+                    )
+                if tender.status is not TenderStatus.CLOSED:
+                    raise EntityConflictError(
+                        "tender must be closed before its quote can be awarded"
+                    )
+            elif tender_id is not None:
+                raise EntityConflictError("award quote does not belong to the requested tender")
 
         # The mission row is the serialization point for the award boundary. Quote submission and
         # revision take the same lock, so no fresh current quote can appear after this snapshot.
