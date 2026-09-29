@@ -142,6 +142,11 @@ def _approval_from_row(row: VarianceApprovalRow, *, currency: Currency) -> Varia
         invoice_revision_id=OperatorInvoiceRevisionId(row.invoice_revision_id),
         buyer_id=OrganizationId(row.buyer_id),
         approved_variance=Money(row.approved_variance_minor, currency),
+        resolves_dispute_id=(
+            ReconciliationDisputeId(row.resolves_dispute_id)
+            if row.resolves_dispute_id is not None
+            else None
+        ),
         approved_at=row.approved_at,
         note=row.note,
     )
@@ -397,6 +402,11 @@ class SqlAlchemyFinancialReconciliationRepository:
                 invoice_revision_id=approval.invoice_revision_id.value,
                 buyer_id=approval.buyer_id.value,
                 approved_variance_minor=approval.approved_variance.amount_minor,
+                resolves_dispute_id=(
+                    approval.resolves_dispute_id.value
+                    if approval.resolves_dispute_id is not None
+                    else None
+                ),
                 approved_at=approval.approved_at,
                 note=approval.note,
             )
