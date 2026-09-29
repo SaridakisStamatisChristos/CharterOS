@@ -337,6 +337,7 @@ class SqlAlchemyGraphQueryRepository:
         window_start: datetime,
         window_end: datetime,
         limit: int,
+        operator_id: UUID | None = None,
     ) -> tuple[EmptyLegCandidate, ...]:
         version = self.active_version()
         aircraft_edges = tuple(
@@ -400,19 +401,21 @@ class SqlAlchemyGraphQueryRepository:
                 candidate_end = following.departure_from
                 if candidate_end < window_start or candidate_start > window_end:
                     continue
-                operator_id = operator_by_booking.get(previous.booking_id)
+                candidate_operator_id = operator_by_booking.get(previous.booking_id)
                 next_operator_id = operator_by_booking.get(following.booking_id)
-                if operator_id is None or next_operator_id is None:
+                if candidate_operator_id is None or next_operator_id is None:
                     raise EntityConflictError("booking graph is missing operator lineage")
-                if operator_id != next_operator_id:
+                if candidate_operator_id != next_operator_id:
                     raise EntityConflictError(
                         "one aircraft is linked to sequential bookings for different operators"
                     )
+                if operator_id is not None and candidate_operator_id != operator_id:
+                    continue
                 gap_minutes = int((candidate_end - candidate_start).total_seconds() // 60)
                 candidates.append(
                     EmptyLegCandidate(
                         aircraft_id=aircraft_id,
-                        operator_id=operator_id,
+                        operator_id=candidate_operator_id,
                         previous_booking_id=previous.booking_id,
                         previous_mission_id=previous.mission_id,
                         next_booking_id=following.booking_id,
