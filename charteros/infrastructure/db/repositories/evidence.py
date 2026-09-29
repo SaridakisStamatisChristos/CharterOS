@@ -1050,6 +1050,30 @@ class SqlAlchemyEvidenceRepository:
                 f"decision evidence {row.id} canonical JSON must be an object"
             )
         body = cast(dict[str, object], decoded)
+        expected_envelope: dict[str, object] = {
+            "schema_version": row.schema_version,
+            "decision_type": row.decision_type,
+            "subject_type": row.subject_type,
+            "subject_id": str(row.subject_id),
+            "source_aggregate_type": row.source_aggregate_type,
+            "source_aggregate_id": str(row.source_aggregate_id),
+            "decided_at": _utc(row.decided_at).isoformat().replace("+00:00", "Z"),
+            "known_as_of": (
+                _utc(row.known_as_of).isoformat().replace("+00:00", "Z")
+                if row.known_as_of is not None
+                else None
+            ),
+            "actor_id": str(row.actor_id) if row.actor_id is not None else None,
+            "correlation_id": (
+                str(row.correlation_id) if row.correlation_id is not None else None
+            ),
+        }
+        for key, value in expected_envelope.items():
+            if body.get(key) != value:
+                raise EntityConflictError(
+                    f"decision evidence {row.id} canonical envelope conflicts at {key}"
+                )
+
         content_obj = body.get("content")
         policies_obj = body.get("policy_versions")
         if not isinstance(content_obj, dict) or not isinstance(policies_obj, dict):
