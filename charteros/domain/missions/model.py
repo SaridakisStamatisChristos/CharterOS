@@ -194,3 +194,84 @@ class Mission(AggregateRoot[MissionId]):
             correlation_id=correlation_id,
             occurred_at=when,
         )
+
+    def begin_contracting(
+        self,
+        *,
+        transitioned_at: datetime,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        self._workflow_transition(
+            expected=MissionStatus.SELECTED,
+            target=MissionStatus.CONTRACTING,
+            event_type="MISSION_CONTRACTING",
+            transitioned_at=transitioned_at,
+            correlation_id=correlation_id,
+        )
+
+    def mark_booked(
+        self,
+        *,
+        transitioned_at: datetime,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        self._workflow_transition(
+            expected=MissionStatus.CONTRACTING,
+            target=MissionStatus.BOOKED,
+            event_type="MISSION_BOOKED",
+            transitioned_at=transitioned_at,
+            correlation_id=correlation_id,
+        )
+
+    def start_operating(
+        self,
+        *,
+        transitioned_at: datetime,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        self._workflow_transition(
+            expected=MissionStatus.BOOKED,
+            target=MissionStatus.OPERATING,
+            event_type="MISSION_OPERATING",
+            transitioned_at=transitioned_at,
+            correlation_id=correlation_id,
+        )
+
+    def complete(
+        self,
+        *,
+        transitioned_at: datetime,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        self._workflow_transition(
+            expected=MissionStatus.OPERATING,
+            target=MissionStatus.COMPLETED,
+            event_type="MISSION_COMPLETED",
+            transitioned_at=transitioned_at,
+            correlation_id=correlation_id,
+        )
+
+    def _workflow_transition(
+        self,
+        *,
+        expected: MissionStatus,
+        target: MissionStatus,
+        event_type: str,
+        transitioned_at: datetime,
+        correlation_id: CorrelationId | None,
+    ) -> None:
+        if self.status is not expected:
+            raise DomainValidationError(
+                f"mission must be {expected.value} before transition to {target.value}"
+            )
+        when = _utc(transitioned_at, field_name="transitioned_at")
+        self.status = target
+        self._record_event(
+            event_type,
+            {
+                "status": target.value,
+                "transitioned_at": _iso(when),
+            },
+            correlation_id=correlation_id,
+            occurred_at=when,
+        )

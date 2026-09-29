@@ -24,7 +24,15 @@ class BookingRow(Base):
         UniqueConstraint("mission_id", name="uq_bookings_mission"),
         UniqueConstraint("accepted_quote_id", name="uq_bookings_accepted_quote"),
         CheckConstraint("version > 0", name="ck_bookings_version_positive"),
-        CheckConstraint("state = 'pending_contract'", name="ck_bookings_pr11_state"),
+        CheckConstraint(
+            "state IN ('pending_contract','contracted','payment_pending','confirmed',"
+            "'pre_operation','operating','completed','reconciled')",
+            name="ck_bookings_state",
+        ),
+        CheckConstraint(
+            "state_changed_at >= created_at",
+            name="ck_bookings_state_changed_at",
+        ),
         Index("ix_bookings_operator_state", "operator_id", "state"),
         Index("ix_bookings_aircraft_state", "aircraft_id", "state"),
     )
@@ -53,3 +61,4 @@ class BookingRow(Base):
     )
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    state_changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

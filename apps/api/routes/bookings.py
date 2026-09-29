@@ -22,6 +22,7 @@ from charteros.domain.quotes import QuoteId
 from charteros.domain.shared.ids import CorrelationId
 from charteros.infrastructure.db.repositories import (
     SqlAlchemyBookingRepository,
+    SqlAlchemyContractRepository,
     SqlAlchemyDomainEventRepository,
     SqlAlchemyMissionRepository,
     SqlAlchemyQuoteRepository,
@@ -57,6 +58,7 @@ def _service(session: Session) -> BookingService:
         rfqs=SqlAlchemyRfqRepository(session),
         missions=SqlAlchemyMissionRepository(session),
         events=SqlAlchemyDomainEventRepository(session),
+        contracts=SqlAlchemyContractRepository(session),
     )
 
 
@@ -119,6 +121,26 @@ def _run_idempotent(
     return response
 
 
+def _run_workflow_command(
+    *,
+    session: Session,
+    booking_id: UUID,
+    command_name: str,
+    idempotency_key: str,
+    action: Callable[[BookingService], Booking],
+) -> BookingResponse:
+    scope = f"POST:/v1/bookings/{booking_id}/{command_name}"
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=canonical_request_hash({}),
+            success_status=status.HTTP_200_OK,
+            action=lambda: action(_service(session)),
+        )
+
+
 @router.post(
     "/quotes/{quote_id}/accept",
     response_model=BookingResponse,
@@ -145,6 +167,146 @@ def accept_quote(
                 correlation_id=correlation_id,
             ),
         )
+
+
+@router.post("/bookings/{booking_id}/mark-contracted", response_model=BookingResponse)
+def mark_contracted(
+    booking_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> BookingResponse:
+    return _run_workflow_command(
+        session=session,
+        booking_id=booking_id,
+        command_name="mark-contracted",
+        idempotency_key=idempotency_key,
+        action=lambda service: service.mark_contracted(
+            booking_id=BookingId(booking_id),
+            now=datetime.now(UTC),
+            correlation_id=correlation_id,
+        ),
+    )
+
+
+@router.post("/bookings/{booking_id}/mark-payment-pending", response_model=BookingResponse)
+def mark_payment_pending(
+    booking_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> BookingResponse:
+    return _run_workflow_command(
+        session=session,
+        booking_id=booking_id,
+        command_name="mark-payment-pending",
+        idempotency_key=idempotency_key,
+        action=lambda service: service.mark_payment_pending(
+            booking_id=BookingId(booking_id),
+            now=datetime.now(UTC),
+            correlation_id=correlation_id,
+        ),
+    )
+
+
+@router.post("/bookings/{booking_id}/confirm", response_model=BookingResponse)
+def confirm_booking(
+    booking_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> BookingResponse:
+    return _run_workflow_command(
+        session=session,
+        booking_id=booking_id,
+        command_name="confirm",
+        idempotency_key=idempotency_key,
+        action=lambda service: service.confirm(
+            booking_id=BookingId(booking_id),
+            now=datetime.now(UTC),
+            correlation_id=correlation_id,
+        ),
+    )
+
+
+@router.post("/bookings/{booking_id}/enter-pre-operation", response_model=BookingResponse)
+def enter_pre_operation(
+    booking_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> BookingResponse:
+    return _run_workflow_command(
+        session=session,
+        booking_id=booking_id,
+        command_name="enter-pre-operation",
+        idempotency_key=idempotency_key,
+        action=lambda service: service.enter_pre_operation(
+            booking_id=BookingId(booking_id),
+            now=datetime.now(UTC),
+            correlation_id=correlation_id,
+        ),
+    )
+
+
+@router.post("/bookings/{booking_id}/start-operation", response_model=BookingResponse)
+def start_operation(
+    booking_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> BookingResponse:
+    return _run_workflow_command(
+        session=session,
+        booking_id=booking_id,
+        command_name="start-operation",
+        idempotency_key=idempotency_key,
+        action=lambda service: service.start_operation(
+            booking_id=BookingId(booking_id),
+            now=datetime.now(UTC),
+            correlation_id=correlation_id,
+        ),
+    )
+
+
+@router.post("/bookings/{booking_id}/complete", response_model=BookingResponse)
+def complete_booking(
+    booking_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> BookingResponse:
+    return _run_workflow_command(
+        session=session,
+        booking_id=booking_id,
+        command_name="complete",
+        idempotency_key=idempotency_key,
+        action=lambda service: service.complete(
+            booking_id=BookingId(booking_id),
+            now=datetime.now(UTC),
+            correlation_id=correlation_id,
+        ),
+    )
+
+
+@router.post("/bookings/{booking_id}/reconcile", response_model=BookingResponse)
+def reconcile_booking(
+    booking_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> BookingResponse:
+    return _run_workflow_command(
+        session=session,
+        booking_id=booking_id,
+        command_name="reconcile",
+        idempotency_key=idempotency_key,
+        action=lambda service: service.reconcile(
+            booking_id=BookingId(booking_id),
+            now=datetime.now(UTC),
+            correlation_id=correlation_id,
+        ),
+    )
 
 
 @router.get("/bookings/{booking_id}", response_model=BookingResponse)
