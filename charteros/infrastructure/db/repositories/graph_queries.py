@@ -57,6 +57,9 @@ class SqlAlchemyGraphQueryRepository:
             raise EntityConflictError("multiple active Charter Graph projections detected")
         return versions[0]
 
+    def has_node(self, *, node_type: str, node_id: UUID) -> bool:
+        return self._node_exists(self.active_version(), node_type, node_id)
+
     def historical_position(
         self,
         *,
@@ -223,15 +226,19 @@ class SqlAlchemyGraphQueryRepository:
                     GraphEdgeRow.target_type == "operator",
                     GraphEdgeRow.target_id == operator_id,
                 )
-                .limit(limit + 1)
+                .limit(MAX_BOOKING_SCAN + 1)
             )
         )
         if not operator_edges:
             if not self._node_exists(version, "operator", operator_id):
                 raise EntityNotFoundError("operator does not exist in the active Charter Graph")
             return ()
-        booking_ids = tuple(edge.source_id for edge in operator_edges[:limit])
-        return self._routes_for_bookings(version, booking_ids)
+        if len(operator_edges) > MAX_BOOKING_SCAN:
+            raise EntityConflictError(
+                f"operator route history exceeds bounded PR16 scan of {MAX_BOOKING_SCAN}"
+            )
+        booking_ids = tuple(edge.source_id for edge in operator_edges)
+        return self._routes_for_bookings(version, booking_ids)[:limit]
 
     def quote_history(self, *, quote_id: UUID) -> QuoteHistory | None:
         version = self.active_version()
@@ -278,6 +285,8 @@ class SqlAlchemyGraphQueryRepository:
                 )
             )
         )
+        if len(nodes) != len(set(quote_ids)):
+            raise EntityConflictError("quote revision lineage references a missing quote node")
         revisions = tuple(
             sorted(
                 (_quote_revision(node) for node in nodes),
@@ -295,6 +304,8 @@ class SqlAlchemyGraphQueryRepository:
                 .order_by(OutboxEventRow.aggregate_version, OutboxEventRow.event_id)
             )
         )
+        if not rows:
+            raise EntityConflictError("quote graph node has no authoritative event history")
         events = tuple(_quote_event(row) for row in rows)
         return QuoteHistory(
             quote_id=quote_id,
@@ -377,8 +388,13 @@ class SqlAlchemyGraphQueryRepository:
                 if candidate_end < window_start or candidate_start > window_end:
                     continue
                 operator_id = operator_by_booking.get(previous.booking_id)
-                if operator_id is None:
+                next_operator_id = operator_by_booking.get(following.booking_id)
+                if operator_id is None or next_operator_id is None:
                     raise EntityConflictError("booking graph is missing operator lineage")
+                if operator_id != next_operator_id:
+                    raise EntityConflictError(
+                        "one aircraft is linked to sequential bookings for different operators"
+                    )
                 gap_minutes = int((candidate_end - candidate_start).total_seconds() // 60)
                 candidates.append(
                     EmptyLegCandidate(
