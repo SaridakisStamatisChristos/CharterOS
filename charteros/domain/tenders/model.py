@@ -124,6 +124,8 @@ class TenderAdminCorrection:
             "corrected_at",
             _utc(self.corrected_at, field_name="corrected_at"),
         )
+        if self.original_value == self.replacement_value:
+            raise DomainValidationError("admin correction must change the interpreted value")
 
 
 class Tender(AggregateRoot[TenderId]):
