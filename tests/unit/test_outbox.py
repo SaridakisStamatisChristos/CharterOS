@@ -136,9 +136,7 @@ def test_worker_retries_then_poison_marks_final_attempt() -> None:
 
     retry_result = retry_worker.run_once(now=NOW)
     assert retry_result.retried == 1
-    assert retry_repository.failed == [
-        (first.event_id, False, NOW + timedelta(seconds=2))
-    ]
+    assert retry_repository.failed == [(first.event_id, False, NOW + timedelta(seconds=2))]
 
     final = _envelope()
     poison_claim = OutboxClaim(envelope=final, lease_token=uuid4(), attempt=2)
