@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from charteros.application.exceptions import EntityConflictError
-from charteros.domain.aircraft import AircraftId
+from charteros.domain.aircraft import AircraftId, AvailabilityRecordId
 from charteros.domain.bookings import BookingId, BookingState
 from charteros.domain.disruptions import (
     Disruption,
@@ -105,6 +105,14 @@ def _proposal_from_row(row: DisruptionProposalRow) -> ReplacementProposal:
         status=DisruptionProposalStatus(row.status),
         proposed_operator_id=OperatorId(row.proposed_operator_id),
         proposed_aircraft_id=AircraftId(row.proposed_aircraft_id),
+        proposed_operator_version=row.proposed_operator_version,
+        proposed_aircraft_version=row.proposed_aircraft_version,
+        availability_record_id=(
+            AvailabilityRecordId(row.availability_record_id)
+            if row.availability_record_id is not None
+            else None
+        ),
+        availability_recorded_at=row.availability_recorded_at,
         departure_window=window,
         requires_buyer_decision=row.requires_buyer_decision,
         source=row.source,
@@ -288,6 +296,14 @@ class SqlAlchemyDisruptionRepository:
                 status=proposal.status.value,
                 proposed_operator_id=proposal.proposed_operator_id.value,
                 proposed_aircraft_id=proposal.proposed_aircraft_id.value,
+                proposed_operator_version=proposal.proposed_operator_version,
+                proposed_aircraft_version=proposal.proposed_aircraft_version,
+                availability_record_id=(
+                    proposal.availability_record_id.value
+                    if proposal.availability_record_id is not None
+                    else None
+                ),
+                availability_recorded_at=proposal.availability_recorded_at,
                 departure_start=(
                     proposal.departure_window.start
                     if proposal.departure_window is not None
