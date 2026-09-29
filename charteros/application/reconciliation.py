@@ -560,9 +560,7 @@ class FinancialReconciliationService:
                 )
             booked_amount = booked_amount + change.known_adjustment
             booked_worst_case_amount = (
-                booked_worst_case_amount
-                + change.known_adjustment
-                + change.conditional_adjustment
+                booked_worst_case_amount + change.known_adjustment + change.conditional_adjustment
             )
             commercial_change_ids.append(change.id)
 
