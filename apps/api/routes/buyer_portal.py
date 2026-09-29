@@ -629,7 +629,7 @@ def issue_rfqs(
     scope = f"POST:/v1/buyer-portal/missions/{mission_id}/rfqs:{buyer_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
-        _portal(session).mission(
+        mission = _portal(session).mission(
             buyer_id=typed_buyer,
             mission_id=MissionId(mission_id),
         )
