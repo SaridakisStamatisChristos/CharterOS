@@ -5,6 +5,7 @@ from apps.api.routes.fleet import router as fleet_router
 from apps.api.routes.graph_queries import router as graph_query_router
 from apps.api.routes.matching import router as matching_router
 from apps.api.routes.missions import router as mission_router
+from apps.api.routes.operator_portal import router as operator_portal_router
 from apps.api.routes.quotes import router as quote_router
 from apps.api.routes.repositioning import router as repositioning_router
 from apps.api.routes.rfqs import router as rfq_router
@@ -18,6 +19,7 @@ __all__ = [
     "graph_query_router",
     "matching_router",
     "mission_router",
+    "operator_portal_router",
     "quote_router",
     "repositioning_router",
     "rfq_router",
