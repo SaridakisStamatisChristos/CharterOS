@@ -14,6 +14,7 @@ from charteros.domain.tenders import (
     TenderActorId,
     TenderAdminCorrection,
     TenderAdminCorrectionId,
+    TenderId,
     TenderInvitationId,
     TenderStatus,
 )
@@ -171,3 +172,21 @@ def test_admin_correction_before_deadline_is_rejected() -> None:
     )
     with pytest.raises(DomainValidationError, match="post-deadline"):
         tender.record_admin_correction(correction)
+
+
+def test_admin_correction_must_change_interpreted_value() -> None:
+    _, _, deadline = _window()
+    with pytest.raises(DomainValidationError, match="must change"):
+        TenderAdminCorrection(
+            id=TenderAdminCorrectionId.new(),
+            tender_id=TenderId.new(),
+            actor_id=TenderActorId.new(),
+            target_type="quote",
+            target_id=TypedId.new(),
+            field_name="payment_terms",
+            original_value="unchanged",
+            replacement_value="unchanged",
+            reason="No-op corrections are not valid evidence",
+            corrected_at=deadline + timedelta(minutes=1),
+            causation_event_id=EventId.new(),
+        )
