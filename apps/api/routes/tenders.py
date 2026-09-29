@@ -11,11 +11,16 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_correlation_id, get_session
-from apps.api.routes.bookings import BookingResponse, _response as booking_response
+from apps.api.routes.bookings import BookingResponse
+from apps.api.routes.bookings import _response as booking_response
 from apps.api.routes.quotes import (
     QuoteResponse,
     QuoteTermsRequest,
+)
+from apps.api.routes.quotes import (
     _response as quote_response,
+)
+from apps.api.routes.quotes import (
     _terms as quote_terms,
 )
 from charteros.application.exceptions import EntityConflictError
