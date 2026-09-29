@@ -74,7 +74,9 @@ class BookingService:
                         "tender quotes must be awarded through the tender workflow"
                     )
                 if tender.status is not TenderStatus.CLOSED:
-                    raise EntityConflictError("tender must be closed before its quote can be awarded")
+                    raise EntityConflictError(
+                        "tender must be closed before its quote can be awarded"
+                    )
             elif tender_id is not None:
                 raise EntityConflictError("award quote does not belong to the requested tender")
 
