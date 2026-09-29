@@ -259,8 +259,17 @@ def _force_deadline_past(settings: Settings, tender_id: str) -> None:
             )
             for rfq_id in rfq_ids:
                 connection.execute(
-                    text("UPDATE rfqs SET response_deadline = :deadline WHERE id = :id"),
-                    {"deadline": deadline, "id": rfq_id},
+                    text(
+                        "UPDATE rfqs SET created_at = :created, sent_at = :created, "
+                        "acknowledged_at = :opened, response_deadline = :deadline "
+                        "WHERE id = :id"
+                    ),
+                    {
+                        "created": created,
+                        "opened": opened,
+                        "deadline": deadline,
+                        "id": rfq_id,
+                    },
                 )
     finally:
         engine.dispose()
