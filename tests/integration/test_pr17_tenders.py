@@ -303,10 +303,7 @@ def test_sealed_tender_bafo_deadline_admin_correction_and_canonical_award() -> N
 
         assert client.get(f"/v1/quotes/{second['quote_id']}").status_code == 409
         assert client.get(f"/v1/rfqs/{second['rfq_id']}/quotes").status_code == 409
-        assert (
-            client.get(f"/v1/quotes/{second['quote_id']}/normalization").status_code
-            == 409
-        )
+        assert client.get(f"/v1/quotes/{second['quote_id']}/normalization").status_code == 409
         assert client.get(f"/v1/missions/{mission_id}/quotes/compare").status_code == 409
         assert client.get(f"/v1/graph/quotes/{second['quote_id']}/history").status_code == 409
         assert client.get(f"/v1/tenders/{tender_id}/audit").status_code == 409
@@ -387,9 +384,7 @@ def test_sealed_tender_bafo_deadline_admin_correction_and_canonical_award() -> N
                 "original_value": "50% on confirmation",
                 "replacement_value": "50% on contract",
                 "reason": "Invalid causal lineage must fail closed",
-                "causation_event_id": str(
-                    UUID("00000000-0000-0000-0000-000000000099")
-                ),
+                "causation_event_id": str(UUID("00000000-0000-0000-0000-000000000099")),
             },
         )
         assert invalid_correction.status_code == 409
