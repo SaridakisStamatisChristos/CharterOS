@@ -6,6 +6,7 @@ from charteros.domain.aircraft import Aircraft, AircraftId, AircraftType, Aircra
 from charteros.domain.airports import Airport, AirportId
 from charteros.domain.bookings import Booking
 from charteros.domain.contracts import Contract
+from charteros.domain.disruptions import Disruption
 from charteros.domain.missions import Mission
 from charteros.domain.operators import Operator, OperatorId
 from charteros.domain.organizations import Organization, OrganizationId
@@ -54,6 +55,7 @@ class DomainEventRepository(Protocol):
             | Quote
             | Booking
             | Contract
+            | Disruption
             | Tender
             | ProcurementApproval
         ),
