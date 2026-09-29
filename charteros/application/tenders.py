@@ -398,3 +398,203 @@ class TenderService:
         when = _utc(now, field_name="now")
         tender = self._get_for_update(tender_id)
         if tender.status is not TenderStatus.OPEN:
+            raise EntityConflictError("best-and-final can only start from an open tender")
+        if when >= tender.deadline_at:
+            raise EntityConflictError("tender deadline has passed")
+        invitations = self._tenders.list_invitations(tender.id)
+        has_bid = any(
+            invitation.status is TenderInvitationStatus.ACCEPTED
+            and invitation.last_quote_id is not None
+            for invitation in invitations
+        )
+        if not has_bid:
+            raise EntityConflictError("best-and-final requires at least one submitted bid")
+        expected_version = tender.version
+        tender.request_best_and_final(requested_at=when, correlation_id=correlation_id)
+        self._tenders.save(tender, expected_version=expected_version)
+        self._events.add_aggregate_events(tender)
+        return tender
+
+    def submit_best_and_final(
+        self,
+        *,
+        invitation_id: TenderInvitationId,
+        quote_id: QuoteId,
+        aircraft_id: AircraftId,
+        base_price: Money,
+        price_components: tuple[PriceComponent, ...],
+        repositioning_cost: Money | None,
+        inclusions: tuple[str, ...],
+        exclusions: tuple[str, ...],
+        cancellation_terms: str | None,
+        payment_terms: str | None,
+        valid_until: datetime,
+        now: datetime,
+        correlation_id: CorrelationId,
+    ) -> Quote:
+        when = _utc(now, field_name="now")
+        invitation, tender = self._lock_participation(invitation_id, now=when)
+        if tender.status is not TenderStatus.BEST_AND_FINAL:
+            raise EntityConflictError("tender is not in best-and-final phase")
+        if invitation.best_and_final_quote_id is not None:
+            raise EntityConflictError("best-and-final submission is already recorded")
+        self._assert_latest_quote(invitation, quote_id)
+        self._validate_tender_quote_validity(tender=tender, valid_until=valid_until)
+
+        quote = self._quote_service().revise(
+            quote_id=quote_id,
+            aircraft_id=aircraft_id,
+            base_price=base_price,
+            price_components=price_components,
+            repositioning_cost=repositioning_cost,
+            inclusions=inclusions,
+            exclusions=exclusions,
+            cancellation_terms=cancellation_terms,
+            payment_terms=payment_terms,
+            valid_until=valid_until,
+            now=when,
+            correlation_id=correlation_id,
+            tender_command=True,
+        )
+        updated = self._invitation_with_quote(invitation, quote, best_and_final=True)
+        expected_version = tender.version
+        tender.record_bid(
+            invitation_id=invitation.id,
+            operator_id=invitation.operator_id,
+            quote_id=quote.id,
+            revision_number=quote.revision_number,
+            submitted_at=when,
+            best_and_final=True,
+            correlation_id=correlation_id,
+        )
+        self._tenders.save_invitation(updated)
+        self._tenders.save(tender, expected_version=expected_version)
+        self._events.add_aggregate_events(tender)
+        return quote
+
+    def withdraw_bid(
+        self,
+        *,
+        invitation_id: TenderInvitationId,
+        quote_id: QuoteId,
+        now: datetime,
+        correlation_id: CorrelationId,
+    ) -> Quote:
+        when = _utc(now, field_name="now")
+        invitation, tender = self._lock_participation(invitation_id, now=when)
+        self._assert_latest_quote(invitation, quote_id)
+        quote = self._quote_service().withdraw(
+            quote_id=quote_id,
+            now=when,
+            correlation_id=correlation_id,
+            tender_command=True,
+        )
+        expected_version = tender.version
+        tender.record_bid_withdrawal(
+            invitation_id=invitation.id,
+            operator_id=invitation.operator_id,
+            quote_id=quote.id,
+            withdrawn_at=when,
+            correlation_id=correlation_id,
+        )
+        self._tenders.save(tender, expected_version=expected_version)
+        self._events.add_aggregate_events(tender)
+        return quote
+
+    def close(
+        self,
+        *,
+        tender_id: TenderId,
+        now: datetime,
+        correlation_id: CorrelationId,
+    ) -> Tender:
+        when = _utc(now, field_name="now")
+        tender = self._get_for_update(tender_id)
+        if when < tender.deadline_at:
+            raise EntityConflictError("tender cannot close before its authoritative deadline")
+        expected_version = tender.version
+        tender.close(closed_at=when, correlation_id=correlation_id)
+        self._tenders.save(tender, expected_version=expected_version)
+        self._events.add_aggregate_events(tender)
+        return tender
+
+    def award(
+        self,
+        *,
+        tender_id: TenderId,
+        quote_id: QuoteId,
+        now: datetime,
+        correlation_id: CorrelationId,
+    ) -> tuple[Tender, Booking]:
+        when = _utc(now, field_name="now")
+        tender = self._get_for_update(tender_id)
+        if tender.status is not TenderStatus.CLOSED:
+            raise EntityConflictError("tender must be closed before award")
+
+        quote = self._quotes.get(quote_id)
+        if quote is None:
+            raise EntityNotFoundError("award quote does not exist")
+        invitation = self._tenders.find_invitation_for_rfq(quote.rfq_id)
+        if invitation is None or invitation.tender_id != tender.id:
+            raise EntityConflictError("award quote does not belong to this tender")
+        if invitation.status is not TenderInvitationStatus.ACCEPTED:
+            raise EntityConflictError("award quote must belong to an accepted invitation")
+        if invitation.last_quote_id != quote.id:
+            raise EntityConflictError("award quote must be the latest tender revision")
+        if (
+            tender.best_and_final_requested_at is not None
+            and invitation.best_and_final_quote_id != quote.id
+        ):
+            raise EntityConflictError(
+                "award quote must be the supplier's explicit best-and-final submission"
+            )
+        if quote.status is not QuoteStatus.SUBMITTED or not quote.is_current:
+            raise EntityConflictError("award quote must still be current and submitted")
+
+        booking = self._booking_service().accept_quote(
+            quote_id=quote.id,
+            now=when,
+            correlation_id=correlation_id,
+            tender_id=tender.id,
+        )
+        expected_version = tender.version
+        tender.award(
+            quote_id=quote.id,
+            booking_id=booking.id,
+            awarded_at=when,
+            correlation_id=correlation_id,
+        )
+        self._tenders.save(tender, expected_version=expected_version)
+        self._events.add_aggregate_events(tender)
+        return tender, booking
+
+    def admin_correct(
+        self,
+        *,
+        tender_id: TenderId,
+        actor_id: TenderActorId,
+        target_type: str,
+        target_id: TypedId,
+        field_name: str,
+        original_value: object,
+        replacement_value: object,
+        reason: str,
+        causation_event_id: EventId,
+        now: datetime,
+        correlation_id: CorrelationId,
+    ) -> TenderAdminCorrection:
+        when = _utc(now, field_name="now")
+        tender = self._get_for_update(tender_id)
+        if when < tender.deadline_at:
+            raise EntityConflictError(
+                "admin correction path is only available at or after the tender deadline"
+            )
+        correction = TenderAdminCorrection(
+            id=TenderAdminCorrectionId.new(),
+            tender_id=tender.id,
+            actor_id=actor_id,
+            target_type=target_type,
+            target_id=target_id,
+            field_name=field_name,
+            original_value=original_value,
+            replacement_value=replacement_value,
