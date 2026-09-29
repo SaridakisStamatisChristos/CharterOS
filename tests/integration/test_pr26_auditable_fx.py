@@ -446,10 +446,7 @@ def test_pr26_expired_lock_fails_instead_of_repricing_silently() -> None:
             past = datetime.now(UTC) - timedelta(minutes=2)
             with engine.begin() as connection:
                 connection.execute(
-                    text(
-                        "ALTER TABLE fx_locks DISABLE TRIGGER "
-                        "trg_ei_fx_lock_guard"
-                    )
+                    text("ALTER TABLE fx_locks DISABLE TRIGGER trg_ei_fx_lock_guard")
                 )
                 try:
                     connection.execute(
@@ -462,10 +459,7 @@ def test_pr26_expired_lock_fails_instead_of_repricing_silently() -> None:
                     )
                 finally:
                     connection.execute(
-                        text(
-                            "ALTER TABLE fx_locks ENABLE ALWAYS TRIGGER "
-                            "trg_ei_fx_lock_guard"
-                        )
+                        text("ALTER TABLE fx_locks ENABLE ALWAYS TRIGGER trg_ei_fx_lock_guard")
                     )
 
             approval = client.post(
@@ -484,10 +478,7 @@ def test_pr26_expired_lock_fails_instead_of_repricing_silently() -> None:
         finally:
             with engine.begin() as connection:
                 connection.execute(
-                    text(
-                        "ALTER TABLE fx_locks DISABLE TRIGGER "
-                        "trg_ei_fx_lock_guard"
-                    )
+                    text("ALTER TABLE fx_locks DISABLE TRIGGER trg_ei_fx_lock_guard")
                 )
                 try:
                     connection.execute(
@@ -500,10 +491,7 @@ def test_pr26_expired_lock_fails_instead_of_repricing_silently() -> None:
                     )
                 finally:
                     connection.execute(
-                        text(
-                            "ALTER TABLE fx_locks ENABLE ALWAYS TRIGGER "
-                            "trg_ei_fx_lock_guard"
-                        )
+                        text("ALTER TABLE fx_locks ENABLE ALWAYS TRIGGER trg_ei_fx_lock_guard")
                     )
             engine.dispose()
 
@@ -631,8 +619,7 @@ def test_pr26_tampered_conversion_cannot_reconstruct_as_complete_evidence() -> N
                 ).scalar_one()
                 connection.execute(
                     text(
-                        "ALTER TABLE fx_lock_conversions DISABLE TRIGGER "
-                        "trg_ei_fx_conversion_guard"
+                        "ALTER TABLE fx_lock_conversions DISABLE TRIGGER trg_ei_fx_conversion_guard"
                     )
                 )
                 try:

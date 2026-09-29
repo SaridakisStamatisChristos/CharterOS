@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -37,7 +38,7 @@ def _owner_trigger_disabled(
     *,
     table: str,
     trigger: str,
-):
+) -> Iterator[None]:
     connection.execute(text(f"ALTER TABLE {table} DISABLE TRIGGER {trigger}"))
     try:
         yield
@@ -164,7 +165,7 @@ def test_pr28_plain_sql_update_delete_and_outbox_envelope_guard() -> None:
             connection.execute(
                 text(
                     "UPDATE outbox_events "
-                    "SET canonical_json = '{\"event_type\":\"TAMPERED\"}' "
+                    'SET canonical_json = \'{"event_type":"TAMPERED"}\' '
                     "WHERE event_id = :id"
                 ),
                 {"id": event_id},
@@ -200,17 +201,21 @@ def test_pr28_append_only_fx_correction_builds_valid_lineage() -> None:
                 table="fx_rates",
                 source_id=first_id,
             )
-            entries = connection.execute(
-                text(
-                    """
-                    SELECT sequence, previous_digest, digest, source_key
-                    FROM evidence_integrity_entries
-                    WHERE stream_key = :stream_key
-                    ORDER BY sequence
-                    """
-                ),
-                {"stream_key": stream_key},
-            ).mappings().all()
+            entries = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT sequence, previous_digest, digest, source_key
+                        FROM evidence_integrity_entries
+                        WHERE stream_key = :stream_key
+                        ORDER BY sequence
+                        """
+                    ),
+                    {"stream_key": stream_key},
+                )
+                .mappings()
+                .all()
+            )
 
         assert len(entries) == 2
         assert [int(item["sequence"]) for item in entries] == [1, 2]
@@ -256,10 +261,13 @@ def test_pr28_privileged_historical_source_tamper_is_detected_and_restorable() -
                 violations = verify_evidence_integrity(session, stream_key=stream_key)
             assert any(item.violation == "source_payload_mismatch" for item in violations)
         finally:
-            with engine.begin() as connection, _owner_trigger_disabled(
-                connection,
-                table="fx_rates",
-                trigger="trg_ei_fx_rate_guard",
+            with (
+                engine.begin() as connection,
+                _owner_trigger_disabled(
+                    connection,
+                    table="fx_rates",
+                    trigger="trg_ei_fx_rate_guard",
+                ),
             ):
                 connection.execute(
                     text("UPDATE fx_rates SET rate_text = '0.8421' WHERE id = :id"),
@@ -322,10 +330,13 @@ def test_pr28_tampered_digest_is_detected() -> None:
                 violations = verify_evidence_integrity(session, stream_key=stream_key)
             assert any(item.violation == "digest_mismatch" for item in violations)
         finally:
-            with engine.begin() as connection, _owner_trigger_disabled(
-                connection,
-                table="evidence_integrity_entries",
-                trigger="trg_ei_entries_append_only",
+            with (
+                engine.begin() as connection,
+                _owner_trigger_disabled(
+                    connection,
+                    table="evidence_integrity_entries",
+                    trigger="trg_ei_entries_append_only",
+                ),
             ):
                 connection.execute(
                     text(
@@ -400,10 +411,13 @@ def test_pr28_broken_previous_digest_lineage_is_detected() -> None:
                 violations = verify_evidence_integrity(session, stream_key=stream_key)
             assert any(item.violation == "previous_digest_mismatch" for item in violations)
         finally:
-            with engine.begin() as connection, _owner_trigger_disabled(
-                connection,
-                table="evidence_integrity_entries",
-                trigger="trg_ei_entries_append_only",
+            with (
+                engine.begin() as connection,
+                _owner_trigger_disabled(
+                    connection,
+                    table="evidence_integrity_entries",
+                    trigger="trg_ei_entries_append_only",
+                ),
             ):
                 connection.execute(
                     text(
@@ -557,25 +571,28 @@ def test_pr28_runtime_role_has_restricted_evidence_privileges() -> None:
                 {"role": role},
             ).scalar_one()
             assert not connection.execute(
-                text(
-                    "SELECT has_table_privilege("
-                    ":role, 'evidence_integrity_entries', 'INSERT')"
-                ),
+                text("SELECT has_table_privilege(:role, 'evidence_integrity_entries', 'INSERT')"),
                 {"role": role},
             ).scalar_one()
 
         with engine.begin() as connection:
             connection.execute(text(f'SET LOCAL ROLE "{role}"'))
-            assert connection.execute(
-                text("SELECT count(*) FROM evidence_integrity_entries")
-            ).scalar_one() >= 2
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM evidence_integrity_entries")
+                ).scalar_one()
+                >= 2
+            )
             connection.execute(
                 text("UPDATE outbox_events SET last_error = 'role-smoke' WHERE event_id = :id"),
                 {"id": event_id},
             )
-            assert connection.execute(
-                text("SELECT count(*) FROM charteros_verify_evidence_integrity(NULL)")
-            ).scalar_one() == 0
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM charteros_verify_evidence_integrity(NULL)")
+                ).scalar_one()
+                == 0
+            )
 
         with pytest.raises(DBAPIError), engine.begin() as connection:
             connection.execute(text(f'SET LOCAL ROLE "{role}"'))
