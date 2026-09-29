@@ -5,7 +5,12 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from charteros.application.exceptions import EntityConflictError
-from charteros.application.graph_queries import MAX_EMPTY_LEG_WINDOW, GraphQueryService
+from charteros.application.graph_queries import (
+    MAX_EMPTY_LEG_WINDOW,
+    BookingFlightLineage,
+    EmptyLegCandidate,
+    GraphQueryService,
+)
 from charteros.application.ports.catalog import AirportRepository
 from charteros.application.ports.matching import MatchingSnapshotRepository
 from charteros.application.ports.repositioning import RepositionOpportunityRepository
@@ -36,6 +41,35 @@ def _utc(value: datetime, *, field_name: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise DomainValidationError(f"{field_name} must be timezone-aware")
     return value.astimezone(UTC)
+
+
+def _validate_structural_lineage(
+    item: EmptyLegCandidate,
+    previous: BookingFlightLineage,
+    following: BookingFlightLineage,
+) -> None:
+    if (
+        previous.booking_id != item.previous_booking_id
+        or previous.mission_id != item.previous_mission_id
+        or previous.aircraft_id != item.aircraft_id
+        or previous.operator_id != item.operator_id
+        or previous.destination_airport_id != item.from_airport_id
+        or previous.departure_to != item.window_start
+    ):
+        raise EntityConflictError(
+            "PR16 empty-leg candidate conflicts with previous booking lineage"
+        )
+    if (
+        following.booking_id != item.next_booking_id
+        or following.mission_id != item.next_mission_id
+        or following.aircraft_id != item.aircraft_id
+        or following.operator_id != item.operator_id
+        or following.origin_airport_id != item.to_airport_id
+        or following.departure_from != item.window_end
+    ):
+        raise EntityConflictError(
+            "PR16 empty-leg candidate conflicts with next booking lineage"
+        )
 
 
 class RepositioningService:
@@ -79,25 +113,35 @@ class RepositioningService:
             limit=empty_leg_limit,
         )
         projection_version = self._graph.projection_version
-        structural = tuple(
-            StructuralEmptyLeg(
-                aircraft_id=item.aircraft_id,
-                operator_id=item.operator_id,
-                previous_booking_id=item.previous_booking_id,
-                previous_mission_id=item.previous_mission_id,
-                next_booking_id=item.next_booking_id,
-                next_mission_id=item.next_mission_id,
-                from_airport_id=item.from_airport_id,
-                from_icao=item.from_icao,
-                to_airport_id=item.to_airport_id,
-                to_icao=item.to_icao,
-                window_start=item.window_start,
-                window_end=item.window_end,
-                gap_minutes=item.gap_minutes,
-                evidence_kind=item.evidence_kind,
+        structural_items: list[StructuralEmptyLeg] = []
+        for item in graph_items:
+            previous = self._graph.booking_flight_lineage(
+                booking_id=item.previous_booking_id
             )
-            for item in graph_items
-        )
+            following = self._graph.booking_flight_lineage(
+                booking_id=item.next_booking_id
+            )
+            _validate_structural_lineage(item, previous, following)
+            structural_items.append(
+                StructuralEmptyLeg(
+                    aircraft_id=item.aircraft_id,
+                    operator_id=item.operator_id,
+                    previous_booking_id=item.previous_booking_id,
+                    previous_mission_id=item.previous_mission_id,
+                    next_booking_id=item.next_booking_id,
+                    next_mission_id=item.next_mission_id,
+                    previous_origin_airport_id=previous.origin_airport_id,
+                    from_airport_id=item.from_airport_id,
+                    from_icao=item.from_icao,
+                    to_airport_id=item.to_airport_id,
+                    to_icao=item.to_icao,
+                    window_start=item.window_start,
+                    window_end=item.window_end,
+                    gap_minutes=item.gap_minutes,
+                    evidence_kind=item.evidence_kind,
+                )
+            )
+        structural = tuple(structural_items)
         if not structural:
             return RepositionOptimization(
                 policy_version=POLICY_VERSION,
@@ -157,8 +201,10 @@ class RepositioningService:
         )
 
         airport_ids: set[AirportId] = {
-            AirportId(item.from_airport_id) for item in structural
-        } | {AirportId(item.to_airport_id) for item in structural}
+            AirportId(item.previous_origin_airport_id) for item in structural
+        } | {AirportId(item.from_airport_id) for item in structural} | {
+            AirportId(item.to_airport_id) for item in structural
+        }
         for item in opportunities:
             airport_ids.add(item.origin_airport_id)
             airport_ids.add(item.destination_airport_id)
@@ -171,6 +217,9 @@ class RepositioningService:
             baseline_eval = evaluate_baseline(
                 structural=item,
                 candidate=snapshot,
+                previous_origin_airport=airports[
+                    AirportId(item.previous_origin_airport_id)
+                ],
                 from_airport=airports[AirportId(item.from_airport_id)],
                 continuity_airport=airports[AirportId(item.to_airport_id)],
             )
