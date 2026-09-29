@@ -111,6 +111,12 @@ class RepositioningService:
             limit=empty_leg_limit,
         )
         projection_version = self._graph.projection_version
+        graph_knowledge_cutoff = self._graph.knowledge_cutoff
+        if evaluated < graph_knowledge_cutoff:
+            raise EntityConflictError(
+                "evaluated_at predates the active Charter Graph knowledge cutoff; "
+                "historical PR18 replay requires an as-of graph projection"
+            )
         structural_items: list[StructuralEmptyLeg] = []
         for item in graph_items:
             previous = self._graph.booking_flight_lineage(booking_id=item.previous_booking_id)
@@ -140,6 +146,7 @@ class RepositioningService:
             return RepositionOptimization(
                 policy_version=POLICY_VERSION,
                 projection_version=projection_version,
+                graph_knowledge_cutoff=graph_knowledge_cutoff,
                 evaluated_at=evaluated,
                 window_start=start,
                 window_end=end,
@@ -255,6 +262,7 @@ class RepositioningService:
         return RepositionOptimization(
             policy_version=POLICY_VERSION,
             projection_version=projection_version,
+            graph_knowledge_cutoff=graph_knowledge_cutoff,
             evaluated_at=evaluated,
             window_start=start,
             window_end=end,
