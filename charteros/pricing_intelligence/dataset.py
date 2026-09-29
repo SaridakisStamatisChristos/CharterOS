@@ -133,6 +133,7 @@ def build_pricing_row(evidence: HistoricalPricingEvidence) -> PricingDatasetRow:
             position_state=position_state,
             position_age_minutes=position_age_minutes,
             quote_revision_number=quote.revision_number,
+            normalization_version=normalization.normalization_version,
             currency=normalization.currency,
             normalized_expected_total_minor=normalization.expected_total.amount_minor,
             normalized_worst_case_total_minor=normalization.worst_case_total.amount_minor,
