@@ -16,7 +16,7 @@ from charteros.domain.shared.ids import CorrelationId
 
 
 def test_procurement_approval_supersession_and_consumption_are_explicit() -> None:
-    approved_at = datetime.now(UTC)
+    approved_at = datetime.now(UTC) - timedelta(minutes=10)
     buyer_id = OrganizationId.new()
     mission_id = MissionId.new()
     first = ProcurementApproval.create(
@@ -61,7 +61,7 @@ def test_procurement_approval_supersession_and_consumption_are_explicit() -> Non
 
 
 def test_procurement_approval_rejects_invalid_terminal_transitions() -> None:
-    approved_at = datetime.now(UTC)
+    approved_at = datetime.now(UTC) - timedelta(minutes=10)
     approval = ProcurementApproval.create(
         mission_id=MissionId.new(),
         buyer_id=OrganizationId.new(),
