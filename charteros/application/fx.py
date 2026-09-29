@@ -54,7 +54,7 @@ def _format_datetime(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _lock_digest(
+def fx_lock_digest(
     *,
     buyer_id: OrganizationId,
     mission_id: MissionId,
@@ -294,7 +294,7 @@ class FxService:
         ordered_entries = tuple(
             sorted(lock_entries, key=lambda entry: (entry.global_rank, entry.quote_id.value.hex))
         )
-        digest = _lock_digest(
+        digest = fx_lock_digest(
             buyer_id=buyer_id,
             mission_id=comparison.mission_id,
             base_currency=base_currency,
