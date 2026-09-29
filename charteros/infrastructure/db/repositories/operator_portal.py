@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, or_, select
@@ -74,7 +75,7 @@ class SqlAlchemyOperatorPortalRepository:
             statement.order_by(AircraftRow.registration, AircraftRow.id).limit(limit + 1)
         ).all()
         page_rows = rows[:limit]
-        items = tuple(self._aircraft_view(*row) for row in page_rows)
+        items = tuple(self._aircraft_view(row) for row in page_rows)
         next_cursor = items[-1].id if len(rows) > limit and items else None
         return PortalAircraftPage(items=items, next_cursor=next_cursor)
 
@@ -89,7 +90,7 @@ class SqlAlchemyOperatorPortalRepository:
                 AircraftRow.operator_id == operator_id.value,
             )
         ).one_or_none()
-        return self._aircraft_view(*row) if row is not None else None
+        return self._aircraft_view(row) if row is not None else None
 
     def list_rfqs(
         self,
@@ -262,7 +263,7 @@ class SqlAlchemyOperatorPortalRepository:
         return PortalBookingPage(items=items, next_cursor=next_cursor)
 
     @staticmethod
-    def _aircraft_statement() -> Select[tuple[AircraftRow, AircraftTypeRow, AirportRow]]:
+    def _aircraft_statement() -> Select[Any]:
         return (
             select(AircraftRow, AircraftTypeRow, AirportRow)
             .join(AircraftTypeRow, AircraftTypeRow.id == AircraftRow.aircraft_type_id)
@@ -270,11 +271,16 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _aircraft_view(
-        aircraft: AircraftRow,
-        aircraft_type: AircraftTypeRow,
-        home_base: AirportRow,
-    ) -> PortalAircraft:
+    def _aircraft_view(row: Row[Any]) -> PortalAircraft:
+        aircraft = row[0]
+        aircraft_type = row[1]
+        home_base = row[2]
+        if (
+            not isinstance(aircraft, AircraftRow)
+            or not isinstance(aircraft_type, AircraftTypeRow)
+            or not isinstance(home_base, AirportRow)
+        ):
+            raise EntityConflictError("operator fleet query returned an invalid canonical shape")
         return PortalAircraft(
             id=aircraft.id,
             version=aircraft.version,
@@ -293,9 +299,7 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _rfq_statement() -> Select[
-        tuple[RfqRow, MissionRow, str, str, QuoteRow, TenderInvitationRow, TenderRow]
-    ]:
+    def _rfq_statement() -> Select[Any]:
         origin = aliased(AirportRow)
         destination = aliased(AirportRow)
         return (
@@ -323,19 +327,7 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _rfq_view(
-        row: Row[
-            tuple[
-                RfqRow,
-                MissionRow,
-                str,
-                str,
-                QuoteRow,
-                TenderInvitationRow,
-                TenderRow,
-            ]
-        ],
-    ) -> PortalRfq:
+    def _rfq_view(row: Row[Any]) -> PortalRfq:
         rfq = row[0]
         mission = row[1]
         current_quote = row[4]
@@ -394,9 +386,7 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _booking_statement() -> Select[
-        tuple[BookingRow, MissionRow, QuoteRow, RfqRow, AircraftRow, str, str]
-    ]:
+    def _booking_statement() -> Select[Any]:
         origin = aliased(AirportRow)
         destination = aliased(AirportRow)
         return (
@@ -418,9 +408,7 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _booking_view(
-        row: Row[tuple[BookingRow, MissionRow, QuoteRow, RfqRow, AircraftRow, str, str]],
-    ) -> PortalBooking:
+    def _booking_view(row: Row[Any]) -> PortalBooking:
         booking = row[0]
         mission = row[1]
         quote = row[2]
