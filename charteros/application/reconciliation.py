@@ -308,6 +308,7 @@ class FinancialReconciliationService:
         reconciliation_id: FinancialReconciliationId,
         buyer_id: OrganizationId,
         approved_variance_minor: int,
+        resolves_dispute_id: ReconciliationDisputeId | None,
         approved_at: datetime,
         note: str | None,
         correlation_id: CorrelationId,
@@ -323,6 +324,10 @@ class FinancialReconciliationService:
             raise EntityConflictError("financial reconciliation has no current invoice")
         if reconciliation.current_variance_approval_id is not None:
             raise EntityConflictError("current invoice already has variance approval")
+        if reconciliation.current_dispute_id != resolves_dispute_id:
+            raise EntityConflictError(
+                "variance approval must explicitly resolve the exact current dispute"
+            )
         if invoice.variance.amount_minor <= 0:
             raise EntityConflictError("current invoice has no positive variance to approve")
 
@@ -332,6 +337,7 @@ class FinancialReconciliationService:
             invoice_revision_id=invoice.id,
             buyer_id=buyer_id,
             approved_variance=Money(approved_variance_minor, reconciliation.currency),
+            resolves_dispute_id=resolves_dispute_id,
             approved_at=when,
             note=note,
         )
