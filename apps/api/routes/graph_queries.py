@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_session
-from charteros.application.graph_queries import GraphQueryService
+from charteros.application.graph_queries import GraphQueryService, HistoricalPosition
 from charteros.application.matching import MatchingService
 from charteros.domain.missions import MissionId
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyAirportRepository
@@ -175,11 +175,7 @@ def _service(session: Session) -> GraphQueryService:
     return GraphQueryService(SqlAlchemyGraphQueryRepository(session))
 
 
-def _position_response(item: object) -> HistoricalPositionResponse:
-    from charteros.application.graph_queries import HistoricalPosition
-
-    if not isinstance(item, HistoricalPosition):
-        raise TypeError("expected HistoricalPosition")
+def _position_response(item: HistoricalPosition) -> HistoricalPositionResponse:
     return HistoricalPositionResponse(
         aircraft_id=item.aircraft_id,
         position_id=item.position_id,
@@ -322,7 +318,22 @@ def operator_route_history(
         projection_version=version,
         operator_id=operator_id,
         returned_count=len(routes),
-        routes=[OperatorRouteResponse(**item.__dict__) for item in routes],
+        routes=[
+            OperatorRouteResponse(
+                booking_id=item.booking_id,
+                mission_id=item.mission_id,
+                aircraft_id=item.aircraft_id,
+                accepted_quote_id=item.accepted_quote_id,
+                origin_airport_id=item.origin_airport_id,
+                origin_icao=item.origin_icao,
+                destination_airport_id=item.destination_airport_id,
+                destination_icao=item.destination_icao,
+                departure_from=item.departure_from,
+                departure_to=item.departure_to,
+                booking_state=item.booking_state,
+            )
+            for item in routes
+        ],
     )
 
 
