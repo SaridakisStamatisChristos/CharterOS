@@ -12,6 +12,7 @@ from typing import Protocol, cast
 from uuid import UUID
 
 from charteros.application.exceptions import EntityConflictError
+from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.application.quote_comparison import MissionQuoteComparison
 from charteros.matching import MatchingDecision
 
@@ -41,7 +42,7 @@ class EvidenceParty:
 
     def __post_init__(self) -> None:
         if (self.buyer_id is None) == (self.operator_id is None):
-            raise ValueError("exactly one buyer or operator evidence context is required")
+            raise DomainValidationError("exactly one buyer or operator evidence context is required")
 
 
 @dataclass(frozen=True, slots=True)
