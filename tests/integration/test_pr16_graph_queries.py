@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, text
+from sqlalchemy.orm import Session
 
 from apps.api.main import create_app
 from charteros.application.graph_queries import GraphQueryService
@@ -40,12 +41,13 @@ def _settings() -> Settings:
     return Settings(environment="test", database_url=database_url, _env_file=None)
 
 
-def _purge_synthetic_quote_outbox_stream(session: object, *, quote_id: UUID) -> None:
+def _purge_synthetic_quote_outbox_stream(session: Session, *, quote_id: UUID) -> None:
     # Test-only owner cleanup. Production runtime cannot disable these ALWAYS triggers.
-    execute = getattr(session, "execute")
-    execute(text("ALTER TABLE evidence_integrity_entries DISABLE TRIGGER trg_ei_entries_append_only"))
+    session.execute(
+        text("ALTER TABLE evidence_integrity_entries DISABLE TRIGGER trg_ei_entries_append_only")
+    )
     try:
-        execute(
+        session.execute(
             text(
                 """
                 DELETE FROM evidence_integrity_entries
@@ -61,23 +63,25 @@ def _purge_synthetic_quote_outbox_stream(session: object, *, quote_id: UUID) -> 
             {"quote_id": str(quote_id)},
         )
     finally:
-        execute(
+        session.execute(
             text(
                 "ALTER TABLE evidence_integrity_entries "
                 "ENABLE ALWAYS TRIGGER trg_ei_entries_append_only"
             )
         )
 
-    execute(text("ALTER TABLE outbox_events DISABLE TRIGGER trg_ei_outbox_guard"))
+    session.execute(text("ALTER TABLE outbox_events DISABLE TRIGGER trg_ei_outbox_guard"))
     try:
-        execute(
+        session.execute(
             delete(OutboxEventRow).where(
                 OutboxEventRow.aggregate_type == "quote",
                 OutboxEventRow.aggregate_id == quote_id,
             )
         )
     finally:
-        execute(text("ALTER TABLE outbox_events ENABLE ALWAYS TRIGGER trg_ei_outbox_guard"))
+        session.execute(
+            text("ALTER TABLE outbox_events ENABLE ALWAYS TRIGGER trg_ei_outbox_guard")
+        )
 
 
 def _node(
