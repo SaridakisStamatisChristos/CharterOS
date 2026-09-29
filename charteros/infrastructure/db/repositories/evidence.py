@@ -219,6 +219,50 @@ class SqlAlchemyEvidenceRepository:
         if party.operator_id is not None:
             approvals = [row for row in approvals if row.quote_id in quote_ids]
 
+        fx_locks: list[FxLockRow] = []
+        fx_conversions: list[FxLockConversionRow] = []
+        fx_rates: list[FxRateRow] = []
+        if party.buyer_id is not None:
+            fx_locks = list(
+                self._session.scalars(
+                    select(FxLockRow)
+                    .where(
+                        FxLockRow.mission_id == mission.id,
+                        FxLockRow.buyer_id == party.buyer_id,
+                        FxLockRow.status == "consumed",
+                    )
+                    .order_by(FxLockRow.locked_at, FxLockRow.id)
+                ).all()
+            )
+            fx_lock_ids = _ids(fx_locks)
+            if fx_lock_ids:
+                fx_conversions = list(
+                    self._session.scalars(
+                        select(FxLockConversionRow)
+                        .where(FxLockConversionRow.lock_id.in_(fx_lock_ids))
+                        .order_by(
+                            FxLockConversionRow.lock_id,
+                            FxLockConversionRow.global_rank,
+                            FxLockConversionRow.quote_id,
+                        )
+                    ).all()
+                )
+                fx_rate_ids = {
+                    row.rate_id for row in fx_conversions if row.rate_id is not None
+                }
+                if fx_rate_ids:
+                    fx_rates = list(
+                        self._session.scalars(
+                            select(FxRateRow)
+                            .where(FxRateRow.id.in_(fx_rate_ids))
+                            .order_by(
+                                FxRateRow.fx_timestamp,
+                                FxRateRow.recorded_at,
+                                FxRateRow.id,
+                            )
+                        ).all()
+                    )
+
         bookings = list(
             self._session.scalars(
                 select(BookingRow)
@@ -356,6 +400,9 @@ class SqlAlchemyEvidenceRepository:
             invoice_lines=invoice_lines,
             disputes=disputes,
             variance_approvals=variance_approvals,
+            fx_locks=fx_locks,
+            fx_conversions=fx_conversions,
+            fx_rates=fx_rates,
         )
 
         sources = self._sources(
@@ -379,6 +426,9 @@ class SqlAlchemyEvidenceRepository:
             invoice_lines=invoice_lines,
             disputes=disputes,
             variance_approvals=variance_approvals,
+            fx_locks=fx_locks,
+            fx_conversions=fx_conversions,
+            fx_rates=fx_rates,
         )
 
         aggregate_keys = {
