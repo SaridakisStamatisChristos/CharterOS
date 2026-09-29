@@ -97,8 +97,10 @@ class TenderService:
         mission = self._missions.get_for_update(mission_id)
         if mission is None:
             raise EntityNotFoundError("mission does not exist")
-        if mission.status not in (MissionStatus.OPEN, MissionStatus.SOURCING):
-            raise EntityConflictError("tender can only be created for an open or sourcing mission")
+        if mission.status is not MissionStatus.OPEN:
+            raise EntityConflictError(
+                "tender can only be created for an open mission before generic sourcing begins"
+            )
         if created_at >= deadline:
             raise EntityConflictError("tender deadline must be in the future")
         if opens >= deadline:
@@ -160,6 +162,7 @@ class TenderService:
             response_deadline=tender.deadline_at,
             now=when,
             correlation_id=correlation_id,
+            tender_command=True,
         )
         invitation = TenderInvitation(
             id=TenderInvitationId.new(),
