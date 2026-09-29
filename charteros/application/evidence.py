@@ -154,6 +154,25 @@ class EvidencePackage:
 _SAFE_EVENT_PAYLOAD_KEYS = frozenset(
     {
         "accepted_at",
+        "target_minor_exponent",
+        "target_currency",
+        "supersedes_rate_id",
+        "source_minor_exponent",
+        "source_currency",
+        "rounding_policy",
+        "recorded_at",
+        "rate",
+        "quote_ids",
+        "lock_policy_version",
+        "locked_at",
+        "integrity_digest",
+        "fx_timestamp",
+        "fx_source_version",
+        "fx_source",
+        "expires_at",
+        "conversion_policy_version",
+        "base_currency",
+        "approval_id",
         "accepted_quote_id",
         "aircraft_id",
         "approved_at",
@@ -242,6 +261,8 @@ _VERSIONED_SOURCE_TYPES = frozenset(
         "tender",
         "disruption",
         "financial_reconciliation",
+        "fx_lock",
+        "fx_rate",
     }
 )
 
