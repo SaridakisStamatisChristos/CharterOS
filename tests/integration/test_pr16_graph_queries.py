@@ -220,6 +220,8 @@ def test_pr16_graph_queries_are_bounded_bitemporal_and_lineage_preserving() -> N
                     ),
                 ]
             )
+            # Match PR15's production invariant: persist the projection-version FK parent first.
+            session.flush()
             session.add_all(
                 [
                     _node(node_type="airport", node_id=airport_a, attributes={"icao": "LGAA"}),
