@@ -604,8 +604,7 @@ def test_pr16_feasible_aircraft_query_reuses_matching_policy_on_active_projectio
         with factory.begin() as session:
             session.execute(
                 delete(OutboxConsumerReceiptRow).where(
-                    OutboxConsumerReceiptRow.consumer_name
-                    == f"charter_graph:v{projection_version}"
+                    OutboxConsumerReceiptRow.consumer_name == f"charter_graph:v{projection_version}"
                 )
             )
             session.execute(
