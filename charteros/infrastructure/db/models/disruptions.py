@@ -3,7 +3,18 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Uuid, text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Uuid,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from charteros.infrastructure.db.base import Base
@@ -74,8 +85,9 @@ class DisruptionProposalRow(Base):
             name="ck_disruption_proposals_lifecycle",
         ),
         CheckConstraint(
-            "departure_start IS NULL OR "
-            "(departure_end IS NOT NULL AND departure_start < departure_end)",
+            "(departure_start IS NULL AND departure_end IS NULL) OR "
+            "(departure_start IS NOT NULL AND departure_end IS NOT NULL "
+            "AND departure_start < departure_end)",
             name="ck_disruption_proposals_departure_window",
         ),
         Index(
@@ -141,6 +153,10 @@ class DisruptionCommercialChangeRow(Base):
             name="ck_disruption_commercial_changes_lifecycle",
         ),
         CheckConstraint(
+            "char_length(currency) = 3 AND currency = upper(currency)",
+            name="ck_disruption_commercial_currency",
+        ),
+        CheckConstraint(
             "resulting_expected_total_minor >= 0",
             name="ck_disruption_commercial_expected_nonnegative",
         ),
@@ -187,12 +203,12 @@ class DisruptionCommercialChangeRow(Base):
     )
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     normalization_version: Mapped[str] = mapped_column(String(64), nullable=False)
-    original_expected_total_minor: Mapped[int] = mapped_column(nullable=False)
-    original_worst_case_total_minor: Mapped[int] = mapped_column(nullable=False)
-    known_adjustment_minor: Mapped[int] = mapped_column(nullable=False)
-    conditional_adjustment_minor: Mapped[int] = mapped_column(nullable=False)
-    resulting_expected_total_minor: Mapped[int] = mapped_column(nullable=False)
-    resulting_worst_case_total_minor: Mapped[int] = mapped_column(nullable=False)
+    original_expected_total_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    original_worst_case_total_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    known_adjustment_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    conditional_adjustment_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    resulting_expected_total_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    resulting_worst_case_total_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     terms_summary: Mapped[str | None] = mapped_column(String(2000))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
