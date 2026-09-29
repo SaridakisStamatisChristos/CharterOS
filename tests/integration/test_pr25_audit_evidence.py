@@ -393,9 +393,7 @@ def test_pr25_procurement_evidence_is_deterministic_isolated_and_redacted() -> N
             headers={"X-Operator-Id": operator_id},
         )
         assert operator_booking.status_code == 200
-        assert "tender" not in {
-            item["source_type"] for item in operator_booking.json()["sources"]
-        }
+        assert "tender" not in {item["source_type"] for item in operator_booking.json()["sources"]}
         assert "quote_comparison" not in {
             item["decision_type"] for item in operator_booking.json()["decisions"]
         }
