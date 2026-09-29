@@ -9,7 +9,6 @@ def load_models() -> None:
         OperatorRow,
         OrganizationRow,
         OutboxEventRow,
-        ProcurementApprovalRow,
     )
     from charteros.infrastructure.db.models.contracts import ContractRow
     from charteros.infrastructure.db.models.fleet import (
@@ -55,6 +54,7 @@ def load_models() -> None:
         OrganizationRow,
         OutboxConsumerReceiptRow,
         OutboxEventRow,
+        ProcurementApprovalRow,
         QuotePriceComponentRow,
         QuoteRow,
         RfqRow,
