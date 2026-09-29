@@ -475,9 +475,7 @@ def _public_event(
     payload: Mapping[str, object],
 ) -> dict[str, JsonValue]:
     output = {
-        key: _json_value(value)
-        for key, value in payload.items()
-        if key in _SAFE_EVENT_PAYLOAD_KEYS
+        key: _json_value(value) for key, value in payload.items() if key in _SAFE_EVENT_PAYLOAD_KEYS
     }
     return {
         "event_id": str(record.event_id),
@@ -588,9 +586,7 @@ class EvidenceService:
 
         cutoff = max((event.recorded_at for event in material.events), default=None)
         completeness = (
-            EvidenceCompleteness.TRUNCATED
-            if material.truncated
-            else EvidenceCompleteness.COMPLETE
+            EvidenceCompleteness.TRUNCATED if material.truncated else EvidenceCompleteness.COMPLETE
         )
         diagnostics = list(material.diagnostics)
         if material.truncated:
@@ -652,8 +648,7 @@ class EvidenceService:
             expected = list(range(1, ordered[-1] + 1))
             if ordered != expected:
                 raise EntityConflictError(
-                    "event aggregate-version gap for "
-                    f"{aggregate_type}:{aggregate_id}: {ordered}"
+                    f"event aggregate-version gap for {aggregate_type}:{aggregate_id}: {ordered}"
                 )
 
         commercial_change_ids = {
@@ -721,9 +716,7 @@ class EvidenceService:
                 "known_as_of": decision.known_as_of,
                 "actor_id": str(decision.actor_id) if decision.actor_id is not None else None,
                 "correlation_id": (
-                    str(decision.correlation_id)
-                    if decision.correlation_id is not None
-                    else None
+                    str(decision.correlation_id) if decision.correlation_id is not None else None
                 ),
                 "policy_versions": dict(decision.policy_versions),
                 "content": dict(decision.content),
