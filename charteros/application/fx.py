@@ -4,6 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.application.ports.catalog import DomainEventRepository
 from charteros.application.ports.fx import FxLockRepository, FxRateRepository
@@ -265,7 +266,11 @@ class FxService:
         for quote_id, item in converted.items():
             expected, worst, entry = item
             score = scored_by_id.get(quote_id)
-            if score is None or score.currency_rank is None or score.score.total_basis_points is None:
+            if (
+                score is None
+                or score.currency_rank is None
+                or score.score.total_basis_points is None
+            ):
                 raise EntityConflictError("global FX ranking did not produce a complete rank")
             if expected.rate_id != worst.rate_id or expected.rate_text != worst.rate_text:
                 raise EntityConflictError("FX conversion evidence diverged within one quote")
