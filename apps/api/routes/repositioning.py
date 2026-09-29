@@ -76,6 +76,7 @@ class CurrencyOptimizationPlanResponse(BaseModel):
 class RepositionOptimizationResponse(BaseModel):
     policy_version: str
     projection_version: int
+    graph_knowledge_cutoff: datetime
     evaluated_at: datetime
     window_start: datetime
     window_end: datetime
@@ -151,6 +152,7 @@ def _response(value: RepositionOptimization) -> RepositionOptimizationResponse:
     return RepositionOptimizationResponse(
         policy_version=value.policy_version,
         projection_version=value.projection_version,
+        graph_knowledge_cutoff=value.graph_knowledge_cutoff,
         evaluated_at=value.evaluated_at,
         window_start=value.window_start,
         window_end=value.window_end,
