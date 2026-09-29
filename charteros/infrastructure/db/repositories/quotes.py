@@ -21,7 +21,7 @@ from charteros.domain.shared.money import Money
 from charteros.infrastructure.db.models.quotes import QuotePriceComponentRow, QuoteRow
 
 
-def _to_domain(row: QuoteRow) -> Quote:
+def quote_from_row(row: QuoteRow) -> Quote:
     currency = Currency(row.currency)
     components = tuple(
         PriceComponent(
@@ -120,13 +120,13 @@ class SqlAlchemyQuoteRepository:
 
     def get(self, quote_id: QuoteId) -> Quote | None:
         row = self._session.get(QuoteRow, quote_id.value)
-        return _to_domain(row) if row is not None else None
+        return quote_from_row(row) if row is not None else None
 
     def get_for_update(self, quote_id: QuoteId) -> Quote | None:
         row = self._session.scalar(
             select(QuoteRow).where(QuoteRow.id == quote_id.value).with_for_update()
         )
-        return _to_domain(row) if row is not None else None
+        return quote_from_row(row) if row is not None else None
 
     def get_current_for_rfq(self, rfq_id: RfqId) -> Quote | None:
         row = self._session.scalar(
@@ -135,7 +135,7 @@ class SqlAlchemyQuoteRepository:
                 QuoteRow.is_current.is_(True),
             )
         )
-        return _to_domain(row) if row is not None else None
+        return quote_from_row(row) if row is not None else None
 
     def list_for_rfq(self, rfq_id: RfqId) -> tuple[Quote, ...]:
         rows = self._session.scalars(
@@ -143,7 +143,7 @@ class SqlAlchemyQuoteRepository:
             .where(QuoteRow.rfq_id == rfq_id.value)
             .order_by(QuoteRow.revision_number)
         ).all()
-        return tuple(_to_domain(row) for row in rows)
+        return tuple(quote_from_row(row) for row in rows)
 
     def list_current_for_rfqs(self, rfq_ids: tuple[RfqId, ...]) -> tuple[Quote, ...]:
         if not rfq_ids:
@@ -156,7 +156,7 @@ class SqlAlchemyQuoteRepository:
             )
             .order_by(QuoteRow.rfq_id, QuoteRow.id)
         ).all()
-        return tuple(_to_domain(row) for row in rows)
+        return tuple(quote_from_row(row) for row in rows)
 
     def list_current_for_rfqs_for_update(
         self,
@@ -173,7 +173,7 @@ class SqlAlchemyQuoteRepository:
             .order_by(QuoteRow.rfq_id, QuoteRow.id)
             .with_for_update()
         ).all()
-        return tuple(_to_domain(row) for row in rows)
+        return tuple(quote_from_row(row) for row in rows)
 
     def save(self, quote: Quote, *, expected_version: int) -> None:
         statement = (
