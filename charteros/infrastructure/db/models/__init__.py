@@ -27,6 +27,11 @@ def load_models() -> None:
     from charteros.infrastructure.db.models.outbox import OutboxConsumerReceiptRow
     from charteros.infrastructure.db.models.quotes import QuotePriceComponentRow, QuoteRow
     from charteros.infrastructure.db.models.rfqs import RfqRow
+    from charteros.infrastructure.db.models.tenders import (
+        TenderAdminCorrectionRow,
+        TenderInvitationRow,
+        TenderRow,
+    )
 
     _ = (
         AircraftAvailabilityRecordRow,
@@ -51,6 +56,9 @@ def load_models() -> None:
         QuotePriceComponentRow,
         QuoteRow,
         RfqRow,
+        TenderAdminCorrectionRow,
+        TenderInvitationRow,
+        TenderRow,
     )
 
 
