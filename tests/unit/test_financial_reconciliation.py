@@ -147,7 +147,7 @@ def test_dispute_must_be_explicitly_resolved_before_variance_approval_and_comple
         opened_at=NOW + timedelta(minutes=2),
     )
     reconciliation.record_dispute(dispute, invoice=invoice)
-    assert reconciliation.status is FinancialReconciliationStatus.DISPUTED
+    assert reconciliation.status.value == FinancialReconciliationStatus.DISPUTED.value
 
     wrong_approval = VarianceApproval(
         id=VarianceApprovalId.new(),
@@ -184,7 +184,7 @@ def test_dispute_must_be_explicitly_resolved_before_variance_approval_and_comple
     assert payable == Money(8_150_000, EUR)
     assert reconciliation.final_payable == Money(8_150_000, EUR)
     assert reconciliation.approved_variance == Money(150_000, EUR)
-    assert reconciliation.status is FinancialReconciliationStatus.COMPLETED
+    assert reconciliation.status.value == FinancialReconciliationStatus.COMPLETED.value
 
     with pytest.raises(DomainValidationError, match="terminal"):
         reconciliation.record_invoice(
