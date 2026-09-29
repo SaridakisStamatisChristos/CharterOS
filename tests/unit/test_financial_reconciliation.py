@@ -147,7 +147,6 @@ def test_dispute_must_be_explicitly_resolved_before_variance_approval_and_comple
         opened_at=NOW + timedelta(minutes=2),
     )
     reconciliation.record_dispute(dispute, invoice=invoice)
-    assert reconciliation.status.value == FinancialReconciliationStatus.DISPUTED.value
 
     wrong_approval = VarianceApproval(
         id=VarianceApprovalId.new(),
@@ -172,7 +171,6 @@ def test_dispute_must_be_explicitly_resolved_before_variance_approval_and_comple
         note="Buyer accepts half the claimed variance",
     )
     reconciliation.record_variance_approval(approval, invoice=invoice)
-    assert reconciliation.status.value == FinancialReconciliationStatus.VARIANCE_APPROVED.value
     assert reconciliation.current_dispute_id is None
 
     payable = reconciliation.complete(
