@@ -151,7 +151,8 @@ class RepositioningService:
                 window_start=start,
                 window_end=end,
                 structural_empty_leg_count=0,
-                feasible_empty_leg_count=0,
+                evaluable_empty_leg_count=0,
+                direct_reposition_feasible_count=0,
                 quoted_future_leg_count=0,
                 feasible_candidate_count=0,
                 rejection_summary={},
@@ -267,7 +268,10 @@ class RepositioningService:
             window_start=start,
             window_end=end,
             structural_empty_leg_count=len(structural),
-            feasible_empty_leg_count=len(baselines),
+            evaluable_empty_leg_count=len(baselines),
+            direct_reposition_feasible_count=sum(
+                1 for _, baseline in baselines if baseline.baseline_reposition_feasible
+            ),
             quoted_future_leg_count=len(opportunities),
             feasible_candidate_count=len(feasible),
             rejection_summary=merge_rejection_counts(tuple(evaluations)),
