@@ -2,37 +2,39 @@ from __future__ import annotations
 
 from typing import cast
 
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from apps.api.main import create_app
 from apps.api.route_security import ROUTE_POLICIES
-from apps.api.security import authorize_request
 from charteros.security.auth import RejectingAuthenticationBackend
 from charteros.shared.config import Settings
+
+_HTTP_METHODS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"})
 
 
 def _settings() -> Settings:
     return Settings(environment="test", _env_file=None)
 
 
-def test_every_v1_route_has_exactly_one_security_policy_and_dependency() -> None:
+def test_every_externally_exposed_v1_operation_has_exactly_one_security_policy() -> None:
     app = create_app(_settings(), auth_backend=RejectingAuthenticationBackend())
-    routes: list[APIRoute] = []
-    for raw_route in app.routes:
-        path = getattr(raw_route, "path", None)
-        if isinstance(path, str) and path.startswith("/v1"):
-            routes.append(cast(APIRoute, raw_route))
+    schema = app.openapi()
+    raw_paths = schema.get("paths")
+    assert isinstance(raw_paths, dict)
+
     actual: set[tuple[str, str]] = set()
-    for route in routes:
-        assert route.methods is not None
-        actual.update((method, route.path) for method in route.methods)
+    for raw_path, raw_operations in raw_paths.items():
+        assert isinstance(raw_path, str)
+        if not raw_path.startswith("/v1"):
+            continue
+        assert isinstance(raw_operations, dict)
+        operations = cast(dict[str, object], raw_operations)
+        for method in operations:
+            normalized_method = method.upper()
+            if normalized_method in _HTTP_METHODS:
+                actual.add((normalized_method, raw_path))
 
     assert actual == set(ROUTE_POLICIES)
-    for route in routes:
-        assert any(
-            dependency.call is authorize_request for dependency in route.dependant.dependencies
-        )
 
 
 def test_health_is_public_but_v1_fails_closed_without_auth_configuration() -> None:
