@@ -322,9 +322,7 @@ def _commercial_response(change: DisruptionCommercialChange) -> CommercialChange
         proposal_id=change.proposal_id.value,
         revision_number=change.revision_number,
         supersedes_change_id=(
-            change.supersedes_change_id.value
-            if change.supersedes_change_id is not None
-            else None
+            change.supersedes_change_id.value if change.supersedes_change_id is not None else None
         ),
         status=change.status.value,
         original_quote_id=change.original_quote_id.value,
