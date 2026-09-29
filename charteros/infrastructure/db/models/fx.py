@@ -87,8 +87,7 @@ class FxLockRow(Base):
             name="ck_fx_locks_lifecycle",
         ),
         CheckConstraint(
-            "consumed_at IS NULL OR "
-            "(consumed_at >= locked_at AND consumed_at < expires_at)",
+            "consumed_at IS NULL OR (consumed_at >= locked_at AND consumed_at < expires_at)",
             name="ck_fx_locks_consumption_window",
         ),
         CheckConstraint(
