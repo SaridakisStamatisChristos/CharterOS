@@ -813,7 +813,7 @@ def upgrade() -> None:
                 'operator_invoice_lines',
                 'reconciliation_disputes',
                 'reconciliation_variance_approvals',
-                'tender_admin_corrections',
+                'tender_admin_corrections'
             ]
             LOOP
                 EXECUTE format('REVOKE UPDATE ON TABLE public.%I FROM %I', v_table, p_role);
