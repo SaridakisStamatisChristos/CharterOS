@@ -71,9 +71,7 @@ class SqlAlchemyFxRateRepository:
                 recorded_at=rate.recorded_at,
                 revision_number=rate.revision_number,
                 supersedes_rate_id=(
-                    rate.supersedes_rate_id.value
-                    if rate.supersedes_rate_id is not None
-                    else None
+                    rate.supersedes_rate_id.value if rate.supersedes_rate_id is not None else None
                 ),
             )
         )
