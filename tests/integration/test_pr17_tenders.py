@@ -231,6 +231,7 @@ def _force_deadline_past(settings: Settings, tender_id: str) -> None:
         deadline = now - timedelta(minutes=1)
         created = now - timedelta(hours=1)
         opened = now - timedelta(minutes=50)
+        bafo_requested = now - timedelta(minutes=10)
         with engine.begin() as connection:
             rfq_ids = connection.execute(
                 text("SELECT rfq_id FROM tender_invitations WHERE tender_id = :id"),
@@ -239,11 +240,15 @@ def _force_deadline_past(settings: Settings, tender_id: str) -> None:
             connection.execute(
                 text(
                     "UPDATE tenders SET created_at = :created, opens_at = :created, "
-                    "opened_at = :opened, deadline_at = :deadline WHERE id = :id"
+                    "opened_at = :opened, "
+                    "best_and_final_requested_at = CASE "
+                    "WHEN best_and_final_requested_at IS NULL THEN NULL ELSE :bafo_requested END, "
+                    "deadline_at = :deadline WHERE id = :id"
                 ),
                 {
                     "created": created,
                     "opened": opened,
+                    "bafo_requested": bafo_requested,
                     "deadline": deadline,
                     "id": UUID(tender_id),
                 },
