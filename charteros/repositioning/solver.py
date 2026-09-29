@@ -190,9 +190,7 @@ def to_assignment(item: FeasibleInsertion) -> RepositionAssignment:
         aircraft_available_at=item.empty_leg.aircraft_available_at,
         scheduled_departure=item.scheduled_departure,
         continuity_ready_at=item.continuity_ready_at,
-        previous_revenue_distance_tenths_nm=(
-            item.empty_leg.previous_revenue_distance_tenths_nm
-        ),
+        previous_revenue_distance_tenths_nm=(item.empty_leg.previous_revenue_distance_tenths_nm),
         previous_revenue_minutes=item.empty_leg.previous_revenue_minutes,
         baseline_reposition_distance_tenths_nm=item.empty_leg.baseline_distance_tenths_nm,
         pre_reposition_distance_tenths_nm=item.pre_reposition_distance_tenths_nm,
