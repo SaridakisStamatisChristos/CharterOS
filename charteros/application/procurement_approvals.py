@@ -7,12 +7,14 @@ from charteros.application.exceptions import EntityConflictError, EntityNotFound
 from charteros.application.ports.bookings import BookingRepository
 from charteros.application.ports.catalog import DomainEventRepository, OrganizationRepository
 from charteros.application.ports.contracts import ContractRepository
+from charteros.application.ports.fx import FxLockRepository
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.procurement_approvals import ProcurementApprovalRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
 from charteros.application.ports.tenders import TenderRepository
 from charteros.domain.bookings import Booking
+from charteros.domain.fx import FxLockId
 from charteros.domain.missions import MissionId, MissionStatus
 from charteros.domain.organizations import OrganizationId, OrganizationStatus
 from charteros.domain.procurement_approvals import (
@@ -21,6 +23,7 @@ from charteros.domain.procurement_approvals import (
     ProcurementApprovalStatus,
 )
 from charteros.domain.quotes import QuoteId, QuoteStatus
+from charteros.domain.quotes.normalization import normalize_quote
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.ids import CorrelationId
 
@@ -45,6 +48,7 @@ class ProcurementApprovalService:
         bookings: BookingRepository,
         contracts: ContractRepository,
         tenders: TenderRepository,
+        fx_locks: FxLockRepository,
         events: DomainEventRepository,
     ) -> None:
         self._approvals = approvals
@@ -55,6 +59,7 @@ class ProcurementApprovalService:
         self._bookings = bookings
         self._contracts = contracts
         self._tenders = tenders
+        self._fx_locks = fx_locks
         self._events = events
 
     def approve(
@@ -66,6 +71,7 @@ class ProcurementApprovalService:
         approved_at: datetime,
         note: str | None,
         correlation_id: CorrelationId,
+        fx_lock_id: FxLockId | None = None,
     ) -> ProcurementApproval:
         when = _utc(approved_at, field_name="approved_at")
         self._assert_buyer(buyer_id)
@@ -91,9 +97,39 @@ class ProcurementApprovalService:
         if when < quote.submitted_at or when >= quote.valid_until:
             raise EntityConflictError("quote can only be approved within its validity window")
 
+        fx_lock = None
+        if fx_lock_id is not None:
+            fx_lock = self._fx_locks.get_for_update(fx_lock_id)
+            if fx_lock is None or fx_lock.buyer_id != buyer_id:
+                raise EntityNotFoundError("FX lock is not available in the buyer context")
+            try:
+                locked_quote = fx_lock.assert_usable(
+                    buyer_id=buyer_id,
+                    mission_id=mission.id,
+                    quote_id=quote.id,
+                    quote_revision_number=quote.revision_number,
+                    at=when,
+                )
+            except DomainValidationError as exc:
+                raise EntityConflictError(str(exc)) from exc
+            normalization = normalize_quote(quote)
+            if (
+                locked_quote.original_expected != normalization.expected_total
+                or locked_quote.original_worst_case != normalization.worst_case_total
+            ):
+                raise EntityConflictError(
+                    "FX lock commercial totals conflict with the immutable quote revision"
+                )
+
         current = self._approvals.get_current_for_mission_for_update(mission.id)
         if current is not None and current.quote_id == quote.id:
-            return current
+            if fx_lock is None:
+                return current
+            if fx_lock.consumed_approval_id == current.id:
+                return current
+            raise EntityConflictError(
+                "quote already has an active approval bound to different FX evidence"
+            )
 
         replacement = ProcurementApproval.create(
             mission_id=mission.id,
@@ -116,6 +152,15 @@ class ProcurementApprovalService:
 
         self._approvals.add(replacement)
         self._events.add_aggregate_events(replacement)
+        if fx_lock is not None:
+            lock_version = fx_lock.version
+            fx_lock.consume(
+                approval_id=replacement.id,
+                consumed_at=when,
+                correlation_id=correlation_id,
+            )
+            self._fx_locks.save(fx_lock, expected_version=lock_version)
+            self._events.add_aggregate_events(fx_lock)
         return replacement
 
     def award(
