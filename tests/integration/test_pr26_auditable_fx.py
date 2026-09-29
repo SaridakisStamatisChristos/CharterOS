@@ -502,3 +502,46 @@ def test_pr26_concurrent_rate_corrections_cannot_fork_lineage() -> None:
         )
 
     assert statuses == [201, 409]
+
+
+@pytest.mark.integration
+@pytest.mark.concurrency
+def test_pr26_one_fx_lock_cannot_back_two_concurrent_approvals() -> None:
+    settings = _settings()
+    with TestClient(create_app(settings)) as client:
+        setup = _setup_cross_currency(
+            client,
+            settings,
+            suffix="FE",
+            origin_icao="FXEA",
+            origin_iata="FXE",
+            destination_icao="FXEB",
+            destination_iata="FXF",
+        )
+        _create_rate(client, suffix="fe")
+        locked = _fx_lock(
+            client,
+            buyer_id=setup["buyer_id"],
+            mission_id=setup["mission_id"],
+            idempotency_key="pr26-lock-fe",
+        )
+
+    def approve(key: str) -> int:
+        with TestClient(create_app(settings)) as worker:
+            response = worker.post(
+                (
+                    f"/v1/buyer-portal/missions/{setup['mission_id']}/quotes/"
+                    f"{setup['usd_quote_id']}/approve"
+                ),
+                headers={
+                    "X-Buyer-Id": setup["buyer_id"],
+                    "Idempotency-Key": key,
+                },
+                json={"fx_lock_id": locked["fx_lock_id"]},
+            )
+            return response.status_code
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        statuses = sorted(pool.map(approve, ("pr26-approve-fe-a", "pr26-approve-fe-b")))
+
+    assert statuses == [201, 409]
