@@ -597,6 +597,101 @@ class SqlAlchemyEvidenceRepository:
         invoice_by_id = {row.id: row for row in invoices}
         dispute_by_id = {row.id: row for row in disputes}
         approval_by_id = {row.id: row for row in variance_approvals}
+        procurement_approval_by_id = {row.id: row for row in approvals}
+        fx_rate_by_id = {row.id: row for row in fx_rates}
+        fx_conversions_by_lock: dict[UUID, list[FxLockConversionRow]] = {}
+        for conversion in fx_conversions:
+            fx_conversions_by_lock.setdefault(conversion.lock_id, []).append(conversion)
+
+        for fx_lock in fx_locks:
+            if (
+                fx_lock.status != "consumed"
+                or fx_lock.consumed_at is None
+                or fx_lock.consumed_approval_id is None
+            ):
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} is missing committed consumption evidence"
+                )
+            procurement_approval = procurement_approval_by_id.get(
+                fx_lock.consumed_approval_id
+            )
+            if procurement_approval is None:
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} references missing procurement approval"
+                )
+            if (
+                procurement_approval.mission_id != fx_lock.mission_id
+                or procurement_approval.buyer_id != fx_lock.buyer_id
+                or procurement_approval.approved_at != fx_lock.consumed_at
+            ):
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} conflicts with procurement approval lineage"
+                )
+
+            lock_conversions = fx_conversions_by_lock.get(fx_lock.id, [])
+            if not lock_conversions:
+                raise EntityConflictError(f"FX lock {fx_lock.id} has no conversion evidence")
+            ranks = sorted(item.global_rank for item in lock_conversions)
+            if ranks != list(range(1, len(lock_conversions) + 1)):
+                raise EntityConflictError(f"FX lock {fx_lock.id} has non-contiguous global ranks")
+
+            selected_conversion = next(
+                (
+                    item
+                    for item in lock_conversions
+                    if item.quote_id == procurement_approval.quote_id
+                ),
+                None,
+            )
+            if selected_conversion is None:
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} does not contain the approved quote"
+                )
+            selected_quote = quote_by_id.get(procurement_approval.quote_id)
+            if selected_quote is None:
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} approved quote evidence is missing"
+                )
+            if selected_conversion.quote_revision_number != selected_quote.revision_number:
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} quote revision conflicts with canonical quote"
+                )
+
+            for conversion in lock_conversions:
+                if conversion.base_currency != fx_lock.base_currency:
+                    raise EntityConflictError(
+                        f"FX lock {fx_lock.id} conversion base currency conflicts"
+                    )
+                if conversion.rate_id is None:
+                    if (
+                        conversion.original_currency != conversion.base_currency
+                        or conversion.rate_text != "1"
+                        or conversion.fx_source != "identity"
+                    ):
+                        raise EntityConflictError(
+                            f"FX lock {fx_lock.id} has invalid identity conversion evidence"
+                        )
+                    continue
+
+                rate = fx_rate_by_id.get(conversion.rate_id)
+                if rate is None:
+                    raise EntityConflictError(
+                        f"FX lock {fx_lock.id} references missing FX rate {conversion.rate_id}"
+                    )
+                if (
+                    rate.source_currency != conversion.original_currency
+                    or rate.target_currency != conversion.base_currency
+                    or rate.rate_text != conversion.rate_text
+                    or rate.fx_source != conversion.fx_source
+                    or rate.fx_source_version != conversion.fx_source_version
+                    or rate.fx_timestamp != conversion.fx_timestamp
+                    or rate.recorded_at != conversion.rate_recorded_at
+                    or rate.source_minor_exponent != conversion.source_minor_exponent
+                    or rate.target_minor_exponent != conversion.target_minor_exponent
+                ):
+                    raise EntityConflictError(
+                        f"FX lock {fx_lock.id} conversion conflicts with immutable rate evidence"
+                    )
 
         for booking in bookings:
             if booking.mission_id != mission.id:
