@@ -974,9 +974,10 @@ def approve_quote(
             return ApprovalResponse.model_validate(stored.response_body)
 
         _visibility_policy(session).assert_mission_comparison_visible(typed_mission)
+        approved_at = datetime.now(UTC)
         comparison = _comparison_service(session).compare(
             mission_id=typed_mission,
-            evaluated_at=datetime.now(UTC),
+            evaluated_at=approved_at,
         )
         selected = next(
             (entry for entry in comparison.entries if entry.quote.id.value == quote_id),
@@ -987,14 +988,38 @@ def approve_quote(
         if not selected.decision_eligible:
             raise EntityConflictError("quote is not currently eligible for procurement approval")
 
+        typed_fx_lock_id = FxLockId(body.fx_lock_id) if body.fx_lock_id is not None else None
         approval = _approval_service(session).approve(
             buyer_id=typed_buyer,
             mission_id=typed_mission,
             quote_id=QuoteId(quote_id),
-            approved_at=datetime.now(UTC),
+            approved_at=approved_at,
             note=body.note,
             correlation_id=correlation_id,
+            fx_lock_id=typed_fx_lock_id,
         )
+        committed_fx_lock = (
+            SqlAlchemyFxLockRepository(session).get(typed_fx_lock_id)
+            if typed_fx_lock_id is not None
+            else None
+        )
+        if typed_fx_lock_id is not None and committed_fx_lock is None:
+            raise EntityConflictError("consumed FX lock evidence disappeared during approval")
+
+        policy_versions: dict[str, object] = {
+            "quote_comparison": comparison.comparison_policy_version,
+            "matching": comparison.matching_policy_version,
+            "quote_normalization": selected.normalization.normalization_version,
+        }
+        if committed_fx_lock is not None:
+            policy_versions.update(
+                {
+                    "fx_lock": LOCK_POLICY_VERSION,
+                    "fx_conversion": CONVERSION_POLICY_VERSION,
+                    "fx_rounding": ROUNDING_POLICY_VERSION,
+                }
+            )
+
         SqlAlchemyDecisionEvidenceRepository(session).add_snapshot(
             decision_type="quote_comparison",
             subject_type="mission",
@@ -1005,14 +1030,11 @@ def approve_quote(
             known_as_of=comparison.evaluated_at,
             actor_id=buyer_id,
             correlation_id=correlation_id.value,
-            policy_versions={
-                "quote_comparison": comparison.comparison_policy_version,
-                "matching": comparison.matching_policy_version,
-                "quote_normalization": selected.normalization.normalization_version,
-            },
+            policy_versions=policy_versions,
             content=quote_comparison_evidence(
                 comparison=comparison,
                 selected_quote_id=quote_id,
+                fx_lock=committed_fx_lock,
             ),
         )
         response = _approval_response(approval)
