@@ -373,6 +373,14 @@ def _visibility_policy(session: Session) -> TenderVisibilityPolicy:
     )
 
 
+def _fx_service(session: Session) -> FxService:
+    return FxService(
+        rates=SqlAlchemyFxRateRepository(session),
+        locks=SqlAlchemyFxLockRepository(session),
+        events=SqlAlchemyDomainEventRepository(session),
+    )
+
+
 def _approval_service(session: Session) -> ProcurementApprovalService:
     return ProcurementApprovalService(
         approvals=SqlAlchemyProcurementApprovalRepository(session),
@@ -383,6 +391,7 @@ def _approval_service(session: Session) -> ProcurementApprovalService:
         bookings=SqlAlchemyBookingRepository(session),
         contracts=SqlAlchemyContractRepository(session),
         tenders=SqlAlchemyTenderRepository(session),
+        fx_locks=SqlAlchemyFxLockRepository(session),
         events=SqlAlchemyDomainEventRepository(session),
     )
 
@@ -480,6 +489,88 @@ def _booking_response(booking: Booking) -> BookingStatusResponse:
 
 def _money_response(money: Money) -> MoneyResponse:
     return MoneyResponse(amount_minor=money.amount_minor, currency=str(money.currency))
+
+
+def _comparison_response(
+    comparison: MissionQuoteComparison,
+    *,
+    fx_lock: FxLock | None = None,
+) -> BuyerQuoteComparisonResponse:
+    locked_by_quote = (
+        {entry.quote_id.value: entry for entry in fx_lock.entries}
+        if fx_lock is not None
+        else {}
+    )
+    entries: list[QuoteComparisonEntryResponse] = []
+    for entry in comparison.entries:
+        locked = locked_by_quote.get(entry.quote.id.value)
+        fx_response = None
+        if locked is not None:
+            fx_response = FxQuoteConversionResponse(
+                base_currency=str(fx_lock.base_currency),
+                converted_expected_total=_money_response(locked.converted_expected),
+                converted_worst_case_total=_money_response(locked.converted_worst_case),
+                fx_rate_id=locked.rate_id.value if locked.rate_id is not None else None,
+                fx_rate=locked.rate_text,
+                fx_source=locked.fx_source,
+                fx_source_version=locked.fx_source_version,
+                fx_timestamp=locked.fx_timestamp,
+                fx_rate_recorded_at=locked.rate_recorded_at,
+                source_minor_exponent=locked.source_minor_exponent,
+                target_minor_exponent=locked.target_minor_exponent,
+                rounding_policy=ROUNDING_POLICY_VERSION,
+                conversion_policy_version=CONVERSION_POLICY_VERSION,
+                global_rank=locked.global_rank,
+                global_score_method=locked.global_score_method,
+                global_score_total_basis_points=locked.global_score_total_basis_points,
+            )
+        entries.append(
+            QuoteComparisonEntryResponse(
+                quote_id=entry.quote.id.value,
+                operator_id=entry.operator_id.value,
+                aircraft_id=entry.quote.aircraft_id.value,
+                revision_number=entry.quote.revision_number,
+                quote_status=entry.quote.status.value,
+                valid_until=entry.quote.valid_until,
+                currency=str(entry.normalization.currency),
+                expected_total=_money_response(entry.normalization.expected_total),
+                worst_case_total=_money_response(entry.normalization.worst_case_total),
+                totals_complete=entry.normalization.totals_complete,
+                pricing_confidence=entry.normalization.confidence.value,
+                commercial_valid=entry.commercial_valid,
+                aircraft_feasible=entry.aircraft_suitability.feasible,
+                decision_eligible=entry.decision_eligible,
+                eligibility_reasons=[reason.value for reason in entry.eligibility_reasons],
+                rejection_reasons=[
+                    reason.value for reason in entry.aircraft_suitability.rejection_reasons
+                ],
+                currency_rank=entry.currency_rank,
+                score_method=entry.score.method,
+                score_total_basis_points=entry.score.total_basis_points,
+                fx=fx_response,
+            )
+        )
+    return BuyerQuoteComparisonResponse(
+        mission_id=comparison.mission_id.value,
+        comparison_policy_version=comparison.comparison_policy_version,
+        matching_policy_version=comparison.matching_policy_version,
+        evaluated_at=comparison.evaluated_at,
+        pricing_currencies=[str(currency) for currency in comparison.pricing_currencies],
+        global_rank_available=(
+            fx_lock is not None or comparison.global_rank_available
+        ),
+        base_currency=str(fx_lock.base_currency) if fx_lock is not None else None,
+        fx_lock_id=fx_lock.id.value if fx_lock is not None else None,
+        fx_locked_at=fx_lock.locked_at if fx_lock is not None else None,
+        fx_expires_at=fx_lock.expires_at if fx_lock is not None else None,
+        fx_lock_policy_version=LOCK_POLICY_VERSION if fx_lock is not None else None,
+        fx_conversion_policy_version=(
+            CONVERSION_POLICY_VERSION if fx_lock is not None else None
+        ),
+        fx_rounding_policy=ROUNDING_POLICY_VERSION if fx_lock is not None else None,
+        fx_integrity_digest=fx_lock.integrity_digest if fx_lock is not None else None,
+        quotes=entries,
+    )
 
 
 @router.post("/missions", response_model=BuyerMissionResponse, status_code=status.HTTP_201_CREATED)
