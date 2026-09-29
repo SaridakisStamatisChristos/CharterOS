@@ -112,9 +112,7 @@ class SqlAlchemyProcurementApprovalRepository:
                 status=approval.status.value,
                 superseded_at=approval.superseded_at,
                 consumed_at=approval.consumed_at,
-                booking_id=(
-                    approval.booking_id.value if approval.booking_id is not None else None
-                ),
+                booking_id=(approval.booking_id.value if approval.booking_id is not None else None),
             )
             .returning(ProcurementApprovalRow.id)
         )
