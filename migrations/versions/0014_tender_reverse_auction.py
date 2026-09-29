@@ -17,6 +17,14 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    op.alter_column(
+        "idempotency_records",
+        "scope",
+        existing_type=sa.String(length=96),
+        type_=sa.String(length=192),
+        existing_nullable=False,
+    )
+
     op.create_table(
         "tenders",
         sa.Column("id", sa.Uuid(), primary_key=True),
@@ -210,7 +218,8 @@ def downgrade() -> None:
             "(SELECT count(*) FROM tender_admin_corrections) + "
             "(SELECT count(*) FROM tender_invitations) + "
             "(SELECT count(*) FROM tenders) + "
-            "(SELECT count(*) FROM outbox_events WHERE aggregate_type = 'tender')"
+            "(SELECT count(*) FROM outbox_events WHERE aggregate_type = 'tender') + "
+            "(SELECT count(*) FROM idempotency_records WHERE char_length(scope) > 96)"
         )
     ).scalar_one()
     if evidence:
@@ -230,3 +239,10 @@ def downgrade() -> None:
     op.drop_table("tender_invitations")
     op.drop_index("ix_tenders_status_deadline", table_name="tenders")
     op.drop_table("tenders")
+    op.alter_column(
+        "idempotency_records",
+        "scope",
+        existing_type=sa.String(length=192),
+        type_=sa.String(length=96),
+        existing_nullable=False,
+    )
