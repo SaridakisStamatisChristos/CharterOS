@@ -38,6 +38,10 @@ def _tender() -> Tender:
     )
 
 
+def _status_value(tender: Tender) -> str:
+    return tender.status.value
+
+
 def test_tender_state_machine_enforces_authoritative_window_and_bafo() -> None:
     created, opens, deadline = _window()
     tender = _tender()
@@ -46,7 +50,7 @@ def test_tender_state_machine_enforces_authoritative_window_and_bafo() -> None:
         tender.open(opened_at=created + timedelta(minutes=1))
 
     tender.open(opened_at=opens)
-    assert tender.status.value == "open"
+    assert _status_value(tender) == "open"
 
     invitation_id = TenderInvitationId.new()
     operator_id = OperatorId.new()
@@ -73,7 +77,7 @@ def test_tender_state_machine_enforces_authoritative_window_and_bafo() -> None:
     )
 
     tender.request_best_and_final(requested_at=opens + timedelta(minutes=30))
-    assert tender.status.value == "best_and_final"
+    assert _status_value(tender) == "best_and_final"
 
     with pytest.raises(DomainValidationError, match="ordinary bid"):
         tender.record_bid(
@@ -108,13 +112,13 @@ def test_tender_state_machine_enforces_authoritative_window_and_bafo() -> None:
         tender.close(closed_at=deadline - timedelta(microseconds=1))
 
     tender.close(closed_at=deadline)
-    assert tender.status.value == "closed"
+    assert _status_value(tender) == "closed"
     tender.award(
         quote_id=QuoteId.new(),
         booking_id=BookingId.new(),
         awarded_at=deadline + timedelta(seconds=1),
     )
-    assert tender.status.value == "awarded"
+    assert _status_value(tender) == "awarded"
 
 
 def test_post_deadline_admin_correction_is_append_only_auditable_event() -> None:
