@@ -233,10 +233,14 @@ def _force_deadline_past(settings: Settings, tender_id: str) -> None:
         opened = now - timedelta(minutes=50)
         bafo_requested = now - timedelta(minutes=10)
         with engine.begin() as connection:
-            rfq_ids = connection.execute(
-                text("SELECT rfq_id FROM tender_invitations WHERE tender_id = :id"),
-                {"id": UUID(tender_id)},
-            ).scalars().all()
+            rfq_ids = (
+                connection.execute(
+                    text("SELECT rfq_id FROM tender_invitations WHERE tender_id = :id"),
+                    {"id": UUID(tender_id)},
+                )
+                .scalars()
+                .all()
+            )
             connection.execute(
                 text(
                     "UPDATE tenders SET created_at = :created, opens_at = :created, "
@@ -333,8 +337,7 @@ def test_sealed_tender_bafo_deadline_admin_correction_and_canonical_award() -> N
         _force_deadline_past(settings, tender_id)
 
         late_revision = client.post(
-            f"/v1/tender-invitations/{first['invitation_id']}"
-            f"/best-and-final/{bafo_quotes[0]}",
+            f"/v1/tender-invitations/{first['invitation_id']}/best-and-final/{bafo_quotes[0]}",
             headers={"Idempotency-Key": "pr17-late-final-ta"},
             json=_quote_body(first["aircraft_id"], departure - timedelta(hours=6), 6_500_000),
         )
@@ -395,14 +398,20 @@ def test_sealed_tender_bafo_deadline_admin_correction_and_canonical_award() -> N
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            assert connection.execute(
-                text("SELECT count(*) FROM bookings WHERE mission_id = :id"),
-                {"id": UUID(mission_id)},
-            ).scalar_one() == 1
-            assert connection.execute(
-                text("SELECT count(*) FROM tender_admin_corrections WHERE tender_id = :id"),
-                {"id": UUID(tender_id)},
-            ).scalar_one() == 1
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM bookings WHERE mission_id = :id"),
+                    {"id": UUID(mission_id)},
+                ).scalar_one()
+                == 1
+            )
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM tender_admin_corrections WHERE tender_id = :id"),
+                    {"id": UUID(tender_id)},
+                ).scalar_one()
+                == 1
+            )
     finally:
         engine.dispose()
 
@@ -463,13 +472,19 @@ def test_deadline_close_race_and_concurrent_award_preserve_single_winner() -> No
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            assert connection.execute(
-                text("SELECT count(*) FROM bookings WHERE mission_id = :id"),
-                {"id": UUID(mission_id)},
-            ).scalar_one() == 1
-            assert connection.execute(
-                text("SELECT status FROM tenders WHERE id = :id"),
-                {"id": UUID(tender_id)},
-            ).scalar_one() == "awarded"
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM bookings WHERE mission_id = :id"),
+                    {"id": UUID(mission_id)},
+                ).scalar_one()
+                == 1
+            )
+            assert (
+                connection.execute(
+                    text("SELECT status FROM tenders WHERE id = :id"),
+                    {"id": UUID(tender_id)},
+                ).scalar_one()
+                == "awarded"
+            )
     finally:
         engine.dispose()
