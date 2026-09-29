@@ -161,6 +161,18 @@ def test_event_aggregate_version_gap_fails_explicitly() -> None:
         )
 
 
+def test_missing_terminal_event_fails_against_canonical_source_version() -> None:
+    material = _material(events=(_event(version=1),), version=2)
+
+    with pytest.raises(EntityConflictError, match="canonical aggregate version conflicts"):
+        EvidenceService(FakeEvidenceRepository(material)).build(
+            subject_type=EvidenceSubjectType.MISSION,
+            subject_id=MISSION_ID,
+            party=EvidenceParty(buyer_id=BUYER_ID),
+            event_limit=100,
+        )
+
+
 def test_canonical_event_envelope_conflict_fails_explicitly() -> None:
     material = _material(
         events=(
