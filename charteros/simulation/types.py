@@ -98,9 +98,7 @@ class MarketRoute:
                 f"monthly_demand_ppm values must be between 0 and {2 * PPM}"
             )
         if any(not 1 <= value <= 2 * PPM for value in self.monthly_price_ppm):
-            raise DomainValidationError(
-                f"monthly_price_ppm values must be between 1 and {2 * PPM}"
-            )
+            raise DomainValidationError(f"monthly_price_ppm values must be between 1 and {2 * PPM}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,9 +151,7 @@ class SimulatorOperator:
             field_name="completion_probability_ppm",
         )
         if not 0 <= self.quote_volatility_ppm < PPM:
-            raise DomainValidationError(
-                f"quote_volatility_ppm must be between 0 and {PPM - 1}"
-            )
+            raise DomainValidationError(f"quote_volatility_ppm must be between 0 and {PPM - 1}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,9 +169,7 @@ class MarketSimulationConfig:
     def __post_init__(self) -> None:
         object.__setattr__(self, "start_at", ensure_utc(self.start_at, field_name="start_at"))
         if not 1 <= self.days <= MAX_SIMULATION_DAYS:
-            raise DomainValidationError(
-                f"days must be between 1 and {MAX_SIMULATION_DAYS}"
-            )
+            raise DomainValidationError(f"days must be between 1 and {MAX_SIMULATION_DAYS}")
         if not 1 <= len(self.routes) <= MAX_ROUTES:
             raise DomainValidationError(f"routes must contain between 1 and {MAX_ROUTES} items")
         if not 1 <= len(self.operators) <= MAX_OPERATORS:
@@ -183,9 +177,7 @@ class MarketSimulationConfig:
                 f"operators must contain between 1 and {MAX_OPERATORS} items"
             )
         if not 1 <= len(self.airports) <= MAX_AIRPORTS:
-            raise DomainValidationError(
-                f"airports must contain between 1 and {MAX_AIRPORTS} items"
-            )
+            raise DomainValidationError(f"airports must contain between 1 and {MAX_AIRPORTS} items")
         validate_probability_ppm(
             self.conversion_probability_ppm,
             field_name="conversion_probability_ppm",
@@ -298,9 +290,7 @@ class SimulatedOperatorDecision:
             )
             if not 0 <= self.quote_response_draw_ppm < PPM:
                 raise DomainValidationError("quote_response_draw_ppm must be between 0 and 999999")
-            expected_response = (
-                self.quote_response_draw_ppm < self.quote_response_probability_ppm
-            )
+            expected_response = self.quote_response_draw_ppm < self.quote_response_probability_ppm
             if self.quote_responded != expected_response:
                 raise DomainValidationError(
                     "quote_responded must match quote-response probability and draw"
@@ -313,9 +303,7 @@ class SimulatedOperatorDecision:
             raise DomainValidationError(
                 "rejected operator decision cannot carry quote-response evidence"
             )
-        object.__setattr__(
-            self, "decided_at", ensure_utc(self.decided_at, field_name="decided_at")
-        )
+        object.__setattr__(self, "decided_at", ensure_utc(self.decided_at, field_name="decided_at"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -332,9 +320,7 @@ class SimulatedQuoteRevision:
             raise DomainValidationError(
                 "volatility_ppm must be greater than -1,000,000 and <= 1,000,000"
             )
-        object.__setattr__(
-            self, "created_at", ensure_utc(self.created_at, field_name="created_at")
-        )
+        object.__setattr__(self, "created_at", ensure_utc(self.created_at, field_name="created_at"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -410,17 +396,13 @@ class SimulatedConversion:
                 raise DomainValidationError("completion_draw_ppm must be between 0 and 999999")
             expected_completion = self.completion_draw_ppm < self.completion_probability_ppm
             if self.completed != expected_completion:
-                raise DomainValidationError(
-                    "completed must match completion probability and draw"
-                )
+                raise DomainValidationError("completed must match completion probability and draw")
         elif (
             self.completion_probability_ppm is not None
             or self.completion_draw_ppm is not None
             or self.completed
         ):
-            raise DomainValidationError(
-                "unconverted outcome cannot carry completion evidence"
-            )
+            raise DomainValidationError("unconverted outcome cannot carry completion evidence")
 
 
 @dataclass(frozen=True, slots=True)
