@@ -6,6 +6,7 @@ from charteros.application.exceptions import EntityConflictError, EntityNotFound
 from charteros.application.ports.catalog import DomainEventRepository, OperatorRepository
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.rfqs import RfqRepository
+from charteros.application.ports.tenders import TenderRepository
 from charteros.domain.missions import MissionId, MissionStatus
 from charteros.domain.operators import (
     CommercialStatus,
@@ -32,11 +33,13 @@ class RfqService:
         missions: MissionRepository,
         operators: OperatorRepository,
         events: DomainEventRepository,
+        tenders: TenderRepository | None = None,
     ) -> None:
         self._rfqs = rfqs
         self._missions = missions
         self._operators = operators
         self._events = events
+        self._tenders = tenders
 
     def create_and_send(
         self,
@@ -105,9 +108,11 @@ class RfqService:
         rfq_id: RfqId,
         now: datetime,
         correlation_id: CorrelationId,
+        tender_command: bool = False,
     ) -> Rfq:
         when = _utc(now, field_name="now")
         rfq = self._get_for_update(rfq_id)
+        self._assert_tender_command(rfq.id, tender_command=tender_command)
         if rfq.status is not RfqStatus.SENT:
             raise EntityConflictError("only sent RFQs can be acknowledged")
         assert rfq.response_deadline is not None
@@ -126,9 +131,11 @@ class RfqService:
         reason: str | None,
         now: datetime,
         correlation_id: CorrelationId,
+        tender_command: bool = False,
     ) -> Rfq:
         when = _utc(now, field_name="now")
         rfq = self._get_for_update(rfq_id)
+        self._assert_tender_command(rfq.id, tender_command=tender_command)
         if rfq.status not in (RfqStatus.SENT, RfqStatus.ACKNOWLEDGED):
             raise EntityConflictError("only sent or acknowledged RFQs can be declined")
         assert rfq.response_deadline is not None
@@ -163,6 +170,14 @@ class RfqService:
         self._rfqs.save(rfq, expected_version=expected_version)
         self._events.add_aggregate_events(rfq)
         return rfq
+
+    def _assert_tender_command(self, rfq_id: RfqId, *, tender_command: bool) -> None:
+        if self._tenders is None or tender_command:
+            return
+        if self._tenders.find_invitation_for_rfq(rfq_id) is not None:
+            raise EntityConflictError(
+                "tender invitations must be answered through the tender participation workflow"
+            )
 
     def _get_for_update(self, rfq_id: RfqId) -> Rfq:
         rfq = self._rfqs.get_for_update(rfq_id)
