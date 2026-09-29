@@ -497,9 +497,7 @@ def _comparison_response(
     fx_lock: FxLock | None = None,
 ) -> BuyerQuoteComparisonResponse:
     locked_by_quote = (
-        {entry.quote_id.value: entry for entry in fx_lock.entries}
-        if fx_lock is not None
-        else {}
+        {entry.quote_id.value: entry for entry in fx_lock.entries} if fx_lock is not None else {}
     )
     entries: list[QuoteComparisonEntryResponse] = []
     for entry in comparison.entries:
@@ -556,17 +554,13 @@ def _comparison_response(
         matching_policy_version=comparison.matching_policy_version,
         evaluated_at=comparison.evaluated_at,
         pricing_currencies=[str(currency) for currency in comparison.pricing_currencies],
-        global_rank_available=(
-            fx_lock is not None or comparison.global_rank_available
-        ),
+        global_rank_available=(fx_lock is not None or comparison.global_rank_available),
         base_currency=str(fx_lock.base_currency) if fx_lock is not None else None,
         fx_lock_id=fx_lock.id.value if fx_lock is not None else None,
         fx_locked_at=fx_lock.locked_at if fx_lock is not None else None,
         fx_expires_at=fx_lock.expires_at if fx_lock is not None else None,
         fx_lock_policy_version=LOCK_POLICY_VERSION if fx_lock is not None else None,
-        fx_conversion_policy_version=(
-            CONVERSION_POLICY_VERSION if fx_lock is not None else None
-        ),
+        fx_conversion_policy_version=(CONVERSION_POLICY_VERSION if fx_lock is not None else None),
         fx_rounding_policy=ROUNDING_POLICY_VERSION if fx_lock is not None else None,
         fx_integrity_digest=fx_lock.integrity_digest if fx_lock is not None else None,
         quotes=entries,
