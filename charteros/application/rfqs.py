@@ -49,6 +49,7 @@ class RfqService:
         response_deadline: datetime,
         now: datetime,
         correlation_id: CorrelationId,
+        tender_command: bool = False,
     ) -> Rfq:
         issued_at = _utc(now, field_name="now")
         deadline = _utc(response_deadline, field_name="response_deadline")
@@ -57,6 +58,14 @@ class RfqService:
             raise EntityNotFoundError("mission does not exist")
         if mission.status not in (MissionStatus.OPEN, MissionStatus.SOURCING):
             raise EntityConflictError("RFQs can only be created for open or sourcing missions")
+        if (
+            self._tenders is not None
+            and not tender_command
+            and self._tenders.get_for_mission(mission_id) is not None
+        ):
+            raise EntityConflictError(
+                "RFQs for a tender mission must be created through the tender invitation workflow"
+            )
         if deadline <= issued_at:
             raise EntityConflictError("RFQ response_deadline must be in the future")
         if deadline >= mission.departure_window.start:
@@ -157,9 +166,11 @@ class RfqService:
         rfq_id: RfqId,
         now: datetime,
         correlation_id: CorrelationId,
+        tender_command: bool = False,
     ) -> Rfq:
         when = _utc(now, field_name="now")
         rfq = self._get_for_update(rfq_id)
+        self._assert_tender_command(rfq.id, tender_command=tender_command)
         if rfq.status not in (RfqStatus.SENT, RfqStatus.ACKNOWLEDGED):
             raise EntityConflictError("only sent or acknowledged RFQs can expire")
         assert rfq.response_deadline is not None
