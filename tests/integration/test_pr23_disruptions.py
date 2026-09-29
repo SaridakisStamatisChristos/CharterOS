@@ -38,7 +38,7 @@ def _airport(
     client: TestClient,
     *,
     icao: str,
-    iata: str,
+    iata: str | None,
     lat: str,
     lon: str,
 ) -> str:
@@ -145,14 +145,14 @@ def _booked_operation(
     origin = _airport(
         client,
         icao=f"Q{suffix}A",
-        iata=f"{suffix}A",
+        iata=None,
         lat="37.9364",
         lon="23.9445",
     )
     destination = _airport(
         client,
         icao=f"Q{suffix}B",
-        iata=f"{suffix}B",
+        iata=None,
         lat="40.5197",
         lon="22.9709",
     )
