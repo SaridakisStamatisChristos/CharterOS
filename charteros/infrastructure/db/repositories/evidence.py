@@ -366,8 +366,7 @@ class SqlAlchemyEvidenceRepository:
             contracts=contracts,
             tenders=(
                 []
-                if party.operator_id is not None
-                or (active_sealed and party.buyer_id is not None)
+                if party.operator_id is not None or (active_sealed and party.buyer_id is not None)
                 else tenders
             ),
             disruptions=disruptions,
