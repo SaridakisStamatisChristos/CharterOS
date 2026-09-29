@@ -14,6 +14,7 @@ from apps.api.routes import (
     graph_query_router,
     matching_router,
     mission_router,
+    operator_portal_router,
     quote_router,
     repositioning_router,
     rfq_router,
@@ -62,6 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(graph_query_router)
     app.include_router(mission_router)
     app.include_router(matching_router)
+    app.include_router(operator_portal_router)
     app.include_router(rfq_router)
     app.include_router(tender_router)
     app.include_router(quote_router)
