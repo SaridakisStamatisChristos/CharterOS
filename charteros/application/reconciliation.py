@@ -21,7 +21,7 @@ from charteros.domain.missions import Mission, MissionStatus
 from charteros.domain.operators import CommercialStatus, OperatorId
 from charteros.domain.organizations import OrganizationId, OrganizationStatus
 from charteros.domain.quotes import Quote, QuoteStatus
-from charteros.domain.quotes.normalization import normalize_quote
+from charteros.domain.quotes.normalization import QuoteNormalization, normalize_quote
 from charteros.domain.reconciliation import (
     FinancialReconciliation,
     FinancialReconciliationId,
@@ -520,7 +520,7 @@ class FinancialReconciliationService:
         self,
         context: _BookingContext,
     ) -> tuple[
-        object,
+        QuoteNormalization,
         Money,
         Money,
         tuple[DisruptionCommercialChangeId, ...],
