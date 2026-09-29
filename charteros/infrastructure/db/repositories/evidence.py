@@ -721,7 +721,8 @@ class SqlAlchemyEvidenceRepository:
                         or rate.target_minor_exponent != conversion.target_minor_exponent
                     ):
                         raise EntityConflictError(
-                            f"FX lock {fx_lock.id} conversion conflicts with immutable rate evidence"
+                            f"FX lock {fx_lock.id} conversion conflicts with "
+                            "immutable rate evidence"
                         )
 
                     rate_id = FxRateId(rate.id)
