@@ -29,6 +29,7 @@ from charteros.domain.reconciliation import (
     FinancialReconciliationId,
     FinancialReconciliationStatus,
     InvoiceLineCategory,
+    ReconciliationDisputeId,
     OperatorInvoiceRevision,
     ReconciliationDispute,
     VarianceApproval,
@@ -92,6 +93,7 @@ class VarianceApprovalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     approved_variance_minor: int = Field(ge=0)
+    resolves_dispute_id: UUID | None = None
     note: str | None = Field(default=None, max_length=1000)
 
 
@@ -167,6 +169,7 @@ class VarianceApprovalResponse(BaseModel):
     buyer_id: UUID
     approved_variance_minor: int
     currency: str
+    resolves_dispute_id: UUID | None
     approved_at: datetime
     note: str | None
 
@@ -310,6 +313,11 @@ def _approval_response(approval: VarianceApproval) -> VarianceApprovalResponse:
         buyer_id=approval.buyer_id.value,
         approved_variance_minor=approval.approved_variance.amount_minor,
         currency=str(approval.approved_variance.currency),
+        resolves_dispute_id=(
+            approval.resolves_dispute_id.value
+            if approval.resolves_dispute_id is not None
+            else None
+        ),
         approved_at=approval.approved_at,
         note=approval.note,
     )
@@ -557,6 +565,11 @@ def approve_variance(
             reconciliation_id=FinancialReconciliationId(reconciliation_id),
             buyer_id=OrganizationId(buyer_id),
             approved_variance_minor=body.approved_variance_minor,
+            resolves_dispute_id=(
+                ReconciliationDisputeId(body.resolves_dispute_id)
+                if body.resolves_dispute_id is not None
+                else None
+            ),
             approved_at=datetime.now(UTC),
             note=body.note,
             correlation_id=correlation_id,
