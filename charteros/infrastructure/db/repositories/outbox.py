@@ -107,7 +107,7 @@ class SqlAlchemyOutboxDeliveryRepository:
     ) -> None:
         when = _utc(delivered_at)
         with self._session_factory.begin() as session:
-            result = session.execute(
+            updated_id = session.scalar(
                 update(OutboxEventRow)
                 .where(
                     OutboxEventRow.event_id == event_id,
@@ -124,8 +124,9 @@ class SqlAlchemyOutboxDeliveryRepository:
                     lease_expires_at=None,
                     poisoned_at=None,
                 )
+                .returning(OutboxEventRow.event_id)
             )
-            if result.rowcount != 1:
+            if updated_id is None:
                 raise OutboxLeaseLostError(f"delivery lease lost for event {event_id}")
 
     def mark_failed(
@@ -145,7 +146,7 @@ class SqlAlchemyOutboxDeliveryRepository:
         error_text = error.strip()[:4000] or "unknown delivery failure"
         status = OutboxDeliveryStatus.POISONED.value if poison else OutboxDeliveryStatus.RETRY.value
         with self._session_factory.begin() as session:
-            result = session.execute(
+            updated_id = session.scalar(
                 update(OutboxEventRow)
                 .where(
                     OutboxEventRow.event_id == event_id,
@@ -161,14 +162,15 @@ class SqlAlchemyOutboxDeliveryRepository:
                     lease_expires_at=None,
                     poisoned_at=failed_when if poison else None,
                 )
+                .returning(OutboxEventRow.event_id)
             )
-            if result.rowcount != 1:
+            if updated_id is None:
                 raise OutboxLeaseLostError(f"delivery lease lost for event {event_id}")
 
     def requeue_poison(self, *, event_id: UUID, available_at: datetime) -> bool:
         when = _utc(available_at)
         with self._session_factory.begin() as session:
-            result = session.execute(
+            updated_id = session.scalar(
                 update(OutboxEventRow)
                 .where(
                     OutboxEventRow.event_id == event_id,
@@ -183,8 +185,9 @@ class SqlAlchemyOutboxDeliveryRepository:
                     lease_token=None,
                     lease_expires_at=None,
                 )
+                .returning(OutboxEventRow.event_id)
             )
-            return result.rowcount == 1
+            return updated_id is not None
 
     def get_envelope(self, event_id: UUID) -> OutboxEnvelope | None:
         with self._session_factory() as session:
