@@ -48,8 +48,10 @@ def _operator(client: TestClient, *, suffix: str) -> str:
 
 
 def _airport(client: TestClient, *, suffix: str, ordinal: int) -> str:
-    icao = f"P{ordinal}{suffix}"[:4]
-    iata = f"{ordinal}{suffix}"[:3]
+    suffix_letter = next(char for char in suffix.upper() if char.isalpha())
+    ordinal_letter = chr(ord("A") + ordinal - 1)
+    icao = f"Z{suffix_letter}{ordinal_letter}Q"
+    iata = f"{suffix_letter}{ordinal_letter}Q"
     response = client.post(
         "/v1/airports",
         headers={"Idempotency-Key": f"pr21-airport-{suffix}-{ordinal}"},
