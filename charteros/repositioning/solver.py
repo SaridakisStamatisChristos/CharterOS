@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
+from charteros.domain.airports import AirportId
 from charteros.domain.shared.money import Money
 from charteros.repositioning.types import (
     CurrencyOptimizationPlan,
@@ -104,7 +105,9 @@ def maximum_margin_matching(
     for index in range(len(right_keys)):
         _add_edge(graph, right_offset + index, sink, 1, 0)
 
-    tie_scale = len(ordered) + 1
+    max_assignments = min(len(left_keys), len(right_keys))
+    # One minor unit of margin must dominate the maximum possible aggregate tie penalty.
+    tie_scale = max_assignments * len(ordered) + 1
     for candidate_index, item in enumerate(ordered):
         margin_minor = item.margin.amount_minor
         if margin_minor <= 0:
@@ -178,10 +181,10 @@ def to_assignment(item: FeasibleInsertion) -> RepositionAssignment:
         next_booking_id=structural.next_booking_id,
         mission_id=item.opportunity.mission_id,
         quote_id=item.opportunity.quote_id,
-        from_airport_id=structural.from_airport_id,
+        from_airport_id=AirportId(structural.from_airport_id),
         mission_origin_airport_id=item.opportunity.origin_airport_id,
         mission_destination_airport_id=item.opportunity.destination_airport_id,
-        continuity_airport_id=structural.to_airport_id,
+        continuity_airport_id=AirportId(structural.to_airport_id),
         window_start=structural.window_start,
         window_end=structural.window_end,
         scheduled_departure=item.scheduled_departure,
