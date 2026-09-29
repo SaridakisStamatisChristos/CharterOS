@@ -748,6 +748,17 @@ class SqlAlchemyEvidenceRepository:
                         "currency": row.currency,
                         "base_amount_minor": row.base_amount_minor,
                         "repositioning_amount_minor": row.repositioning_amount_minor,
+                        "price_components": [
+                            {
+                                "line_number": component.line_number,
+                                "category": component.category,
+                                "label": component.label,
+                                "amount_minor": component.amount_minor,
+                                "applicability": component.applicability,
+                                "condition": component.condition,
+                            }
+                            for component in row.components
+                        ],
                         "revision_number": row.revision_number,
                         "supersedes_quote_id": row.supersedes_quote_id,
                         "status": row.status,
