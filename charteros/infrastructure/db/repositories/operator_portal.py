@@ -298,7 +298,15 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _rfq_statement() -> Select[RfqRow, MissionRow, str, str, QuoteRow, TenderInvitationRow, TenderRow]:
+    def _rfq_statement() -> Select[
+        RfqRow,
+        MissionRow,
+        str,
+        str,
+        QuoteRow,
+        TenderInvitationRow,
+        TenderRow,
+    ]:
         origin = aliased(AirportRow)
         destination = aliased(AirportRow)
         return (
@@ -387,7 +395,15 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _booking_statement() -> Select[BookingRow, MissionRow, QuoteRow, RfqRow, AircraftRow, str, str]:
+    def _booking_statement() -> Select[
+        BookingRow,
+        MissionRow,
+        QuoteRow,
+        RfqRow,
+        AircraftRow,
+        str,
+        str,
+    ]:
         origin = aliased(AirportRow)
         destination = aliased(AirportRow)
         return (
