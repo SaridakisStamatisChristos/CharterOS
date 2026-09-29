@@ -42,9 +42,17 @@ A reconciliation snapshots the immutable booked commercial reference from the ac
 
 The accepted Quote itself is never changed by reconciliation.
 
-The v1 variance baseline is the existing deterministic normalized expected total of the accepted
-Quote. The normalized worst-case amount is retained beside it as supporting commercial evidence.
-PR24 does not invent a new Quote-normalization formula.
+The v1 variance baseline starts from the existing deterministic normalized expected total of the
+accepted Quote. The normalized worst-case amount is retained beside it as supporting commercial
+evidence. PR24 does not invent a new Quote-normalization formula.
+
+Before the snapshot is opened, every PR23 Disruption for the Booking must be terminally resolved.
+For each resolved Disruption that selected a buyer-approved commercial change, PR24 adds that
+change's known adjustment to the booked amount and its known plus conditional adjustment to the
+booked worst-case amount. The exact selected commercial-change IDs are recorded in the immutable
+reconciliation-opening event. Unresolved disruption evidence therefore cannot disappear into a
+financial variance, and already-approved post-booking commercial changes are not misclassified as
+new invoice surcharges.
 
 ## Booking authority
 
