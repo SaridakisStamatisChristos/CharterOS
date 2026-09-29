@@ -22,6 +22,7 @@ def load_models() -> None:
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
     )
+    from charteros.infrastructure.db.models.fx import FxLockConversionRow, FxLockRow, FxRateRow
     from charteros.infrastructure.db.models.graph import (
         GraphAggregateCursorRow,
         GraphEdgeRow,
@@ -62,6 +63,9 @@ def load_models() -> None:
         DisruptionRow,
         DecisionEvidenceSnapshotRow,
         FinancialReconciliationRow,
+        FxLockConversionRow,
+        FxLockRow,
+        FxRateRow,
         GraphAggregateCursorRow,
         GraphEdgeRow,
         GraphNodeRow,

@@ -17,6 +17,7 @@ from charteros.domain.airports import Airport, AirportId
 from charteros.domain.bookings import Booking
 from charteros.domain.contracts import Contract
 from charteros.domain.disruptions import Disruption
+from charteros.domain.fx import FxLock, FxRateObservation
 from charteros.domain.missions import Mission
 from charteros.domain.operators import (
     CommercialStatus,
@@ -319,6 +320,8 @@ class SqlAlchemyDomainEventRepository:
             | Contract
             | Disruption
             | FinancialReconciliation
+            | FxLock
+            | FxRateObservation
             | Tender
             | ProcurementApproval
         ),

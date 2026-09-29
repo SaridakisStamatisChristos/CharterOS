@@ -13,6 +13,12 @@ from uuid import UUID
 
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.quote_comparison import MissionQuoteComparison
+from charteros.domain.fx import (
+    CONVERSION_POLICY_VERSION,
+    LOCK_POLICY_VERSION,
+    ROUNDING_POLICY_VERSION,
+    FxLock,
+)
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.matching import MatchingDecision
 
@@ -148,6 +154,25 @@ class EvidencePackage:
 _SAFE_EVENT_PAYLOAD_KEYS = frozenset(
     {
         "accepted_at",
+        "target_minor_exponent",
+        "target_currency",
+        "supersedes_rate_id",
+        "source_minor_exponent",
+        "source_currency",
+        "rounding_policy",
+        "recorded_at",
+        "rate",
+        "quote_ids",
+        "lock_policy_version",
+        "locked_at",
+        "integrity_digest",
+        "fx_timestamp",
+        "fx_source_version",
+        "fx_source",
+        "expires_at",
+        "conversion_policy_version",
+        "base_currency",
+        "approval_id",
         "accepted_quote_id",
         "aircraft_id",
         "approved_at",
@@ -236,6 +261,8 @@ _VERSIONED_SOURCE_TYPES = frozenset(
         "tender",
         "disruption",
         "financial_reconciliation",
+        "fx_lock",
+        "fx_rate",
     }
 )
 
@@ -371,6 +398,7 @@ def quote_comparison_evidence(
     *,
     comparison: MissionQuoteComparison,
     selected_quote_id: UUID,
+    fx_lock: FxLock | None = None,
 ) -> dict[str, object]:
     entries: list[dict[str, object]] = []
     for entry in comparison.entries:
@@ -422,6 +450,51 @@ def quote_comparison_evidence(
                 },
             }
         )
+    fx_evidence: dict[str, object] | None = None
+    if fx_lock is not None:
+        fx_evidence = {
+            "lock_id": str(fx_lock.id),
+            "lock_policy_version": LOCK_POLICY_VERSION,
+            "conversion_policy_version": CONVERSION_POLICY_VERSION,
+            "rounding_policy": ROUNDING_POLICY_VERSION,
+            "base_currency": str(fx_lock.base_currency),
+            "fx_source": fx_lock.fx_source,
+            "locked_at": fx_lock.locked_at,
+            "expires_at": fx_lock.expires_at,
+            "status": fx_lock.status.value,
+            "consumed_at": fx_lock.consumed_at,
+            "consumed_approval_id": (
+                str(fx_lock.consumed_approval_id)
+                if fx_lock.consumed_approval_id is not None
+                else None
+            ),
+            "integrity_digest": fx_lock.integrity_digest,
+            "quotes": [
+                {
+                    "quote_id": str(item.quote_id),
+                    "quote_revision_number": item.quote_revision_number,
+                    "original_currency": str(item.original_expected.currency),
+                    "original_expected_minor": item.original_expected.amount_minor,
+                    "original_worst_case_minor": item.original_worst_case.amount_minor,
+                    "base_currency": str(item.converted_expected.currency),
+                    "converted_expected_minor": item.converted_expected.amount_minor,
+                    "converted_worst_case_minor": item.converted_worst_case.amount_minor,
+                    "fx_rate_id": str(item.rate_id) if item.rate_id is not None else None,
+                    "fx_rate": item.rate_text,
+                    "fx_source": item.fx_source,
+                    "fx_source_version": item.fx_source_version,
+                    "fx_timestamp": item.fx_timestamp,
+                    "fx_rate_recorded_at": item.rate_recorded_at,
+                    "source_minor_exponent": item.source_minor_exponent,
+                    "target_minor_exponent": item.target_minor_exponent,
+                    "global_rank": item.global_rank,
+                    "global_score_method": item.global_score_method,
+                    "global_score_total_basis_points": item.global_score_total_basis_points,
+                }
+                for item in fx_lock.entries
+            ],
+        }
+
     return {
         "decision": "quote_comparison_for_procurement_approval",
         "mission_id": str(comparison.mission_id),
@@ -430,9 +503,10 @@ def quote_comparison_evidence(
         "matching_policy_version": comparison.matching_policy_version,
         "evaluated_at": comparison.evaluated_at,
         "pricing_currencies": [str(item) for item in comparison.pricing_currencies],
-        "global_rank_available": comparison.global_rank_available,
+        "global_rank_available": (fx_lock is not None or comparison.global_rank_available),
         "quotes": entries,
-        "no_implicit_fx": True,
+        "fx_lock": fx_evidence,
+        "no_implicit_fx": fx_lock is None,
     }
 
 
@@ -700,6 +774,7 @@ class EvidenceService:
 
     @staticmethod
     def _verify_decisions(material: EvidenceMaterial) -> None:
+        source_ids = {(source.source_type, source.source_id) for source in material.sources}
         for decision in material.decisions:
             if decision.schema_version != SNAPSHOT_SCHEMA_VERSION:
                 raise EntityConflictError(
@@ -726,3 +801,56 @@ class EvidenceService:
                 raise EntityConflictError(
                     f"decision evidence digest mismatch for {decision.snapshot_id}"
                 )
+
+            if decision.decision_type != "quote_comparison":
+                continue
+            fx_lock = decision.content.get("fx_lock")
+            if fx_lock is None:
+                continue
+            if not isinstance(fx_lock, Mapping):
+                raise EntityConflictError(
+                    f"decision evidence {decision.snapshot_id} has invalid FX lock evidence"
+                )
+            raw_lock_id = fx_lock.get("lock_id")
+            if not isinstance(raw_lock_id, str):
+                raise EntityConflictError(
+                    f"decision evidence {decision.snapshot_id} is missing FX lock identity"
+                )
+            try:
+                lock_id = UUID(raw_lock_id)
+            except ValueError as exc:
+                raise EntityConflictError(
+                    f"decision evidence {decision.snapshot_id} has invalid FX lock identity"
+                ) from exc
+            if ("fx_lock", lock_id) not in source_ids:
+                raise EntityConflictError(
+                    f"decision evidence {decision.snapshot_id} references missing FX lock"
+                )
+
+            locked_quotes = fx_lock.get("quotes")
+            if not isinstance(locked_quotes, list):
+                raise EntityConflictError(
+                    f"decision evidence {decision.snapshot_id} has invalid FX quote evidence"
+                )
+            for locked_quote in locked_quotes:
+                if not isinstance(locked_quote, Mapping):
+                    raise EntityConflictError(
+                        f"decision evidence {decision.snapshot_id} has malformed FX quote"
+                    )
+                raw_rate_id = locked_quote.get("fx_rate_id")
+                if raw_rate_id is None:
+                    continue
+                if not isinstance(raw_rate_id, str):
+                    raise EntityConflictError(
+                        f"decision evidence {decision.snapshot_id} has invalid FX rate identity"
+                    )
+                try:
+                    rate_id = UUID(raw_rate_id)
+                except ValueError as exc:
+                    raise EntityConflictError(
+                        f"decision evidence {decision.snapshot_id} has invalid FX rate identity"
+                    ) from exc
+                if ("fx_rate", rate_id) not in source_ids:
+                    raise EntityConflictError(
+                        f"decision evidence {decision.snapshot_id} references missing FX rate"
+                    )

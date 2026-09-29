@@ -21,6 +21,13 @@ from charteros.application.evidence import (
     canonical_json,
 )
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
+from charteros.application.fx import fx_lock_digest
+from charteros.domain.fx import FxLockedQuote, FxRateId, FxRateObservation, convert_money
+from charteros.domain.missions import MissionId
+from charteros.domain.organizations import OrganizationId
+from charteros.domain.quotes import QuoteId
+from charteros.domain.shared.currency import Currency
+from charteros.domain.shared.money import Money
 from charteros.infrastructure.db.models.bookings import BookingRow
 from charteros.infrastructure.db.models.catalog import OutboxEventRow
 from charteros.infrastructure.db.models.contracts import ContractRow
@@ -31,6 +38,7 @@ from charteros.infrastructure.db.models.disruptions import (
     DisruptionRow,
 )
 from charteros.infrastructure.db.models.evidence import DecisionEvidenceSnapshotRow
+from charteros.infrastructure.db.models.fx import FxLockConversionRow, FxLockRow, FxRateRow
 from charteros.infrastructure.db.models.missions import MissionRow
 from charteros.infrastructure.db.models.procurement_approvals import ProcurementApprovalRow
 from charteros.infrastructure.db.models.quotes import QuoteRow
@@ -218,6 +226,48 @@ class SqlAlchemyEvidenceRepository:
         if party.operator_id is not None:
             approvals = [row for row in approvals if row.quote_id in quote_ids]
 
+        fx_locks: list[FxLockRow] = []
+        fx_conversions: list[FxLockConversionRow] = []
+        fx_rates: list[FxRateRow] = []
+        if party.buyer_id is not None:
+            fx_locks = list(
+                self._session.scalars(
+                    select(FxLockRow)
+                    .where(
+                        FxLockRow.mission_id == mission.id,
+                        FxLockRow.buyer_id == party.buyer_id,
+                        FxLockRow.status == "consumed",
+                    )
+                    .order_by(FxLockRow.locked_at, FxLockRow.id)
+                ).all()
+            )
+            fx_lock_ids = _ids(fx_locks)
+            if fx_lock_ids:
+                fx_conversions = list(
+                    self._session.scalars(
+                        select(FxLockConversionRow)
+                        .where(FxLockConversionRow.lock_id.in_(fx_lock_ids))
+                        .order_by(
+                            FxLockConversionRow.lock_id,
+                            FxLockConversionRow.global_rank,
+                            FxLockConversionRow.quote_id,
+                        )
+                    ).all()
+                )
+                fx_rate_ids = {row.rate_id for row in fx_conversions if row.rate_id is not None}
+                if fx_rate_ids:
+                    fx_rates = list(
+                        self._session.scalars(
+                            select(FxRateRow)
+                            .where(FxRateRow.id.in_(fx_rate_ids))
+                            .order_by(
+                                FxRateRow.fx_timestamp,
+                                FxRateRow.recorded_at,
+                                FxRateRow.id,
+                            )
+                        ).all()
+                    )
+
         bookings = list(
             self._session.scalars(
                 select(BookingRow)
@@ -355,6 +405,9 @@ class SqlAlchemyEvidenceRepository:
             invoice_lines=invoice_lines,
             disputes=disputes,
             variance_approvals=variance_approvals,
+            fx_locks=fx_locks,
+            fx_conversions=fx_conversions,
+            fx_rates=fx_rates,
         )
 
         sources = self._sources(
@@ -378,6 +431,9 @@ class SqlAlchemyEvidenceRepository:
             invoice_lines=invoice_lines,
             disputes=disputes,
             variance_approvals=variance_approvals,
+            fx_locks=fx_locks,
+            fx_conversions=fx_conversions,
+            fx_rates=fx_rates,
         )
 
         aggregate_keys = {
@@ -534,6 +590,9 @@ class SqlAlchemyEvidenceRepository:
         invoice_lines: list[OperatorInvoiceLineRow],
         disputes: list[ReconciliationDisputeRow],
         variance_approvals: list[VarianceApprovalRow],
+        fx_locks: list[FxLockRow],
+        fx_conversions: list[FxLockConversionRow],
+        fx_rates: list[FxRateRow],
     ) -> None:
         quote_by_id = {row.id: row for row in quotes}
         booking_by_id = {row.id: row for row in bookings}
@@ -543,6 +602,203 @@ class SqlAlchemyEvidenceRepository:
         invoice_by_id = {row.id: row for row in invoices}
         dispute_by_id = {row.id: row for row in disputes}
         approval_by_id = {row.id: row for row in variance_approvals}
+        procurement_approval_by_id = {row.id: row for row in approvals}
+        fx_rate_by_id = {row.id: row for row in fx_rates}
+        fx_conversions_by_lock: dict[UUID, list[FxLockConversionRow]] = {}
+        for conversion in fx_conversions:
+            fx_conversions_by_lock.setdefault(conversion.lock_id, []).append(conversion)
+
+        for fx_lock in fx_locks:
+            if (
+                fx_lock.status != "consumed"
+                or fx_lock.consumed_at is None
+                or fx_lock.consumed_approval_id is None
+            ):
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} is missing committed consumption evidence"
+                )
+            procurement_approval = procurement_approval_by_id.get(fx_lock.consumed_approval_id)
+            if procurement_approval is None:
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} references missing procurement approval"
+                )
+            if (
+                procurement_approval.mission_id != fx_lock.mission_id
+                or procurement_approval.buyer_id != fx_lock.buyer_id
+                or procurement_approval.approved_at != fx_lock.consumed_at
+            ):
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} conflicts with procurement approval lineage"
+                )
+
+            lock_conversions = fx_conversions_by_lock.get(fx_lock.id, [])
+            if not lock_conversions:
+                raise EntityConflictError(f"FX lock {fx_lock.id} has no conversion evidence")
+            ranks = sorted(item.global_rank for item in lock_conversions)
+            if ranks != list(range(1, len(lock_conversions) + 1)):
+                raise EntityConflictError(f"FX lock {fx_lock.id} has non-contiguous global ranks")
+
+            selected_conversion = next(
+                (
+                    item
+                    for item in lock_conversions
+                    if item.quote_id == procurement_approval.quote_id
+                ),
+                None,
+            )
+            if selected_conversion is None:
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} does not contain the approved quote"
+                )
+            selected_quote = quote_by_id.get(procurement_approval.quote_id)
+            if selected_quote is None:
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} approved quote evidence is missing"
+                )
+            if selected_conversion.quote_revision_number != selected_quote.revision_number:
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} quote revision conflicts with canonical quote"
+                )
+
+            digest_entries: list[FxLockedQuote] = []
+            for conversion in lock_conversions:
+                if conversion.base_currency != fx_lock.base_currency:
+                    raise EntityConflictError(
+                        f"FX lock {fx_lock.id} conversion base currency conflicts"
+                    )
+
+                original_currency = Currency(conversion.original_currency)
+                base_currency = Currency(conversion.base_currency)
+                original_expected = Money(
+                    conversion.original_expected_minor,
+                    original_currency,
+                )
+                original_worst = Money(
+                    conversion.original_worst_case_minor,
+                    original_currency,
+                )
+                converted_expected = Money(
+                    conversion.converted_expected_minor,
+                    base_currency,
+                )
+                converted_worst = Money(
+                    conversion.converted_worst_case_minor,
+                    base_currency,
+                )
+
+                rate_id = None
+                if conversion.rate_id is None:
+                    if (
+                        conversion.original_currency != conversion.base_currency
+                        or conversion.rate_text != "1"
+                        or conversion.fx_source != "identity"
+                        or converted_expected.amount_minor != original_expected.amount_minor
+                        or converted_worst.amount_minor != original_worst.amount_minor
+                    ):
+                        raise EntityConflictError(
+                            f"FX lock {fx_lock.id} has invalid identity conversion evidence"
+                        )
+                else:
+                    rate = fx_rate_by_id.get(conversion.rate_id)
+                    if rate is None:
+                        raise EntityConflictError(
+                            f"FX lock {fx_lock.id} references missing FX rate {conversion.rate_id}"
+                        )
+                    if (
+                        rate.source_currency != conversion.original_currency
+                        or rate.target_currency != conversion.base_currency
+                        or rate.rate_text != conversion.rate_text
+                        or rate.fx_source != conversion.fx_source
+                        or rate.fx_source_version != conversion.fx_source_version
+                        or rate.fx_timestamp != conversion.fx_timestamp
+                        or rate.recorded_at != conversion.rate_recorded_at
+                        or rate.source_minor_exponent != conversion.source_minor_exponent
+                        or rate.target_minor_exponent != conversion.target_minor_exponent
+                    ):
+                        raise EntityConflictError(
+                            f"FX lock {fx_lock.id} conversion conflicts with "
+                            "immutable rate evidence"
+                        )
+
+                    rate_id = FxRateId(rate.id)
+                    domain_rate = FxRateObservation(
+                        rate_id,
+                        source_currency=Currency(rate.source_currency),
+                        target_currency=Currency(rate.target_currency),
+                        rate_text=rate.rate_text,
+                        source_minor_exponent=rate.source_minor_exponent,
+                        target_minor_exponent=rate.target_minor_exponent,
+                        fx_source=rate.fx_source,
+                        fx_source_version=rate.fx_source_version,
+                        fx_timestamp=rate.fx_timestamp,
+                        recorded_at=rate.recorded_at,
+                        revision_number=rate.revision_number,
+                        supersedes_rate_id=(
+                            FxRateId(rate.supersedes_rate_id)
+                            if rate.supersedes_rate_id is not None
+                            else None
+                        ),
+                        version=rate.version,
+                    )
+                    expected_replay = convert_money(
+                        amount=original_expected,
+                        rate=domain_rate,
+                        base_currency=base_currency,
+                    )
+                    worst_replay = convert_money(
+                        amount=original_worst,
+                        rate=domain_rate,
+                        base_currency=base_currency,
+                    )
+                    if (
+                        expected_replay.converted != converted_expected
+                        or worst_replay.converted != converted_worst
+                    ):
+                        raise EntityConflictError(
+                            f"FX lock {fx_lock.id} converted totals fail deterministic replay"
+                        )
+
+                digest_entries.append(
+                    FxLockedQuote(
+                        quote_id=QuoteId(conversion.quote_id),
+                        quote_revision_number=conversion.quote_revision_number,
+                        original_expected=original_expected,
+                        original_worst_case=original_worst,
+                        converted_expected=converted_expected,
+                        converted_worst_case=converted_worst,
+                        rate_id=rate_id,
+                        rate_text=conversion.rate_text,
+                        fx_source=conversion.fx_source,
+                        fx_source_version=conversion.fx_source_version,
+                        fx_timestamp=conversion.fx_timestamp,
+                        rate_recorded_at=conversion.rate_recorded_at,
+                        source_minor_exponent=conversion.source_minor_exponent,
+                        target_minor_exponent=conversion.target_minor_exponent,
+                        global_rank=conversion.global_rank,
+                        global_score_method=conversion.global_score_method,
+                        global_score_total_basis_points=(
+                            conversion.global_score_total_basis_points
+                        ),
+                    )
+                )
+
+            expected_digest = fx_lock_digest(
+                buyer_id=OrganizationId(fx_lock.buyer_id),
+                mission_id=MissionId(fx_lock.mission_id),
+                base_currency=Currency(fx_lock.base_currency),
+                fx_source=fx_lock.fx_source,
+                locked_at=fx_lock.locked_at,
+                entries=tuple(
+                    sorted(
+                        digest_entries,
+                        key=lambda item: (item.global_rank, item.quote_id.value.hex),
+                    )
+                ),
+            )
+            if expected_digest != fx_lock.integrity_digest:
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} integrity digest does not match canonical evidence"
+                )
 
         for booking in bookings:
             if booking.mission_id != mission.id:
@@ -701,6 +957,9 @@ class SqlAlchemyEvidenceRepository:
         invoice_lines: list[OperatorInvoiceLineRow],
         disputes: list[ReconciliationDisputeRow],
         variance_approvals: list[VarianceApprovalRow],
+        fx_locks: list[FxLockRow],
+        fx_conversions: list[FxLockConversionRow],
+        fx_rates: list[FxRateRow],
     ) -> list[EvidenceSourceRecord]:
         sources: list[EvidenceSourceRecord] = [
             _record(
@@ -1044,6 +1303,80 @@ class SqlAlchemyEvidenceRepository:
                         "resolves_dispute_id": variance_approval.resolves_dispute_id,
                         "approved_at": variance_approval.approved_at,
                         "note": variance_approval.note,
+                    },
+                )
+            )
+
+        for fx_rate in fx_rates:
+            sources.append(
+                _record(
+                    "fx_rate",
+                    fx_rate.id,
+                    fx_rate.version,
+                    {
+                        "source_currency": fx_rate.source_currency,
+                        "target_currency": fx_rate.target_currency,
+                        "rate": fx_rate.rate_text,
+                        "source_minor_exponent": fx_rate.source_minor_exponent,
+                        "target_minor_exponent": fx_rate.target_minor_exponent,
+                        "fx_source": fx_rate.fx_source,
+                        "fx_source_version": fx_rate.fx_source_version,
+                        "fx_timestamp": fx_rate.fx_timestamp,
+                        "recorded_at": fx_rate.recorded_at,
+                        "revision_number": fx_rate.revision_number,
+                        "supersedes_rate_id": fx_rate.supersedes_rate_id,
+                    },
+                )
+            )
+
+        conversions_by_lock: dict[UUID, list[FxLockConversionRow]] = {}
+        for conversion in fx_conversions:
+            conversions_by_lock.setdefault(conversion.lock_id, []).append(conversion)
+        for fx_lock in fx_locks:
+            sources.append(
+                _record(
+                    "fx_lock",
+                    fx_lock.id,
+                    fx_lock.version,
+                    {
+                        "buyer_id": fx_lock.buyer_id,
+                        "mission_id": fx_lock.mission_id,
+                        "base_currency": fx_lock.base_currency,
+                        "fx_source": fx_lock.fx_source,
+                        "locked_at": fx_lock.locked_at,
+                        "expires_at": fx_lock.expires_at,
+                        "status": fx_lock.status,
+                        "integrity_digest": fx_lock.integrity_digest,
+                        "consumed_at": fx_lock.consumed_at,
+                        "consumed_approval_id": fx_lock.consumed_approval_id,
+                        "conversions": [
+                            {
+                                "quote_id": item.quote_id,
+                                "quote_revision_number": item.quote_revision_number,
+                                "original_currency": item.original_currency,
+                                "original_expected_minor": item.original_expected_minor,
+                                "original_worst_case_minor": item.original_worst_case_minor,
+                                "base_currency": item.base_currency,
+                                "converted_expected_minor": item.converted_expected_minor,
+                                "converted_worst_case_minor": item.converted_worst_case_minor,
+                                "fx_rate_id": item.rate_id,
+                                "fx_rate": item.rate_text,
+                                "fx_source": item.fx_source,
+                                "fx_source_version": item.fx_source_version,
+                                "fx_timestamp": item.fx_timestamp,
+                                "fx_rate_recorded_at": item.rate_recorded_at,
+                                "source_minor_exponent": item.source_minor_exponent,
+                                "target_minor_exponent": item.target_minor_exponent,
+                                "conversion_policy_version": item.conversion_policy_version,
+                                "rounding_policy": item.rounding_policy,
+                                "global_rank": item.global_rank,
+                                "global_score_method": item.global_score_method,
+                                "global_score_total_basis_points": (
+                                    item.global_score_total_basis_points
+                                ),
+                            }
+                            for item in conversions_by_lock.get(fx_lock.id, [])
+                        ],
                     },
                 )
             )
