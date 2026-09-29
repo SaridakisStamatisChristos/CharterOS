@@ -217,3 +217,218 @@ def _tender_response(tender: Tender) -> TenderResponse:
         booking_id=tender.booking_id.value if tender.booking_id is not None else None,
         awarded_at=tender.awarded_at,
     )
+
+
+def _invitation_response(invitation: TenderInvitation) -> TenderInvitationResponse:
+    return TenderInvitationResponse(
+        id=invitation.id.value,
+        tender_id=invitation.tender_id.value,
+        operator_id=invitation.operator_id.value,
+        rfq_id=invitation.rfq_id.value,
+        status=invitation.status,
+        invited_at=invitation.invited_at,
+        responded_at=invitation.responded_at,
+        last_quote_id=(
+            invitation.last_quote_id.value if invitation.last_quote_id is not None else None
+        ),
+        best_and_final_quote_id=(
+            invitation.best_and_final_quote_id.value
+            if invitation.best_and_final_quote_id is not None
+            else None
+        ),
+    )
+
+
+def _correction_response(
+    correction: TenderAdminCorrection,
+) -> TenderAdminCorrectionResponse:
+    return TenderAdminCorrectionResponse(
+        id=correction.id.value,
+        tender_id=correction.tender_id.value,
+        actor_id=correction.actor_id.value,
+        target_type=correction.target_type,
+        target_id=correction.target_id.value,
+        field_name=correction.field_name,
+        original_value=cast(JsonValue, correction.original_value),
+        replacement_value=cast(JsonValue, correction.replacement_value),
+        reason=correction.reason,
+        corrected_at=correction.corrected_at,
+        causation_event_id=correction.causation_event_id.value,
+    )
+
+
+def _supplier_response(view: TenderSupplierView) -> TenderSupplierViewResponse:
+    return TenderSupplierViewResponse(
+        tender_id=view.tender.id.value,
+        status=view.tender.status,
+        sealed_bid=view.tender.sealed_bid,
+        opens_at=view.tender.opens_at,
+        deadline_at=view.tender.deadline_at,
+        invitation=_invitation_response(view.invitation),
+        own_quotes=[quote_response(quote) for quote in view.quotes],
+    )
+
+
+def _audit_response(audit: TenderAuditTrail) -> TenderAuditResponse:
+    return TenderAuditResponse(
+        tender=_tender_response(audit.tender),
+        invitations=[_invitation_response(item) for item in audit.invitations],
+        corrections=[_correction_response(item) for item in audit.corrections],
+        events=[
+            TenderAuditEventResponse(
+                event_id=item.event_id,
+                aggregate_type=item.aggregate_type,
+                aggregate_id=item.aggregate_id,
+                aggregate_version=item.aggregate_version,
+                event_type=item.event_type,
+                occurred_at=item.occurred_at,
+                recorded_at=item.recorded_at,
+                actor_id=item.actor_id,
+                correlation_id=item.correlation_id,
+                causation_id=item.causation_id,
+                canonical_json=item.canonical_json,
+            )
+            for item in audit.events
+        ],
+    )
+
+
+def _stored_response(
+    repository: IdempotencyRepository,
+    *,
+    scope: str,
+    key: str,
+    request_hash: str,
+) -> StoredResponse | None:
+    stored = repository.get(scope, key)
+    if stored is None:
+        return None
+    if stored.request_hash != request_hash:
+        raise EntityConflictError("idempotency key was already used with a different request body")
+    return stored
+
+
+def _run_idempotent(
+    *,
+    session: Session,
+    scope: str,
+    key: str,
+    request_hash: str,
+    success_status: int,
+    response_type: type[ResponseT],
+    action: Callable[[], ResponseT],
+) -> ResponseT:
+    repository = SqlAlchemyIdempotencyRepository(session)
+    repository.lock(scope, key)
+    stored = _stored_response(
+        repository,
+        scope=scope,
+        key=key,
+        request_hash=request_hash,
+    )
+    if stored is not None:
+        return response_type.model_validate(stored.response_body)
+
+    response = action()
+    repository.add(
+        scope=scope,
+        key=key,
+        request_hash=request_hash,
+        status_code=success_status,
+        response_body=response.model_dump(mode="json"),
+    )
+    return response
+
+
+@router.post(
+    "/missions/{mission_id}/tenders",
+    response_model=TenderResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_tender(
+    mission_id: UUID,
+    body: TenderCreateRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> TenderResponse:
+    scope = f"POST:/v1/missions/{mission_id}/tenders"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            success_status=status.HTTP_201_CREATED,
+            response_type=TenderResponse,
+            action=lambda: _tender_response(
+                _service(session).create(
+                    mission_id=MissionId(mission_id),
+                    opens_at=body.opens_at,
+                    deadline_at=body.deadline_at,
+                    sealed_bid=body.sealed_bid,
+                    now=datetime.now(UTC),
+                    correlation_id=correlation_id,
+                )
+            ),
+        )
+
+
+@router.post("/tenders/{tender_id}/open", response_model=TenderResponse)
+def open_tender(
+    tender_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> TenderResponse:
+    scope = f"POST:/v1/tenders/{tender_id}/open"
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=canonical_request_hash({}),
+            success_status=status.HTTP_200_OK,
+            response_type=TenderResponse,
+            action=lambda: _tender_response(
+                _service(session).open(
+                    tender_id=TenderId(tender_id),
+                    now=datetime.now(UTC),
+                    correlation_id=correlation_id,
+                )
+            ),
+        )
+
+
+@router.post(
+    "/tenders/{tender_id}/invitations",
+    response_model=TenderInvitationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def invite_supplier(
+    tender_id: UUID,
+    body: TenderInvitationRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> TenderInvitationResponse:
+    scope = f"POST:/v1/tenders/{tender_id}/invitations"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            success_status=status.HTTP_201_CREATED,
+            response_type=TenderInvitationResponse,
+            action=lambda: _invitation_response(
+                _service(session).invite(
+                    tender_id=TenderId(tender_id),
+                    operator_id=OperatorId(body.operator_id),
+                    now=datetime.now(UTC),
+                    correlation_id=correlation_id,
+                )
+            ),
+        )
