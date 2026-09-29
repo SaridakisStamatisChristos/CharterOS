@@ -14,6 +14,7 @@ from apps.api.routes import (
     disruption_router,
     evidence_router,
     fleet_router,
+    fx_router,
     graph_query_router,
     matching_router,
     mission_router,
@@ -65,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(buyer_portal_router)
     app.include_router(fleet_router)
+    app.include_router(fx_router)
     app.include_router(graph_query_router)
     app.include_router(mission_router)
     app.include_router(matching_router)
