@@ -31,6 +31,7 @@ from charteros.infrastructure.db.models.disruptions import (
     DisruptionRow,
 )
 from charteros.infrastructure.db.models.evidence import DecisionEvidenceSnapshotRow
+from charteros.infrastructure.db.models.fx import FxLockConversionRow, FxLockRow, FxRateRow
 from charteros.infrastructure.db.models.missions import MissionRow
 from charteros.infrastructure.db.models.procurement_approvals import ProcurementApprovalRow
 from charteros.infrastructure.db.models.quotes import QuoteRow
