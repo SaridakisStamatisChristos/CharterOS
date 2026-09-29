@@ -19,6 +19,7 @@ from charteros.infrastructure.db.models.catalog import (
 from charteros.infrastructure.db.models.graph import (
     GraphEdgeRow,
     GraphNodeRow,
+    GraphProjectionCheckpointRow,
     GraphProjectionVersionRow,
 )
 from charteros.infrastructure.db.models.matching import MatchingReferenceProfileRow
@@ -323,10 +324,20 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
                     verified_at=BASE,
                     activated_at=BASE,
                     state_digest=None,
-                    event_count=0,
+                    event_count=1,
                 )
             )
             session.flush()
+            session.add(
+                GraphProjectionCheckpointRow(
+                    projection_name="charter_graph",
+                    projection_version=VERSION,
+                    processed_event_count=1,
+                    max_recorded_at=evaluated_at - timedelta(minutes=30),
+                    max_recorded_event_id=uuid4(),
+                    updated_at=evaluated_at - timedelta(minutes=30),
+                )
+            )
             session.add_all(
                 [
                     _node(
@@ -483,6 +494,7 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
             body = response.json()
             assert body["projection_version"] == VERSION
             assert body["policy_version"] == "reposition-v1"
+            assert datetime.fromisoformat(body["graph_knowledge_cutoff"]) <= evaluated_at
             assert body["structural_empty_leg_count"] == 1
             assert body["feasible_empty_leg_count"] == 1
             assert body["quoted_future_leg_count"] == 1
@@ -517,6 +529,12 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
                 delete(GraphNodeRow).where(
                     GraphNodeRow.projection_name == "charter_graph",
                     GraphNodeRow.projection_version == VERSION,
+                )
+            )
+            session.execute(
+                delete(GraphProjectionCheckpointRow).where(
+                    GraphProjectionCheckpointRow.projection_name == "charter_graph",
+                    GraphProjectionCheckpointRow.projection_version == VERSION,
                 )
             )
             session.execute(
