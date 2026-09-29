@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from apps.api.main import create_app
 from charteros.domain.shared.currency import Currency
-from charteros.infrastructure.db.models.fx import FxLockConversionRow, FxLockRow
+from charteros.infrastructure.db.models.fx import FxLockRow
 from charteros.infrastructure.db.repositories.fx import SqlAlchemyFxRateRepository
 from charteros.shared.config import Settings
 from tests.integration.test_pr25_audit_evidence import (

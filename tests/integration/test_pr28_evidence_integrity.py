@@ -142,19 +142,17 @@ def test_pr28_plain_sql_update_delete_and_outbox_envelope_guard() -> None:
             )
             event_id = _insert_outbox_event(connection)
 
-        with pytest.raises(DBAPIError):
-            with engine.begin() as connection:
-                connection.execute(
-                    text("UPDATE fx_rates SET rate_text = '9.99' WHERE id = :id"),
-                    {"id": rate_id},
-                )
+        with pytest.raises(DBAPIError), engine.begin() as connection:
+            connection.execute(
+                text("UPDATE fx_rates SET rate_text = '9.99' WHERE id = :id"),
+                {"id": rate_id},
+            )
 
-        with pytest.raises(DBAPIError):
-            with engine.begin() as connection:
-                connection.execute(
-                    text("DELETE FROM fx_rates WHERE id = :id"),
-                    {"id": rate_id},
-                )
+        with pytest.raises(DBAPIError), engine.begin() as connection:
+            connection.execute(
+                text("DELETE FROM fx_rates WHERE id = :id"),
+                {"id": rate_id},
+            )
 
         with engine.begin() as connection:
             connection.execute(
@@ -162,16 +160,15 @@ def test_pr28_plain_sql_update_delete_and_outbox_envelope_guard() -> None:
                 {"id": event_id},
             )
 
-        with pytest.raises(DBAPIError):
-            with engine.begin() as connection:
-                connection.execute(
-                    text(
-                        "UPDATE outbox_events "
-                        "SET canonical_json = '{\"event_type\":\"TAMPERED\"}' "
-                        "WHERE event_id = :id"
-                    ),
-                    {"id": event_id},
-                )
+        with pytest.raises(DBAPIError), engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE outbox_events "
+                    "SET canonical_json = '{\"event_type\":\"TAMPERED\"}' "
+                    "WHERE event_id = :id"
+                ),
+                {"id": event_id},
+            )
     finally:
         engine.dispose()
 
@@ -259,16 +256,15 @@ def test_pr28_privileged_historical_source_tamper_is_detected_and_restorable() -
                 violations = verify_evidence_integrity(session, stream_key=stream_key)
             assert any(item.violation == "source_payload_mismatch" for item in violations)
         finally:
-            with engine.begin() as connection:
-                with _owner_trigger_disabled(
-                    connection,
-                    table="fx_rates",
-                    trigger="trg_ei_fx_rate_guard",
-                ):
-                    connection.execute(
-                        text("UPDATE fx_rates SET rate_text = '0.8421' WHERE id = :id"),
-                        {"id": rate_id},
-                    )
+            with engine.begin() as connection, _owner_trigger_disabled(
+                connection,
+                table="fx_rates",
+                trigger="trg_ei_fx_rate_guard",
+            ):
+                connection.execute(
+                    text("UPDATE fx_rates SET rate_text = '0.8421' WHERE id = :id"),
+                    {"id": rate_id},
+                )
 
         with Session(engine) as session:
             assert verify_evidence_integrity(session, stream_key=stream_key) == ()
@@ -326,22 +322,21 @@ def test_pr28_tampered_digest_is_detected() -> None:
                 violations = verify_evidence_integrity(session, stream_key=stream_key)
             assert any(item.violation == "digest_mismatch" for item in violations)
         finally:
-            with engine.begin() as connection:
-                with _owner_trigger_disabled(
-                    connection,
-                    table="evidence_integrity_entries",
-                    trigger="trg_ei_entries_append_only",
-                ):
-                    connection.execute(
-                        text(
-                            """
-                            UPDATE evidence_integrity_entries
-                            SET digest = :digest
-                            WHERE stream_key = :stream_key AND sequence = 1
-                            """
-                        ),
-                        {"stream_key": stream_key, "digest": original_digest},
-                    )
+            with engine.begin() as connection, _owner_trigger_disabled(
+                connection,
+                table="evidence_integrity_entries",
+                trigger="trg_ei_entries_append_only",
+            ):
+                connection.execute(
+                    text(
+                        """
+                        UPDATE evidence_integrity_entries
+                        SET digest = :digest
+                        WHERE stream_key = :stream_key AND sequence = 1
+                        """
+                    ),
+                    {"stream_key": stream_key, "digest": original_digest},
+                )
     finally:
         engine.dispose()
 
@@ -405,22 +400,21 @@ def test_pr28_broken_previous_digest_lineage_is_detected() -> None:
                 violations = verify_evidence_integrity(session, stream_key=stream_key)
             assert any(item.violation == "previous_digest_mismatch" for item in violations)
         finally:
-            with engine.begin() as connection:
-                with _owner_trigger_disabled(
-                    connection,
-                    table="evidence_integrity_entries",
-                    trigger="trg_ei_entries_append_only",
-                ):
-                    connection.execute(
-                        text(
-                            """
-                            UPDATE evidence_integrity_entries
-                            SET previous_digest = :previous
-                            WHERE stream_key = :stream_key AND sequence = 2
-                            """
-                        ),
-                        {"stream_key": stream_key, "previous": original_previous},
-                    )
+            with engine.begin() as connection, _owner_trigger_disabled(
+                connection,
+                table="evidence_integrity_entries",
+                trigger="trg_ei_entries_append_only",
+            ):
+                connection.execute(
+                    text(
+                        """
+                        UPDATE evidence_integrity_entries
+                        SET previous_digest = :previous
+                        WHERE stream_key = :stream_key AND sequence = 2
+                        """
+                    ),
+                    {"stream_key": stream_key, "previous": original_previous},
+                )
     finally:
         engine.dispose()
 
@@ -583,13 +577,12 @@ def test_pr28_runtime_role_has_restricted_evidence_privileges() -> None:
                 text("SELECT count(*) FROM charteros_verify_evidence_integrity(NULL)")
             ).scalar_one() == 0
 
-        with pytest.raises(DBAPIError):
-            with engine.begin() as connection:
-                connection.execute(text(f'SET LOCAL ROLE "{role}"'))
-                connection.execute(
-                    text("UPDATE fx_rates SET rate_text = '1.2345' WHERE id = :id"),
-                    {"id": rate_id},
-                )
+        with pytest.raises(DBAPIError), engine.begin() as connection:
+            connection.execute(text(f'SET LOCAL ROLE "{role}"'))
+            connection.execute(
+                text("UPDATE fx_rates SET rate_text = '1.2345' WHERE id = :id"),
+                {"id": rate_id},
+            )
     finally:
         with engine.begin() as connection:
             connection.execute(text(f'DROP OWNED BY "{role}"'))
