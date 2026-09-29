@@ -8,7 +8,6 @@ def load_models() -> None:
         IdempotencyRecordRow,
         OperatorRow,
         OrganizationRow,
-        OutboxConsumerReceiptRow,
         OutboxEventRow,
     )
     from charteros.infrastructure.db.models.contracts import ContractRow
