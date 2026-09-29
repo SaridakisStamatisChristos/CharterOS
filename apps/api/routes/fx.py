@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_correlation_id, get_session
@@ -41,7 +41,7 @@ class FxRateCreate(BaseModel):
 
     source_currency: str = Field(min_length=3, max_length=3)
     target_currency: str = Field(min_length=3, max_length=3)
-    rate: str = Field(min_length=1, max_length=80)
+    rate: StrictStr = Field(min_length=1, max_length=80)
     source_minor_exponent: int = Field(ge=0, le=9)
     target_minor_exponent: int = Field(ge=0, le=9)
     fx_source: str = Field(min_length=1, max_length=64)
