@@ -266,7 +266,7 @@ def feasible_aircraft_for_mission(
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         graph = _service(session)
-        version = graph.projection_version
+        version = graph.assert_projected_mission(mission_id)
         decision = MatchingService(
             missions=SqlAlchemyMissionRepository(session),
             airports=SqlAlchemyAirportRepository(session),
