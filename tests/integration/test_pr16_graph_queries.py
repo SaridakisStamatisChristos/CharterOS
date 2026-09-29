@@ -7,21 +7,28 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from apps.api.main import create_app
 from charteros.application.graph_queries import GraphQueryService
 from charteros.infrastructure.db.engine import build_engine, build_session_factory
 from charteros.infrastructure.db.models.catalog import AirportRow, OutboxEventRow
 from charteros.infrastructure.db.models.graph import (
+    GraphAggregateCursorRow,
     GraphEdgeRow,
     GraphNodeRow,
+    GraphProjectionCheckpointRow,
     GraphProjectionVersionRow,
 )
+from charteros.infrastructure.db.models.outbox import OutboxConsumerReceiptRow
+from charteros.infrastructure.db.repositories.graph import SqlAlchemyGraphProjectionStore
 from charteros.infrastructure.db.repositories.graph_queries import (
     SqlAlchemyGraphQueryRepository,
 )
 from charteros.shared.config import Settings
+from tests.integration.matching_support import insert_profile, setup_matching_state
 
 BASE = datetime(2026, 10, 1, tzinfo=UTC)
 VERSION = 1601
@@ -546,5 +553,86 @@ def test_pr16_graph_queries_are_bounded_bitemporal_and_lineage_preserving() -> N
             )
             session.execute(
                 delete(AirportRow).where(AirportRow.id.in_((airport_a, airport_b, airport_c)))
+            )
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_pr16_feasible_aircraft_query_reuses_matching_policy_on_active_projection() -> None:
+    settings = _settings()
+    projection_version = 1602
+    engine = build_engine(settings)
+    factory = build_session_factory(engine)
+    try:
+        with TestClient(create_app(settings)) as client:
+            mission_id, aircraft_id, _departure, aircraft_type_id, _availability_id = (
+                setup_matching_state(client, suffix="GQ")
+            )
+            insert_profile(
+                settings,
+                aircraft_type_id,
+                recorded_at=datetime.now(UTC) - timedelta(minutes=1),
+            )
+
+            store = SqlAlchemyGraphProjectionStore(factory)
+            report = store.rebuild(projection_version, now=datetime.now(UTC))
+            assert report.ok, report.issues
+            store.activate(
+                projection_version,
+                now=datetime.now(UTC),
+                maintenance_mode=True,
+            )
+
+            response = client.get(
+                f"/v1/graph/missions/{mission_id}/feasible-aircraft",
+                params={
+                    "known_as_of": datetime.now(UTC).isoformat(),
+                    "limit": 10,
+                },
+            )
+            assert response.status_code == 200, response.text
+            body = response.json()
+            assert body["projection_version"] == projection_version
+            assert body["mission_id"] == mission_id
+            assert body["feasible_count"] >= 1
+            assert any(item["aircraft_id"] == aircraft_id for item in body["aircraft"])
+            assert body["policy_version"]
+    finally:
+        with factory.begin() as session:
+            session.execute(
+                delete(OutboxConsumerReceiptRow).where(
+                    OutboxConsumerReceiptRow.consumer_name
+                    == f"charter_graph:v{projection_version}"
+                )
+            )
+            session.execute(
+                delete(GraphEdgeRow).where(
+                    GraphEdgeRow.projection_name == "charter_graph",
+                    GraphEdgeRow.projection_version == projection_version,
+                )
+            )
+            session.execute(
+                delete(GraphNodeRow).where(
+                    GraphNodeRow.projection_name == "charter_graph",
+                    GraphNodeRow.projection_version == projection_version,
+                )
+            )
+            session.execute(
+                delete(GraphAggregateCursorRow).where(
+                    GraphAggregateCursorRow.projection_name == "charter_graph",
+                    GraphAggregateCursorRow.projection_version == projection_version,
+                )
+            )
+            session.execute(
+                delete(GraphProjectionCheckpointRow).where(
+                    GraphProjectionCheckpointRow.projection_name == "charter_graph",
+                    GraphProjectionCheckpointRow.projection_version == projection_version,
+                )
+            )
+            session.execute(
+                delete(GraphProjectionVersionRow).where(
+                    GraphProjectionVersionRow.projection_name == "charter_graph",
+                    GraphProjectionVersionRow.projection_version == projection_version,
+                )
             )
         engine.dispose()
