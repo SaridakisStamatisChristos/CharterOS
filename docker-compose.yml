@@ -15,6 +15,26 @@ services:
     volumes:
       - charteros-postgres:/var/lib/postgresql/data
 
+  outbox-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "apps.outbox_worker.main"]
+    environment:
+      CHARTEROS_ENVIRONMENT: development
+      CHARTEROS_SERVICE_NAME: charteros-outbox-worker
+      CHARTEROS_LOG_LEVEL: INFO
+      CHARTEROS_DATABASE_URL: postgresql+psycopg://charteros:charteros@postgres:5432/charteros
+      CHARTEROS_OUTBOX_BATCH_SIZE: 32
+      CHARTEROS_OUTBOX_POLL_INTERVAL_SECONDS: 1.0
+      CHARTEROS_OUTBOX_LEASE_SECONDS: 30
+      CHARTEROS_OUTBOX_MAX_ATTEMPTS: 8
+      CHARTEROS_OUTBOX_BACKOFF_BASE_SECONDS: 1
+      CHARTEROS_OUTBOX_BACKOFF_MAX_SECONDS: 300
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build:
       context: .

@@ -1,4 +1,4 @@
-.PHONY: install format format-check lint type test test-unit test-integration migrate smoke compose-config quality
+.PHONY: install format format-check lint type test test-unit test-integration migrate smoke compose-config quality outbox-worker outbox-worker-once
 
 install:
 	python -m pip install -e '.[dev]'
@@ -32,5 +32,11 @@ smoke:
 
 compose-config:
 	docker compose config
+
+outbox-worker:
+	python -m apps.outbox_worker.main
+
+outbox-worker-once:
+	python -m apps.outbox_worker.main --once
 
 quality: lint format-check type test smoke

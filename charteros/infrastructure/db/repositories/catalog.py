@@ -330,7 +330,10 @@ class SqlAlchemyDomainEventRepository:
                     correlation_id=(event.correlation_id.value if event.correlation_id else None),
                     causation_id=event.causation_id.value if event.causation_id else None,
                     canonical_json=event.to_json(),
+                    delivery_status="pending",
+                    available_at=event.recorded_at,
                     publish_attempts=0,
+                    delivery_attempts=0,
                 )
             )
         _flush(self._session, conflict_message="domain event version already exists")

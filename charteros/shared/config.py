@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     )
     api_host: str = Field(default="0.0.0.0", min_length=1)
     api_port: int = Field(default=8000, ge=1, le=65535)
+    outbox_batch_size: int = Field(default=32, ge=1, le=500)
+    outbox_poll_interval_seconds: float = Field(default=1.0, ge=0.05, le=60.0)
+    outbox_lease_seconds: int = Field(default=30, ge=1, le=3600)
+    outbox_max_attempts: int = Field(default=8, ge=1, le=100)
+    outbox_backoff_base_seconds: int = Field(default=1, ge=1, le=3600)
+    outbox_backoff_max_seconds: int = Field(default=300, ge=1, le=86400)
 
 
 @lru_cache(maxsize=1)
