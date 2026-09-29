@@ -10,11 +10,13 @@ from charteros.application.ports.catalog import (
     OperatorRepository,
     OrganizationRepository,
 )
+from charteros.application.ports.disruptions import DisruptionRepository
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.reconciliation import FinancialReconciliationRepository
 from charteros.application.ports.rfqs import RfqRepository
 from charteros.domain.bookings import Booking, BookingId, BookingState
+from charteros.domain.disruptions import DisruptionCommercialChangeId, DisruptionStatus
 from charteros.domain.missions import Mission, MissionStatus
 from charteros.domain.operators import CommercialStatus, OperatorId
 from charteros.domain.organizations import OrganizationId, OrganizationStatus
@@ -89,6 +91,7 @@ class FinancialReconciliationService:
         self,
         *,
         reconciliations: FinancialReconciliationRepository,
+        disruptions: DisruptionRepository,
         bookings: BookingRepository,
         missions: MissionRepository,
         quotes: QuoteRepository,
@@ -98,6 +101,7 @@ class FinancialReconciliationService:
         events: DomainEventRepository,
     ) -> None:
         self._reconciliations = reconciliations
+        self._disruptions = disruptions
         self._bookings = bookings
         self._missions = missions
         self._quotes = quotes
@@ -123,7 +127,12 @@ class FinancialReconciliationService:
         if existing is not None:
             raise EntityConflictError("booking already has a financial reconciliation")
 
-        normalization = normalize_quote(context.accepted_quote)
+        (
+            normalization,
+            booked_amount,
+            booked_worst_case_amount,
+            commercial_change_ids,
+        ) = self._booked_commercial_baseline(context)
         reconciliation = FinancialReconciliation.open(
             booking_id=context.booking.id,
             accepted_quote_id=context.accepted_quote.id,
@@ -132,8 +141,9 @@ class FinancialReconciliationService:
             currency=context.accepted_quote.currency,
             quote_normalization_version=normalization.normalization_version,
             quote_revision_number=context.accepted_quote.revision_number,
-            booked_amount=normalization.expected_total,
-            booked_worst_case_amount=normalization.worst_case_total,
+            booked_amount=booked_amount,
+            booked_worst_case_amount=booked_worst_case_amount,
+            commercial_change_ids=commercial_change_ids,
             opened_at=max(when, context.booking.state_changed_at),
             actor_id=operator_id,
             correlation_id=correlation_id,
@@ -505,6 +515,67 @@ class FinancialReconciliationService:
             raise EntityNotFoundError(
                 "financial reconciliation is not available in the operator context"
             )
+
+    def _booked_commercial_baseline(
+        self,
+        context: _BookingContext,
+    ) -> tuple[
+        object,
+        Money,
+        Money,
+        tuple[DisruptionCommercialChangeId, ...],
+    ]:
+        normalization = normalize_quote(context.accepted_quote)
+        booked_amount = normalization.expected_total
+        booked_worst_case_amount = normalization.worst_case_total
+        commercial_change_ids: list[DisruptionCommercialChangeId] = []
+
+        disruptions = self._disruptions.list_for_booking(
+            context.booking.id,
+            limit=1001,
+        )
+        if len(disruptions) > 1000:
+            raise EntityConflictError(
+                "too many disruptions to establish a bounded reconciliation baseline"
+            )
+        for disruption in disruptions:
+            if disruption.status is not DisruptionStatus.RESOLVED:
+                raise EntityConflictError(
+                    "all booking disruptions must be resolved before financial reconciliation"
+                )
+            if disruption.selected_commercial_change_id is None:
+                continue
+            change = self._disruptions.get_commercial_change(
+                disruption.selected_commercial_change_id
+            )
+            if (
+                change is None
+                or change.disruption_id != disruption.id
+                or change.original_quote_id != context.accepted_quote.id
+                or change.currency != context.accepted_quote.currency
+                or change.normalization_version != normalization.normalization_version
+            ):
+                raise EntityConflictError(
+                    "resolved disruption commercial evidence conflicts with booked quote"
+                )
+            booked_amount = booked_amount + change.known_adjustment
+            booked_worst_case_amount = (
+                booked_worst_case_amount
+                + change.known_adjustment
+                + change.conditional_adjustment
+            )
+            commercial_change_ids.append(change.id)
+
+        if booked_amount.amount_minor <= 0 or booked_worst_case_amount < booked_amount:
+            raise EntityConflictError(
+                "resolved commercial adjustments produce an invalid booked-price baseline"
+            )
+        return (
+            normalization,
+            booked_amount,
+            booked_worst_case_amount,
+            tuple(commercial_change_ids),
+        )
 
     @staticmethod
     def _assert_reconcilable_booking(context: _BookingContext) -> None:
