@@ -113,6 +113,8 @@ class BookingFlightLineage:
 class GraphQueryReadRepository(Protocol):
     def active_version(self) -> int: ...
 
+    def has_node(self, *, node_type: str, node_id: UUID) -> bool: ...
+
     def historical_position(
         self,
         *,
@@ -167,6 +169,14 @@ class GraphQueryService:
     @property
     def projection_version(self) -> int:
         return self._repository.active_version()
+
+    def assert_projected_mission(self, mission_id: UUID) -> int:
+        version = self._repository.active_version()
+        if not self._repository.has_node(node_type="mission", node_id=mission_id):
+            raise EntityNotFoundError(
+                "mission does not exist in the active Charter Graph projection"
+            )
+        return version
 
     def historical_position(
         self,
