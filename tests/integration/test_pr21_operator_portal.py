@@ -373,7 +373,7 @@ def test_pr21_operator_portal_isolation_workflows_and_calendar() -> None:
                 "Idempotency-Key": "pr21-no-booking-transition",
             },
         )
-        assert no_portal_booking_transition.status_code == 405
+        assert no_portal_booking_transition.status_code == 404
 
 
 @pytest.mark.integration
