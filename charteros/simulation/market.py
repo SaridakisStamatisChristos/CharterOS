@@ -317,11 +317,8 @@ def simulate_market(
                     f"quote-response:{demand.demand_id}:{operator.key}"
                 )
                 quote_responded = quote_response_draw < operator.quote_response_probability_ppm
-            reason = (
-                schedule_reason
-                if not feasible
-                else ("accepted" if acceptance_hit else "rejected")
-            )
+            decision_reason = "accepted" if acceptance_hit else "rejected"
+            reason = schedule_reason if not feasible else decision_reason
             decision_time = min(
                 demand.departure_window.start,
                 demand.created_at
@@ -377,9 +374,7 @@ def simulate_market(
                         demand.departure_window.start,
                         decision_time
                         + timedelta(
-                            minutes=sampler.integer(
-                                f"quote-delay:{quote_id}:1", lower=1, upper=45
-                            )
+                            minutes=sampler.integer(f"quote-delay:{quote_id}:1", lower=1, upper=45)
                         ),
                     ),
                 )
@@ -460,9 +455,7 @@ def simulate_market(
             demand.departure_window.start,
             demand.created_at
             + timedelta(
-                minutes=sampler.integer(
-                    f"conversion-delay:{demand.demand_id}", lower=30, upper=180
-                )
+                minutes=sampler.integer(f"conversion-delay:{demand.demand_id}", lower=30, upper=180)
             ),
         )
         conversions.append(
