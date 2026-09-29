@@ -34,6 +34,7 @@ def load_models() -> None:
         MissionRow,
         OperatorRow,
         OrganizationRow,
+        OutboxConsumerReceiptRow,
         OutboxEventRow,
         QuotePriceComponentRow,
         QuoteRow,
