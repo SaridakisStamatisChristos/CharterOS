@@ -81,7 +81,12 @@ def maximum_margin_matching(
         return ()
 
     ordered = tuple(sorted(candidates, key=_candidate_sort_key))
-    left_keys = tuple(sorted({_left_key(item) for item in ordered}, key=lambda item: tuple(x.hex for x in item)))
+    left_keys = tuple(
+        sorted(
+            {_left_key(item) for item in ordered},
+            key=lambda item: tuple(value.hex for value in item),
+        )
+    )
     right_keys = tuple(
         sorted({item.opportunity.mission_id.value for item in ordered}, key=lambda item: item.hex)
     )
