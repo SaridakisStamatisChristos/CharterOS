@@ -883,42 +883,63 @@ def compare_quotes(
             mission_id=typed_mission,
             evaluated_at=evaluated_at,
         )
+    return _comparison_response(comparison)
 
-    entries = [
-        QuoteComparisonEntryResponse(
-            quote_id=entry.quote.id.value,
-            operator_id=entry.operator_id.value,
-            aircraft_id=entry.quote.aircraft_id.value,
-            revision_number=entry.quote.revision_number,
-            quote_status=entry.quote.status.value,
-            valid_until=entry.quote.valid_until,
-            currency=str(entry.normalization.currency),
-            expected_total=_money_response(entry.normalization.expected_total),
-            worst_case_total=_money_response(entry.normalization.worst_case_total),
-            totals_complete=entry.normalization.totals_complete,
-            pricing_confidence=entry.normalization.confidence.value,
-            commercial_valid=entry.commercial_valid,
-            aircraft_feasible=entry.aircraft_suitability.feasible,
-            decision_eligible=entry.decision_eligible,
-            eligibility_reasons=[reason.value for reason in entry.eligibility_reasons],
-            rejection_reasons=[
-                reason.value for reason in entry.aircraft_suitability.rejection_reasons
-            ],
-            currency_rank=entry.currency_rank,
-            score_method=entry.score.method,
-            score_total_basis_points=entry.score.total_basis_points,
+
+@router.post(
+    "/missions/{mission_id}/quotes/compare/fx-locks",
+    response_model=BuyerQuoteComparisonResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def lock_fx_comparison(
+    mission_id: UUID,
+    body: FxComparisonLockRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    buyer_id: BuyerIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> BuyerQuoteComparisonResponse:
+    typed_buyer = OrganizationId(buyer_id)
+    typed_mission = MissionId(mission_id)
+    scope = f"POST:/v1/buyer-portal/missions/{mission_id}/quotes/compare/fx-locks:{buyer_id}"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    evaluated_at = datetime.now(UTC)
+    with session.begin():
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
+        _portal(session).mission(buyer_id=typed_buyer, mission_id=typed_mission)
+        idempotency = SqlAlchemyIdempotencyRepository(session)
+        idempotency.lock(scope, idempotency_key)
+        stored = _stored_response(
+            idempotency,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
         )
-        for entry in comparison.entries
-    ]
-    return BuyerQuoteComparisonResponse(
-        mission_id=mission_id,
-        comparison_policy_version=comparison.comparison_policy_version,
-        matching_policy_version=comparison.matching_policy_version,
-        evaluated_at=comparison.evaluated_at,
-        pricing_currencies=[str(currency) for currency in comparison.pricing_currencies],
-        global_rank_available=comparison.global_rank_available,
-        quotes=entries,
-    )
+        if stored is not None:
+            return BuyerQuoteComparisonResponse.model_validate(stored.response_body)
+
+        _visibility_policy(session).assert_mission_comparison_visible(typed_mission)
+        comparison = _comparison_service(session).compare(
+            mission_id=typed_mission,
+            evaluated_at=evaluated_at,
+        )
+        locked = _fx_service(session).lock_comparison(
+            comparison=comparison,
+            buyer_id=typed_buyer,
+            base_currency=Currency(body.base_currency.strip().upper()),
+            fx_source=body.fx_source,
+            locked_at=evaluated_at,
+            correlation_id=correlation_id,
+        )
+        response = _comparison_response(comparison, fx_lock=locked.lock)
+        idempotency.add(
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            status_code=status.HTTP_201_CREATED,
+            response_body=response.model_dump(mode="json"),
+        )
+    return response
 
 
 @router.post(
