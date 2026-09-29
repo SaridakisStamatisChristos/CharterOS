@@ -11,6 +11,7 @@ from charteros.application.ports.contracts import ContractDocumentIntegration, C
 from charteros.application.ports.matching import MatchingSnapshotRepository
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.quotes import QuoteRepository
+from charteros.application.ports.repositioning import RepositionOpportunityRepository
 from charteros.application.ports.rfqs import RfqRepository
 from charteros.application.ports.tenders import TenderRepository
 
@@ -27,6 +28,7 @@ __all__ = [
     "OperatorRepository",
     "OrganizationRepository",
     "QuoteRepository",
+    "RepositionOpportunityRepository",
     "RfqRepository",
     "TenderRepository",
 ]
