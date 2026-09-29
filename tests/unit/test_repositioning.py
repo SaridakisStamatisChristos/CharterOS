@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -171,6 +172,47 @@ def test_reposition_policy_preserves_continuity_and_computes_incremental_margin(
     )
 
 
+def test_revenue_stop_can_rescue_infeasible_direct_deadhead() -> None:
+    snapshot = _snapshot()
+    assert snapshot.reference_profile is not None
+    snapshot = replace(
+        snapshot,
+        reference_profile=replace(
+            snapshot.reference_profile,
+            max_reposition_nm=50,
+        ),
+    )
+    previous_origin = _airport(13, lat="39.50000", lon="19.50000", icao="DDDD")
+    from_airport = _airport(10, lat="40.00000", lon="20.00000", icao="AAAA")
+    continuity = _airport(11, lat="41.00000", lon="21.00000", icao="BBBB")
+    destination = _airport(12, lat="40.50000", lon="20.50000", icao="CCCC")
+
+    baseline_eval = evaluate_baseline(
+        structural=_structural(),
+        candidate=snapshot,
+        previous_origin_airport=previous_origin,
+        from_airport=from_airport,
+        continuity_airport=continuity,
+    )
+    baseline = baseline_eval.baseline
+    assert baseline is not None
+    assert baseline.baseline_reposition_feasible is False
+    assert RepositionReasonCode.BASELINE_REPOSITION_TOO_FAR in baseline_eval.reasons
+
+    insertion = evaluate_insertion(
+        baseline=baseline,
+        candidate=snapshot,
+        opportunity=_opportunity(),
+        from_airport=from_airport,
+        mission_origin=from_airport,
+        mission_destination=destination,
+        continuity_airport=continuity,
+    ).insertion
+    assert insertion is not None
+    assert insertion.opportunity_cost == insertion.reposition_cost
+    assert insertion.margin.amount_minor > 0
+
+
 def test_reposition_policy_fails_closed_on_currency_mismatch() -> None:
     snapshot = _snapshot()
     previous_origin = _airport(13, lat="39.50000", lon="19.50000", icao="DDDD")
@@ -220,6 +262,7 @@ def _solver_candidate(
         baseline_distance_tenths_nm=100,
         baseline_minutes=10,
         baseline_reposition_cost=Money(10_000, EUR),
+        baseline_reposition_feasible=True,
     )
     return FeasibleInsertion(
         empty_leg=baseline,
