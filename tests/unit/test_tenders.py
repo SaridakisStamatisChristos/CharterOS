@@ -20,7 +20,7 @@ from charteros.domain.tenders import (
 
 
 def _window() -> tuple[datetime, datetime, datetime]:
-    created = datetime(2026, 9, 29, 8, 0, tzinfo=UTC)
+    created = datetime(2026, 9, 28, 8, 0, tzinfo=UTC)
     opens = created + timedelta(minutes=5)
     deadline = created + timedelta(hours=2)
     return created, opens, deadline
