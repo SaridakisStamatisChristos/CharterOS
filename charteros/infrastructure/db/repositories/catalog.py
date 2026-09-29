@@ -30,6 +30,7 @@ from charteros.domain.organizations import (
     OrganizationStatus,
     OrganizationType,
 )
+from charteros.domain.procurement_approvals import ProcurementApproval
 from charteros.domain.quotes import Quote
 from charteros.domain.rfqs import Rfq
 from charteros.domain.tenders import Tender
@@ -315,6 +316,7 @@ class SqlAlchemyDomainEventRepository:
             | Booking
             | Contract
             | Tender
+            | ProcurementApproval
         ),
     ) -> None:
         for event in aggregate.collect_events():
