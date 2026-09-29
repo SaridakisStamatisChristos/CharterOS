@@ -21,7 +21,10 @@ def test_every_v1_route_has_exactly_one_security_policy_and_dependency() -> None
         for route in app.routes
         if isinstance(route, APIRoute) and route.path.startswith("/v1")
     ]
-    actual = {(method, route.path) for route in routes for method in route.methods}
+    actual: set[tuple[str, str]] = set()
+    for route in routes:
+        assert route.methods is not None
+        actual.update((method, route.path) for method in route.methods)
 
     assert actual == set(ROUTE_POLICIES)
     for route in routes:

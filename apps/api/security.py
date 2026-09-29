@@ -122,13 +122,13 @@ def _authorize_resource(
         else:
             if operator_id is None:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
-            invitation_id = _uuid_header(request, "X-Tender-Invitation-Id")
-            if invitation_id is None:
+            invitation_header_id = _uuid_header(request, "X-Tender-Invitation-Id")
+            if invitation_header_id is None:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
             tender_id = _path_uuid(request, "tender_id")
             allowed = session.scalar(
                 select(TenderInvitationRow.id).where(
-                    TenderInvitationRow.id == invitation_id,
+                    TenderInvitationRow.id == invitation_header_id,
                     TenderInvitationRow.tender_id == tender_id,
                     TenderInvitationRow.operator_id == operator_id,
                 )
