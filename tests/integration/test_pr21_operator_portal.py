@@ -260,7 +260,6 @@ def test_pr21_operator_portal_isolation_workflows_and_calendar() -> None:
             departure=departure,
         )
 
-
         inbox_a = client.get(
             "/v1/operator-portal/rfqs",
             headers={"X-Operator-Id": operator_a},
@@ -358,9 +357,12 @@ def test_pr21_operator_portal_isolation_workflows_and_calendar() -> None:
         )
         assert calendar.status_code == 200
         assert [item["id"] for item in calendar.json()["entries"]] == [booking_id]
-        assert datetime.fromisoformat(
-            calendar.json()["entries"][0]["departure_from"].replace("Z", "+00:00")
-        ) == departure
+        assert (
+            datetime.fromisoformat(
+                calendar.json()["entries"][0]["departure_from"].replace("Z", "+00:00")
+            )
+            == departure
+        )
 
         no_portal_booking_transition = client.post(
             f"/v1/operator-portal/bookings/{booking_id}/confirm",
