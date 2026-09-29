@@ -338,3 +338,133 @@ def test_sealed_tender_bafo_deadline_admin_correction_and_canonical_award() -> N
         closed = client.post(
             f"/v1/tenders/{tender_id}/close",
             headers={"Idempotency-Key": "pr17-close-ta"},
+        )
+        assert closed.status_code == 200
+        assert closed.json()["status"] == "closed"
+
+        correction_body = {
+            "actor_id": str(UUID("00000000-0000-0000-0000-000000000017")),
+            "target_type": "quote",
+            "target_id": bafo_quotes[0],
+            "field_name": "payment_terms",
+            "original_value": "50% on confirmation",
+            "replacement_value": "50% on contract",
+            "reason": "Correct transcription error while preserving original supplier evidence",
+            "causation_event_id": causal_event,
+        }
+        correction = client.post(
+            f"/v1/tenders/{tender_id}/admin-corrections",
+            headers={"Idempotency-Key": "pr17-correction-ta"},
+            json=correction_body,
+        )
+        assert correction.status_code == 201
+        assert correction.json()["original_value"] == "50% on confirmation"
+        assert correction.json()["replacement_value"] == "50% on contract"
+
+        awarded = client.post(
+            f"/v1/tenders/{tender_id}/award",
+            headers={"Idempotency-Key": "pr17-award-ta"},
+            json={"quote_id": bafo_quotes[0]},
+        )
+        assert awarded.status_code == 200
+        award_body = awarded.json()
+        assert award_body["tender"]["status"] == "awarded"
+        assert award_body["booking"]["mission_id"] == mission_id
+        assert award_body["booking"]["accepted_quote_id"] == bafo_quotes[0]
+
+        award_replay = client.post(
+            f"/v1/tenders/{tender_id}/award",
+            headers={"Idempotency-Key": "pr17-award-ta"},
+            json={"quote_id": bafo_quotes[0]},
+        )
+        assert award_replay.status_code == 200
+        assert award_replay.json() == award_body
+
+        audit = client.get(f"/v1/tenders/{tender_id}/audit")
+        assert audit.status_code == 200
+        event_types = [event["event_type"] for event in audit.json()["events"]]
+        assert "TENDER_ADMIN_CORRECTED" in event_types
+        assert "TENDER_AWARDED" in event_types
+        assert len(audit.json()["corrections"]) == 1
+
+    engine = create_engine(settings.database_url)
+    try:
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT count(*) FROM bookings WHERE mission_id = :id"),
+                {"id": UUID(mission_id)},
+            ).scalar_one() == 1
+            assert connection.execute(
+                text("SELECT count(*) FROM tender_admin_corrections WHERE tender_id = :id"),
+                {"id": UUID(tender_id)},
+            ).scalar_one() == 1
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_deadline_close_race_and_concurrent_award_preserve_single_winner() -> None:
+    settings = _settings()
+    with TestClient(create_app(settings)) as client:
+        mission_id, tender_id, departure, suppliers = _setup_tender(client, suffix="TB")
+        _force_deadline_past(settings, tender_id)
+
+        barrier = Barrier(2)
+
+        def close_tender() -> int:
+            with TestClient(create_app(settings)) as worker:
+                barrier.wait()
+                return worker.post(
+                    f"/v1/tenders/{tender_id}/close",
+                    headers={"Idempotency-Key": "pr17-race-close-tb"},
+                ).status_code
+
+        def late_revision() -> int:
+            supplier = suppliers[0]
+            with TestClient(create_app(settings)) as worker:
+                barrier.wait()
+                return worker.post(
+                    f"/v1/tender-invitations/{supplier['invitation_id']}"
+                    f"/bids/{supplier['quote_id']}/revise",
+                    headers={"Idempotency-Key": "pr17-race-late-revision-tb"},
+                    json=_quote_body(
+                        supplier["aircraft_id"], departure - timedelta(hours=8), 6_600_000
+                    ),
+                ).status_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            close_future = pool.submit(close_tender)
+            late_future = pool.submit(late_revision)
+            assert close_future.result() == 200
+            assert late_future.result() == 409
+
+        award_barrier = Barrier(2)
+
+        def award(ordinal: int) -> int:
+            with TestClient(create_app(settings)) as worker:
+                award_barrier.wait()
+                return worker.post(
+                    f"/v1/tenders/{tender_id}/award",
+                    headers={"Idempotency-Key": f"pr17-concurrent-award-tb-{ordinal}"},
+                    json={"quote_id": suppliers[ordinal - 1]["quote_id"]},
+                ).status_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(award, 1)
+            second = pool.submit(award, 2)
+            statuses = sorted((first.result(), second.result()))
+        assert statuses == [200, 409]
+
+    engine = create_engine(settings.database_url)
+    try:
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT count(*) FROM bookings WHERE mission_id = :id"),
+                {"id": UUID(mission_id)},
+            ).scalar_one() == 1
+            assert connection.execute(
+                text("SELECT status FROM tenders WHERE id = :id"),
+                {"id": UUID(tender_id)},
+            ).scalar_one() == "awarded"
+    finally:
+        engine.dispose()
