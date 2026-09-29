@@ -77,7 +77,10 @@ def canonical_rate_text(value: str) -> str:
         raise DomainValidationError("FX rate must be a valid decimal string") from exc
     if not rate.is_finite() or rate <= 0:
         raise DomainValidationError("FX rate must be finite and strictly positive")
-    scale = max(0, -rate.as_tuple().exponent)
+    exponent = rate.as_tuple().exponent
+    if not isinstance(exponent, int):
+        raise DomainValidationError("FX rate exponent must be finite")
+    scale = max(0, -exponent)
     if scale > MAX_RATE_SCALE:
         raise DomainValidationError(
             f"FX rate cannot exceed {MAX_RATE_SCALE} fractional decimal places"
