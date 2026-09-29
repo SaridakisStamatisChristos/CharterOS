@@ -27,6 +27,7 @@ from charteros.infrastructure.db.models.catalog import AirportRow, OutboxEventRo
 from charteros.infrastructure.db.models.graph import (
     GraphEdgeRow,
     GraphNodeRow,
+    GraphProjectionCheckpointRow,
     GraphProjectionVersionRow,
 )
 from charteros.matching import haversine_distance_tenths_nm
@@ -57,6 +58,18 @@ class SqlAlchemyGraphQueryRepository:
         if len(versions) != 1:
             raise EntityConflictError("multiple active Charter Graph projections detected")
         return versions[0]
+
+    def active_knowledge_cutoff(self) -> datetime:
+        version = self.active_version()
+        checkpoint = self._session.get(
+            GraphProjectionCheckpointRow,
+            (PROJECTION_NAME, version),
+        )
+        if checkpoint is None or checkpoint.max_recorded_at is None:
+            raise EntityConflictError(
+                "active Charter Graph projection has no authoritative knowledge checkpoint"
+            )
+        return checkpoint.max_recorded_at
 
     def has_node(self, *, node_type: str, node_id: UUID) -> bool:
         return self._node_exists(self.active_version(), node_type, node_id)
