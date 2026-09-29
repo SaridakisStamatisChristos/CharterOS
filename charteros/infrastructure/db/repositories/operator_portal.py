@@ -169,9 +169,7 @@ class SqlAlchemyOperatorPortalRepository:
         limit: int,
         cursor: UUID | None,
     ) -> PortalBookingPage:
-        statement = self._booking_statement().where(
-            BookingRow.operator_id == operator_id.value
-        )
+        statement = self._booking_statement().where(BookingRow.operator_id == operator_id.value)
         if states:
             statement = statement.where(BookingRow.state.in_(states))
         if cursor is not None:
@@ -182,9 +180,7 @@ class SqlAlchemyOperatorPortalRepository:
                 )
             )
             if cursor_row is None:
-                raise EntityNotFoundError(
-                    "booking cursor is not available in the operator context"
-                )
+                raise EntityNotFoundError("booking cursor is not available in the operator context")
             statement = statement.where(
                 or_(
                     BookingRow.state_changed_at < cursor_row.state_changed_at,
