@@ -1,4 +1,5 @@
 from apps.api.routes.bookings import router as booking_router
+from apps.api.routes.buyer_portal import router as buyer_portal_router
 from apps.api.routes.catalog import router as catalog_router
 from apps.api.routes.contracts import router as contract_router
 from apps.api.routes.fleet import router as fleet_router
@@ -13,6 +14,7 @@ from apps.api.routes.tenders import router as tender_router
 
 __all__ = [
     "booking_router",
+    "buyer_portal_router",
     "catalog_router",
     "contract_router",
     "fleet_router",
