@@ -33,6 +33,7 @@ __all__ = [
     "SqlAlchemyContractRepository",
     "SqlAlchemyDomainEventRepository",
     "SqlAlchemyGraphProjectionStore",
+    "SqlAlchemyGraphQueryRepository",
     "SqlAlchemyIdempotencyRepository",
     "SqlAlchemyIdempotentConsumerRunner",
     "SqlAlchemyMatchingSnapshotRepository",
