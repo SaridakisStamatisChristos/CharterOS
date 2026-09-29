@@ -278,10 +278,10 @@ class SqlAlchemyGraphProjectionStore:
             )
 
         mutation = graph_mutation_for(envelope)
-        for item in mutation.node_upserts:
-            self._upsert_node(session, projection_version, envelope, item, processed_at)
-        for item in mutation.edge_upserts:
-            self._upsert_edge(session, projection_version, envelope, item, processed_at)
+        for node_upsert in mutation.node_upserts:
+            self._upsert_node(session, projection_version, envelope, node_upsert, processed_at)
+        for edge_upsert in mutation.edge_upserts:
+            self._upsert_edge(session, projection_version, envelope, edge_upsert, processed_at)
 
         if cursor is None:
             session.add(
