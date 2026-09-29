@@ -37,10 +37,10 @@ from charteros.application.idempotency import (
     canonical_request_hash,
 )
 from charteros.application.operator_portal import (
+    OperatorPortalService,
     PortalAircraft,
     PortalBooking,
     PortalRfq,
-    OperatorPortalService,
 )
 from charteros.application.quotes import QuoteService
 from charteros.application.repositioning import RepositioningService
