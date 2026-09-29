@@ -73,9 +73,7 @@ def _invoice(
             InvoiceLine(
                 line_number=2,
                 category=(
-                    InvoiceLineCategory.FUEL_SURCHARGE
-                    if delta > 0
-                    else InvoiceLineCategory.CREDIT
+                    InvoiceLineCategory.FUEL_SURCHARGE if delta > 0 else InvoiceLineCategory.CREDIT
                 ),
                 label="Settlement adjustment",
                 amount=Money(delta, EUR),
