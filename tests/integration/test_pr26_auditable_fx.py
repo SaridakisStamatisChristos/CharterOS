@@ -530,7 +530,7 @@ def test_pr26_one_fx_lock_cannot_back_two_concurrent_approvals() -> None:
                 },
                 json={"fx_lock_id": locked["fx_lock_id"]},
             )
-            return response.status_code
+            return int(response.status_code)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         statuses = sorted(pool.map(approve, ("pr26-approve-fe-a", "pr26-approve-fe-b")))
