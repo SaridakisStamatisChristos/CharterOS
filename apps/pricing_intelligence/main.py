@@ -34,17 +34,14 @@ def main() -> None:
     engine = build_engine(settings)
     factory = build_session_factory(engine)
     try:
-        with factory() as session:
-            with session.begin():
-                session.execute(
-                    text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-                )
-                dataset = PricingIntelligenceService(
-                    SqlAlchemyPricingIntelligenceRepository(session)
-                ).build_dataset(
-                    source_window=source_window,
-                    limit=args.limit,
-                )
+        with factory() as session, session.begin():
+            session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+            dataset = PricingIntelligenceService(
+                SqlAlchemyPricingIntelligenceRepository(session)
+            ).build_dataset(
+                source_window=source_window,
+                limit=args.limit,
+            )
         print(canonical_json(dataset))
     finally:
         engine.dispose()
