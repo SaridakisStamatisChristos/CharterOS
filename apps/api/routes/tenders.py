@@ -830,9 +830,15 @@ def admin_correct(
 def get_tender(tender_id: UUID, session: SessionDep) -> TenderDetailResponse:
     service = _service(session)
     tender = service.get(TenderId(tender_id))
+    sealed_phase = tender.sealed_bid and tender.status in (
+        TenderStatus.DRAFT,
+        TenderStatus.OPEN,
+        TenderStatus.BEST_AND_FINAL,
+    )
+    invitations = () if sealed_phase else service.list_invitations(tender.id)
     return TenderDetailResponse(
         tender=_tender_response(tender),
-        invitations=[_invitation_response(item) for item in service.list_invitations(tender.id)],
+        invitations=[_invitation_response(item) for item in invitations],
     )
 
 
@@ -844,12 +850,14 @@ def supplier_view(
     tender_id: UUID,
     session: SessionDep,
     operator_id: Annotated[UUID, Header(alias="X-Operator-Id")],
+    invitation_id: Annotated[UUID, Header(alias="X-Tender-Invitation-Id")],
 ) -> TenderSupplierViewResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         view = _service(session).supplier_view(
             tender_id=TenderId(tender_id),
             operator_id=OperatorId(operator_id),
+            invitation_id=TenderInvitationId(invitation_id),
         )
     return _supplier_response(view)
 
