@@ -574,8 +574,7 @@ def test_pr28_runtime_role_has_restricted_evidence_privileges() -> None:
             )
             assert not bool(
                 connection.exec_driver_sql(
-                    f"SELECT has_table_privilege("
-                    f"'{role}', 'evidence_integrity_entries', 'INSERT')"
+                    f"SELECT has_table_privilege('{role}', 'evidence_integrity_entries', 'INSERT')"
                 ).scalar_one()
             )
 
