@@ -664,41 +664,145 @@ class SqlAlchemyEvidenceRepository:
                     f"FX lock {fx_lock.id} quote revision conflicts with canonical quote"
                 )
 
+            digest_entries: list[FxLockedQuote] = []
             for conversion in lock_conversions:
                 if conversion.base_currency != fx_lock.base_currency:
                     raise EntityConflictError(
                         f"FX lock {fx_lock.id} conversion base currency conflicts"
                     )
+
+                original_currency = Currency(conversion.original_currency)
+                base_currency = Currency(conversion.base_currency)
+                original_expected = Money(
+                    conversion.original_expected_minor,
+                    original_currency,
+                )
+                original_worst = Money(
+                    conversion.original_worst_case_minor,
+                    original_currency,
+                )
+                converted_expected = Money(
+                    conversion.converted_expected_minor,
+                    base_currency,
+                )
+                converted_worst = Money(
+                    conversion.converted_worst_case_minor,
+                    base_currency,
+                )
+
+                rate_id = None
                 if conversion.rate_id is None:
                     if (
                         conversion.original_currency != conversion.base_currency
                         or conversion.rate_text != "1"
                         or conversion.fx_source != "identity"
+                        or converted_expected.amount_minor != original_expected.amount_minor
+                        or converted_worst.amount_minor != original_worst.amount_minor
                     ):
                         raise EntityConflictError(
                             f"FX lock {fx_lock.id} has invalid identity conversion evidence"
                         )
-                    continue
+                else:
+                    rate = fx_rate_by_id.get(conversion.rate_id)
+                    if rate is None:
+                        raise EntityConflictError(
+                            f"FX lock {fx_lock.id} references missing FX rate "
+                            f"{conversion.rate_id}"
+                        )
+                    if (
+                        rate.source_currency != conversion.original_currency
+                        or rate.target_currency != conversion.base_currency
+                        or rate.rate_text != conversion.rate_text
+                        or rate.fx_source != conversion.fx_source
+                        or rate.fx_source_version != conversion.fx_source_version
+                        or rate.fx_timestamp != conversion.fx_timestamp
+                        or rate.recorded_at != conversion.rate_recorded_at
+                        or rate.source_minor_exponent != conversion.source_minor_exponent
+                        or rate.target_minor_exponent != conversion.target_minor_exponent
+                    ):
+                        raise EntityConflictError(
+                            f"FX lock {fx_lock.id} conversion conflicts with immutable rate evidence"
+                        )
 
-                rate = fx_rate_by_id.get(conversion.rate_id)
-                if rate is None:
-                    raise EntityConflictError(
-                        f"FX lock {fx_lock.id} references missing FX rate {conversion.rate_id}"
+                    rate_id = FxRateId(rate.id)
+                    domain_rate = FxRateObservation(
+                        rate_id,
+                        source_currency=Currency(rate.source_currency),
+                        target_currency=Currency(rate.target_currency),
+                        rate_text=rate.rate_text,
+                        source_minor_exponent=rate.source_minor_exponent,
+                        target_minor_exponent=rate.target_minor_exponent,
+                        fx_source=rate.fx_source,
+                        fx_source_version=rate.fx_source_version,
+                        fx_timestamp=rate.fx_timestamp,
+                        recorded_at=rate.recorded_at,
+                        revision_number=rate.revision_number,
+                        supersedes_rate_id=(
+                            FxRateId(rate.supersedes_rate_id)
+                            if rate.supersedes_rate_id is not None
+                            else None
+                        ),
+                        version=rate.version,
                     )
-                if (
-                    rate.source_currency != conversion.original_currency
-                    or rate.target_currency != conversion.base_currency
-                    or rate.rate_text != conversion.rate_text
-                    or rate.fx_source != conversion.fx_source
-                    or rate.fx_source_version != conversion.fx_source_version
-                    or rate.fx_timestamp != conversion.fx_timestamp
-                    or rate.recorded_at != conversion.rate_recorded_at
-                    or rate.source_minor_exponent != conversion.source_minor_exponent
-                    or rate.target_minor_exponent != conversion.target_minor_exponent
-                ):
-                    raise EntityConflictError(
-                        f"FX lock {fx_lock.id} conversion conflicts with immutable rate evidence"
+                    expected_replay = convert_money(
+                        amount=original_expected,
+                        rate=domain_rate,
+                        base_currency=base_currency,
                     )
+                    worst_replay = convert_money(
+                        amount=original_worst,
+                        rate=domain_rate,
+                        base_currency=base_currency,
+                    )
+                    if (
+                        expected_replay.converted != converted_expected
+                        or worst_replay.converted != converted_worst
+                    ):
+                        raise EntityConflictError(
+                            f"FX lock {fx_lock.id} converted totals fail deterministic replay"
+                        )
+
+                digest_entries.append(
+                    FxLockedQuote(
+                        quote_id=QuoteId(conversion.quote_id),
+                        quote_revision_number=conversion.quote_revision_number,
+                        original_expected=original_expected,
+                        original_worst_case=original_worst,
+                        converted_expected=converted_expected,
+                        converted_worst_case=converted_worst,
+                        rate_id=rate_id,
+                        rate_text=conversion.rate_text,
+                        fx_source=conversion.fx_source,
+                        fx_source_version=conversion.fx_source_version,
+                        fx_timestamp=conversion.fx_timestamp,
+                        rate_recorded_at=conversion.rate_recorded_at,
+                        source_minor_exponent=conversion.source_minor_exponent,
+                        target_minor_exponent=conversion.target_minor_exponent,
+                        global_rank=conversion.global_rank,
+                        global_score_method=conversion.global_score_method,
+                        global_score_total_basis_points=(
+                            conversion.global_score_total_basis_points
+                        ),
+                    )
+                )
+
+            expected_digest = fx_lock_digest(
+                buyer_id=OrganizationId(fx_lock.buyer_id),
+                mission_id=MissionId(fx_lock.mission_id),
+                base_currency=Currency(fx_lock.base_currency),
+                fx_source=fx_lock.fx_source,
+                locked_at=fx_lock.locked_at,
+                entries=tuple(
+                    sorted(
+                        digest_entries,
+                        key=lambda item: (item.global_rank, item.quote_id.value.hex),
+                    )
+                ),
+            )
+            if expected_digest != fx_lock.integrity_digest:
+                raise EntityConflictError(
+                    f"FX lock {fx_lock.id} integrity digest does not match canonical evidence"
+                )
 
         for booking in bookings:
             if booking.mission_id != mission.id:
