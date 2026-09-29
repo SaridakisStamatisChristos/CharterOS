@@ -109,10 +109,7 @@ class SqlAlchemyGraphQueryRepository:
             known_as_of=known_as_of,
         )
         airports = self._airport_coordinates(airport_ids)
-        resolved = [
-            _resolved_position(item, airports)
-            for item in positions
-        ]
+        resolved = [_resolved_position(item, airports) for item in positions]
         visible = [item for item in resolved if item is not None]
         return max(
             visible,
