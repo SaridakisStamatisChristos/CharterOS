@@ -364,7 +364,12 @@ class SqlAlchemyEvidenceRepository:
             approvals=approvals,
             bookings=bookings,
             contracts=contracts,
-            tenders=([] if active_sealed and party.buyer_id is not None else tenders),
+            tenders=(
+                []
+                if party.operator_id is not None
+                or (active_sealed and party.buyer_id is not None)
+                else tenders
+            ),
             disruptions=disruptions,
             proposals=proposals,
             commercial_changes=commercial_changes,
@@ -438,6 +443,7 @@ class SqlAlchemyEvidenceRepository:
             self._decision_record(row)
             for row in snapshot_rows
             if (row.source_aggregate_type, row.source_aggregate_id) in aggregate_keys
+            and not (party.operator_id is not None and row.decision_type == "quote_comparison")
         )
 
         return EvidenceMaterial(
