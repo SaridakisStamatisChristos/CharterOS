@@ -717,7 +717,7 @@ def test_pr24_booked_baseline_includes_resolved_pr23_commercial_adjustment() -> 
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            opening_payload = connection.execute(
+            opening_payload: str = connection.execute(
                 text(
                     "SELECT canonical_json FROM outbox_events "
                     "WHERE aggregate_id=:id "
