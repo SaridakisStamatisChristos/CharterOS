@@ -18,6 +18,7 @@ def load_models() -> None:
         DisruptionRow,
     )
     from charteros.infrastructure.db.models.evidence import DecisionEvidenceSnapshotRow
+    from charteros.infrastructure.db.models.fx import FxLockConversionRow, FxLockRow, FxRateRow
     from charteros.infrastructure.db.models.fleet import (
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
@@ -36,6 +37,9 @@ def load_models() -> None:
     from charteros.infrastructure.db.models.quotes import QuotePriceComponentRow, QuoteRow
     from charteros.infrastructure.db.models.reconciliation import (
         FinancialReconciliationRow,
+        FxLockConversionRow,
+        FxLockRow,
+        FxRateRow,
         OperatorInvoiceLineRow,
         OperatorInvoiceRevisionRow,
         ReconciliationDisputeRow,
