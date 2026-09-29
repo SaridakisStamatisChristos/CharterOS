@@ -1199,6 +1199,80 @@ class SqlAlchemyEvidenceRepository:
                     },
                 )
             )
+
+        for fx_rate in fx_rates:
+            sources.append(
+                _record(
+                    "fx_rate",
+                    fx_rate.id,
+                    fx_rate.version,
+                    {
+                        "source_currency": fx_rate.source_currency,
+                        "target_currency": fx_rate.target_currency,
+                        "rate": fx_rate.rate_text,
+                        "source_minor_exponent": fx_rate.source_minor_exponent,
+                        "target_minor_exponent": fx_rate.target_minor_exponent,
+                        "fx_source": fx_rate.fx_source,
+                        "fx_source_version": fx_rate.fx_source_version,
+                        "fx_timestamp": fx_rate.fx_timestamp,
+                        "recorded_at": fx_rate.recorded_at,
+                        "revision_number": fx_rate.revision_number,
+                        "supersedes_rate_id": fx_rate.supersedes_rate_id,
+                    },
+                )
+            )
+
+        conversions_by_lock: dict[UUID, list[FxLockConversionRow]] = {}
+        for conversion in fx_conversions:
+            conversions_by_lock.setdefault(conversion.lock_id, []).append(conversion)
+        for fx_lock in fx_locks:
+            sources.append(
+                _record(
+                    "fx_lock",
+                    fx_lock.id,
+                    fx_lock.version,
+                    {
+                        "buyer_id": fx_lock.buyer_id,
+                        "mission_id": fx_lock.mission_id,
+                        "base_currency": fx_lock.base_currency,
+                        "fx_source": fx_lock.fx_source,
+                        "locked_at": fx_lock.locked_at,
+                        "expires_at": fx_lock.expires_at,
+                        "status": fx_lock.status,
+                        "integrity_digest": fx_lock.integrity_digest,
+                        "consumed_at": fx_lock.consumed_at,
+                        "consumed_approval_id": fx_lock.consumed_approval_id,
+                        "conversions": [
+                            {
+                                "quote_id": item.quote_id,
+                                "quote_revision_number": item.quote_revision_number,
+                                "original_currency": item.original_currency,
+                                "original_expected_minor": item.original_expected_minor,
+                                "original_worst_case_minor": item.original_worst_case_minor,
+                                "base_currency": item.base_currency,
+                                "converted_expected_minor": item.converted_expected_minor,
+                                "converted_worst_case_minor": item.converted_worst_case_minor,
+                                "fx_rate_id": item.rate_id,
+                                "fx_rate": item.rate_text,
+                                "fx_source": item.fx_source,
+                                "fx_source_version": item.fx_source_version,
+                                "fx_timestamp": item.fx_timestamp,
+                                "fx_rate_recorded_at": item.rate_recorded_at,
+                                "source_minor_exponent": item.source_minor_exponent,
+                                "target_minor_exponent": item.target_minor_exponent,
+                                "conversion_policy_version": item.conversion_policy_version,
+                                "rounding_policy": item.rounding_policy,
+                                "global_rank": item.global_rank,
+                                "global_score_method": item.global_score_method,
+                                "global_score_total_basis_points": (
+                                    item.global_score_total_basis_points
+                                ),
+                            }
+                            for item in conversions_by_lock.get(fx_lock.id, [])
+                        ],
+                    },
+                )
+            )
         return sources
 
     @staticmethod
