@@ -67,7 +67,8 @@ def _invoice(
     )
     if total != 8_000_000:
         delta = total - 8_000_000
-        lines = lines + (
+        lines = (
+            *lines,
             InvoiceLine(
                 line_number=2,
                 category=(
