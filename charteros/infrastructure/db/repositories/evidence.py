@@ -184,9 +184,7 @@ class SqlAlchemyEvidenceRepository:
                 self._session.scalars(
                     select(TenderInvitationRow)
                     .where(
-                        TenderInvitationRow.tender_id.in_(
-                            [tender.id for tender in active_sealed]
-                        )
+                        TenderInvitationRow.tender_id.in_([tender.id for tender in active_sealed])
                     )
                     .order_by(TenderInvitationRow.invited_at, TenderInvitationRow.id)
                 ).all()
@@ -304,9 +302,7 @@ class SqlAlchemyEvidenceRepository:
             invoices = list(
                 self._session.scalars(
                     select(OperatorInvoiceRevisionRow)
-                    .where(
-                        OperatorInvoiceRevisionRow.reconciliation_id.in_(reconciliation_ids)
-                    )
+                    .where(OperatorInvoiceRevisionRow.reconciliation_id.in_(reconciliation_ids))
                     .order_by(
                         OperatorInvoiceRevisionRow.reconciliation_id,
                         OperatorInvoiceRevisionRow.revision_number,
@@ -579,9 +575,7 @@ class SqlAlchemyEvidenceRepository:
 
         for disruption in disruptions:
             if disruption.booking_id not in booking_by_id:
-                raise EntityConflictError(
-                    f"disruption {disruption.id} booking evidence is missing"
-                )
+                raise EntityConflictError(f"disruption {disruption.id} booking evidence is missing")
             if disruption.status == "resolved":
                 if (
                     disruption.selected_proposal_id is None
@@ -660,18 +654,14 @@ class SqlAlchemyEvidenceRepository:
                         f"completed reconciliation {reconciliation.id} terminal evidence is missing"
                     )
                 final_invoice = invoice_by_id.get(reconciliation.final_invoice_revision_id)
-                if (
-                    final_invoice is None
-                    or final_invoice.reconciliation_id != reconciliation.id
-                ):
+                if final_invoice is None or final_invoice.reconciliation_id != reconciliation.id:
                     raise EntityConflictError(
                         f"completed reconciliation {reconciliation.id} final invoice conflicts"
                     )
                 expected_payable = (
                     final_invoice.total_amount_minor
                     if final_invoice.variance_minor <= 0
-                    else reconciliation.booked_amount_minor
-                    + reconciliation.approved_variance_minor
+                    else reconciliation.booked_amount_minor + reconciliation.approved_variance_minor
                 )
                 if reconciliation.final_payable_minor != expected_payable:
                     raise EntityConflictError(
@@ -1064,9 +1054,7 @@ class SqlAlchemyEvidenceRepository:
                 else None
             ),
             "actor_id": str(row.actor_id) if row.actor_id is not None else None,
-            "correlation_id": (
-                str(row.correlation_id) if row.correlation_id is not None else None
-            ),
+            "correlation_id": (str(row.correlation_id) if row.correlation_id is not None else None),
         }
         for key, value in expected_envelope.items():
             if body.get(key) != value:
