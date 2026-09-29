@@ -188,11 +188,13 @@ path and is not promoted to canonical authority.
 python -m apps.graph_projection.main status
 python -m apps.graph_projection.main rebuild --target-version 1
 python -m apps.graph_projection.main verify --version 1
+python -m apps.graph_projection.main activate --version 1 --maintenance-mode
 python -m apps.graph_projection.main rebuild --target-version 1 --activate --maintenance-mode
 ```
 
-`--activate` is intended for the final controlled rebuild window. Operators should stop writers and
-outbox workers before that command and resume them only after activation succeeds.
+Activation is available either as a standalone command for an already verified version or as the
+final step of `rebuild --activate`. Both paths require `--maintenance-mode`. Operators should stop
+writers and outbox workers before the pointer switch and resume them only after activation succeeds.
 
 ## Explicit non-goals
 
