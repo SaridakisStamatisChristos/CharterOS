@@ -48,6 +48,7 @@ class StructuralEmptyLeg:
     previous_mission_id: UUID
     next_booking_id: UUID
     next_mission_id: UUID
+    previous_origin_airport_id: UUID
     from_airport_id: UUID
     from_icao: str
     to_airport_id: UUID
@@ -78,6 +79,9 @@ class QuotedFutureLeg:
 @dataclass(frozen=True, slots=True)
 class BaselineEmptyLeg:
     structural: StructuralEmptyLeg
+    aircraft_available_at: datetime
+    previous_revenue_distance_tenths_nm: int
+    previous_revenue_minutes: int
     baseline_distance_tenths_nm: int
     baseline_minutes: int
     baseline_reposition_cost: Money
@@ -121,8 +125,11 @@ class RepositionAssignment:
     continuity_airport_id: AirportId
     window_start: datetime
     window_end: datetime
+    aircraft_available_at: datetime
     scheduled_departure: datetime
     continuity_ready_at: datetime
+    previous_revenue_distance_tenths_nm: int
+    previous_revenue_minutes: int
     baseline_reposition_distance_tenths_nm: int
     pre_reposition_distance_tenths_nm: int
     revenue_distance_tenths_nm: int
