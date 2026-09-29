@@ -13,6 +13,7 @@ from charteros.application.ports.matching import MatchingSnapshotRepository
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.pricing_intelligence import PricingIntelligenceReadRepository
 from charteros.application.ports.procurement_approvals import ProcurementApprovalRepository
+from charteros.application.ports.reconciliation import FinancialReconciliationRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.repositioning import RepositionOpportunityRepository
 from charteros.application.ports.rfqs import RfqRepository
@@ -27,6 +28,7 @@ __all__ = [
     "ContractRepository",
     "DisruptionRepository",
     "DomainEventRepository",
+    "FinancialReconciliationRepository",
     "MatchingSnapshotRepository",
     "MissionRepository",
     "OperatorRepository",
