@@ -92,6 +92,7 @@ class RepositioningService:
         evaluated_at: datetime,
         empty_leg_limit: int = MAX_STRUCTURAL_EMPTY_LEGS,
         opportunity_limit: int = MAX_QUOTED_FUTURE_LEGS,
+        operator_id: OperatorId | None = None,
     ) -> RepositionOptimization:
         start = _utc(window_start, field_name="window_start")
         end = _utc(window_end, field_name="window_end")
@@ -109,6 +110,7 @@ class RepositioningService:
             window_start=start,
             window_end=end,
             limit=empty_leg_limit,
+            operator_id=operator_id.value if operator_id is not None else None,
         )
         projection_version = self._graph.projection_version
         graph_knowledge_cutoff = self._graph.knowledge_cutoff
