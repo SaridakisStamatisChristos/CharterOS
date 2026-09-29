@@ -294,20 +294,13 @@ def complete_booking(
 @router.post("/bookings/{booking_id}/reconcile", response_model=BookingResponse)
 def reconcile_booking(
     booking_id: UUID,
-    session: SessionDep,
-    correlation_id: CorrelationIdDep,
-    idempotency_key: IdempotencyKeyDep,
+    _session: SessionDep,
+    _correlation_id: CorrelationIdDep,
+    _idempotency_key: IdempotencyKeyDep,
 ) -> BookingResponse:
-    return _run_workflow_command(
-        session=session,
-        booking_id=booking_id,
-        command_name="reconcile",
-        idempotency_key=idempotency_key,
-        action=lambda service: service.reconcile(
-            booking_id=BookingId(booking_id),
-            now=datetime.now(UTC),
-            correlation_id=correlation_id,
-        ),
+    raise EntityConflictError(
+        "direct booking reconciliation requires PR24 financial evidence; "
+        "complete the booking financial reconciliation instead"
     )
 
 

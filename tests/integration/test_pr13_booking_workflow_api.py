@@ -116,7 +116,6 @@ def test_booking_workflow_contract_guard_idempotency_mission_coupling_and_outbox
             ("enter-pre-operation", "pre_operation", "booked"),
             ("start-operation", "operating", "operating"),
             ("complete", "completed", "completed"),
-            ("reconcile", "reconciled", "completed"),
         ]
         for ordinal, (command, booking_state, mission_state) in enumerate(commands, start=1):
             response = client.post(
@@ -127,9 +126,15 @@ def test_booking_workflow_contract_guard_idempotency_mission_coupling_and_outbox
             assert response.json()["state"] == booking_state
             assert client.get(f"/v1/missions/{mission_id}").json()["status"] == mission_state
 
+        direct_reconcile = client.post(
+            f"/v1/bookings/{booking_id}/reconcile",
+            headers={"Idempotency-Key": "pr13-direct-reconcile-now-guarded"},
+        )
+        assert direct_reconcile.status_code == 409
+
         final_booking = client.get(f"/v1/bookings/{booking_id}").json()
-        assert final_booking["state"] == "reconciled"
-        assert final_booking["version"] == 8
+        assert final_booking["state"] == "completed"
+        assert final_booking["version"] == 7
 
     engine = create_engine(settings.database_url)
     try:
@@ -153,7 +158,6 @@ def test_booking_workflow_contract_guard_idempotency_mission_coupling_and_outbox
                 "BOOKING_PRE_OPERATION",
                 "BOOKING_OPERATING",
                 "BOOKING_COMPLETED",
-                "BOOKING_RECONCILED",
             ]
 
             mission_workflow_events: Sequence[str] = (
@@ -183,8 +187,8 @@ def test_booking_workflow_contract_guard_idempotency_mission_coupling_and_outbox
                 text(booking_state_query),
                 {"id": UUID(booking_id)},
             ).one()
-            assert persisted.state == "reconciled"
-            assert persisted.version == 8
+            assert persisted.state == "completed"
+            assert persisted.version == 7
             assert persisted.state_changed_at >= persisted.created_at
     finally:
         engine.dispose()

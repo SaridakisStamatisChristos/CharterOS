@@ -33,6 +33,13 @@ def load_models() -> None:
     from charteros.infrastructure.db.models.outbox import OutboxConsumerReceiptRow
     from charteros.infrastructure.db.models.procurement_approvals import ProcurementApprovalRow
     from charteros.infrastructure.db.models.quotes import QuotePriceComponentRow, QuoteRow
+    from charteros.infrastructure.db.models.reconciliation import (
+        FinancialReconciliationRow,
+        OperatorInvoiceLineRow,
+        OperatorInvoiceRevisionRow,
+        ReconciliationDisputeRow,
+        VarianceApprovalRow,
+    )
     from charteros.infrastructure.db.models.rfqs import RfqRow
     from charteros.infrastructure.db.models.tenders import (
         TenderAdminCorrectionRow,
@@ -52,6 +59,7 @@ def load_models() -> None:
         DisruptionCommercialChangeRow,
         DisruptionProposalRow,
         DisruptionRow,
+        FinancialReconciliationRow,
         GraphAggregateCursorRow,
         GraphEdgeRow,
         GraphNodeRow,
@@ -60,6 +68,8 @@ def load_models() -> None:
         IdempotencyRecordRow,
         MatchingReferenceProfileRow,
         MissionRow,
+        OperatorInvoiceLineRow,
+        OperatorInvoiceRevisionRow,
         OperatorRow,
         OrganizationRow,
         OutboxConsumerReceiptRow,
@@ -67,10 +77,12 @@ def load_models() -> None:
         ProcurementApprovalRow,
         QuotePriceComponentRow,
         QuoteRow,
+        ReconciliationDisputeRow,
         RfqRow,
         TenderAdminCorrectionRow,
         TenderInvitationRow,
         TenderRow,
+        VarianceApprovalRow,
     )
 
 

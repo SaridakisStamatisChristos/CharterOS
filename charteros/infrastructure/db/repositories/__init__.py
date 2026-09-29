@@ -35,6 +35,9 @@ from charteros.infrastructure.db.repositories.procurement_approvals import (
     SqlAlchemyProcurementApprovalRepository,
 )
 from charteros.infrastructure.db.repositories.quotes import SqlAlchemyQuoteRepository
+from charteros.infrastructure.db.repositories.reconciliation import (
+    SqlAlchemyFinancialReconciliationRepository,
+)
 from charteros.infrastructure.db.repositories.repositioning import (
     SqlAlchemyRepositionOpportunityRepository,
 )
@@ -52,6 +55,7 @@ __all__ = [
     "SqlAlchemyContractRepository",
     "SqlAlchemyDisruptionRepository",
     "SqlAlchemyDomainEventRepository",
+    "SqlAlchemyFinancialReconciliationRepository",
     "SqlAlchemyGraphProjectionStore",
     "SqlAlchemyGraphQueryRepository",
     "SqlAlchemyIdempotencyRepository",
