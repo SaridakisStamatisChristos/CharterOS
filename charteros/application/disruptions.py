@@ -212,6 +212,7 @@ class DisruptionService:
                 "replacement aircraft is not active canonical fleet of the booking operator"
             )
 
+        availability = None
         if target_aircraft != context.booking.aircraft_id:
             event_time = (
                 departure_window.start
@@ -237,6 +238,12 @@ class DisruptionService:
             status=DisruptionProposalStatus.CURRENT,
             proposed_operator_id=target_operator,
             proposed_aircraft_id=target_aircraft,
+            proposed_operator_version=operator.version,
+            proposed_aircraft_version=aircraft.version,
+            availability_record_id=availability.id if availability is not None else None,
+            availability_recorded_at=(
+                availability.recorded_at if availability is not None else None
+            ),
             departure_window=departure_window,
             requires_buyer_decision=(
                 target_operator != context.booking.operator_id
