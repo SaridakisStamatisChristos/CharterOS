@@ -554,10 +554,7 @@ def test_pr23_disruption_workflow_preserves_booking_quote_and_party_authority() 
             ]
             assert (
                 connection.execute(
-                    text(
-                        "SELECT count(*) FROM disruption_proposals "
-                        "WHERE disruption_id = :id"
-                    ),
+                    text("SELECT count(*) FROM disruption_proposals WHERE disruption_id = :id"),
                     {"id": UUID(disruption_id)},
                 ).scalar_one()
                 == 1
