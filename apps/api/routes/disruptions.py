@@ -150,6 +150,10 @@ class ReplacementProposalResponse(BaseModel):
     status: str
     proposed_operator_id: UUID
     proposed_aircraft_id: UUID
+    proposed_operator_version: int
+    proposed_aircraft_version: int
+    availability_record_id: UUID | None
+    availability_recorded_at: datetime | None
     departure_window: DepartureWindowRequest | None
     requires_buyer_decision: bool
     source: str
@@ -306,6 +310,14 @@ def _proposal_response(proposal: ReplacementProposal) -> ReplacementProposalResp
         status=proposal.status.value,
         proposed_operator_id=proposal.proposed_operator_id.value,
         proposed_aircraft_id=proposal.proposed_aircraft_id.value,
+        proposed_operator_version=proposal.proposed_operator_version,
+        proposed_aircraft_version=proposal.proposed_aircraft_version,
+        availability_record_id=(
+            proposal.availability_record_id.value
+            if proposal.availability_record_id is not None
+            else None
+        ),
+        availability_recorded_at=proposal.availability_recorded_at,
         departure_window=window,
         requires_buyer_decision=proposal.requires_buyer_decision,
         source=proposal.source,
