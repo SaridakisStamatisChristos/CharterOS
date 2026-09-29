@@ -515,7 +515,7 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
             assert assignment["margin_minor"] > 0
             assert assignment["baseline_reposition_feasible"] is True
             assert assignment["opportunity_cost_minor"] >= 0
-            assert assignment["previous_revenue_distance_nm"] > 0
+            assert Decimal(assignment["previous_revenue_distance_nm"]) > 0
             assert assignment["previous_revenue_minutes"] > 0
             assert datetime.fromisoformat(assignment["aircraft_available_at"]) > previous_to
             assert datetime.fromisoformat(assignment["continuity_ready_at"]) <= next_from
