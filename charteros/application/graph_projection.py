@@ -67,22 +67,22 @@ class GraphReferenceState:
         self.edges: dict[EdgeKey, dict[str, object]] = {}
 
     def apply(self, mutation: GraphMutation) -> None:
-        for item in mutation.node_upserts:
-            key = (item.node_type, item.node_id)
-            merged = dict(self.nodes.get(key, {}))
-            merged.update(item.attributes)
-            self.nodes[key] = merged
-        for item in mutation.edge_upserts:
-            key = (
-                item.edge_type,
-                item.source_type,
-                item.source_id,
-                item.target_type,
-                item.target_id,
+        for node_upsert in mutation.node_upserts:
+            node_key = (node_upsert.node_type, node_upsert.node_id)
+            merged = dict(self.nodes.get(node_key, {}))
+            merged.update(node_upsert.attributes)
+            self.nodes[node_key] = merged
+        for edge_upsert in mutation.edge_upserts:
+            edge_key = (
+                edge_upsert.edge_type,
+                edge_upsert.source_type,
+                edge_upsert.source_id,
+                edge_upsert.target_type,
+                edge_upsert.target_id,
             )
-            merged = dict(self.edges.get(key, {}))
-            merged.update(item.attributes)
-            self.edges[key] = merged
+            merged = dict(self.edges.get(edge_key, {}))
+            merged.update(edge_upsert.attributes)
+            self.edges[edge_key] = merged
 
     def digest(self) -> str:
         document = {
@@ -178,7 +178,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
         _expect_aggregate(envelope, "aircraft")
         position_id = _uuid_field(payload, "position_id")
         airport_id = _optional_uuid_field(payload, "airport_id")
-        edges = [
+        position_edges = [
             GraphEdgeUpsert(
                 "HAS_POSITION",
                 "aircraft",
@@ -188,7 +188,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
             )
         ]
         if airport_id is not None:
-            edges.append(
+            position_edges.append(
                 GraphEdgeUpsert(
                     "AT_AIRPORT",
                     "aircraft_position",
@@ -199,7 +199,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
             )
         return GraphMutation(
             node_upserts=(GraphNodeUpsert("aircraft_position", position_id, payload),),
-            edge_upserts=tuple(edges),
+            edge_upserts=tuple(position_edges),
         )
 
     if event_type == "AIRCRAFT_AVAILABILITY_CHANGED":
@@ -293,10 +293,10 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
         _expect_aggregate(envelope, "rfq")
         attributes = dict(payload)
         attributes["status"] = rfq_statuses[event_type]
-        edges: tuple[GraphEdgeUpsert, ...] = ()
+        rfq_edges: tuple[GraphEdgeUpsert, ...] = ()
         if event_type == "RFQ_QUOTED":
             quote_id = _uuid_field(payload, "quote_id")
-            edges = (
+            rfq_edges = (
                 GraphEdgeUpsert(
                     "RECEIVED_QUOTE",
                     "rfq",
@@ -307,7 +307,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
             )
         return GraphMutation(
             node_upserts=(GraphNodeUpsert("rfq", aggregate_id, attributes),),
-            edge_upserts=edges,
+            edge_upserts=rfq_edges,
         )
 
     if event_type in {"QUOTE_SUBMITTED", "QUOTE_REVISED"}:
@@ -317,7 +317,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
         attributes = dict(payload)
         attributes["status"] = "submitted"
         attributes["creation_event"] = event_type
-        edges = [
+        revision_edges = [
             GraphEdgeUpsert("HAS_QUOTE", "rfq", rfq_id, "quote", aggregate_id),
             GraphEdgeUpsert(
                 "PROPOSES_AIRCRAFT",
@@ -329,7 +329,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
         ]
         supersedes = _optional_uuid_field(payload, "supersedes_quote_id")
         if supersedes is not None:
-            edges.append(
+            revision_edges.append(
                 GraphEdgeUpsert(
                     "SUPERSEDES",
                     "quote",
@@ -340,7 +340,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
             )
         return GraphMutation(
             node_upserts=(GraphNodeUpsert("quote", aggregate_id, attributes),),
-            edge_upserts=tuple(edges),
+            edge_upserts=tuple(revision_edges),
         )
 
     quote_statuses = {
@@ -354,10 +354,10 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
         _expect_aggregate(envelope, "quote")
         attributes = dict(payload)
         attributes["status"] = quote_statuses[event_type]
-        edges: list[GraphEdgeUpsert] = []
+        status_edges: list[GraphEdgeUpsert] = []
         if event_type == "QUOTE_ACCEPTED":
             booking_id = _uuid_field(payload, "booking_id")
-            edges.append(
+            status_edges.append(
                 GraphEdgeUpsert(
                     "ACCEPTED_AS",
                     "quote",
@@ -368,7 +368,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
             )
         elif event_type == "QUOTE_REJECTED":
             accepted_quote_id = _uuid_field(payload, "accepted_quote_id")
-            edges.append(
+            status_edges.append(
                 GraphEdgeUpsert(
                     "REJECTED_IN_FAVOR_OF",
                     "quote",
@@ -379,7 +379,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
             )
         elif event_type == "QUOTE_SUPERSEDED":
             replacement = _uuid_field(payload, "replacement_quote_id")
-            edges.append(
+            status_edges.append(
                 GraphEdgeUpsert(
                     "SUPERSEDED_BY",
                     "quote",
@@ -390,7 +390,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
             )
         return GraphMutation(
             node_upserts=(GraphNodeUpsert("quote", aggregate_id, attributes),),
-            edge_upserts=tuple(edges),
+            edge_upserts=tuple(status_edges),
         )
 
     if event_type == "BOOKING_CREATED":
