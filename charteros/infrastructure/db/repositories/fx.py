@@ -158,6 +158,11 @@ class SqlAlchemyFxLockRepository:
                 ),
             )
         )
+        try:
+            self._session.flush()
+        except IntegrityError as exc:
+            raise EntityConflictError("FX lock conflicts with canonical lock state") from exc
+
         for entry in lock.entries:
             self._session.add(
                 FxLockConversionRow(
