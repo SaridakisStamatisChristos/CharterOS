@@ -215,7 +215,12 @@ class Tender(AggregateRoot[TenderId]):
                 )
             if any(
                 value is not None
-                for value in (self.closed_at, self.awarded_quote_id, self.booking_id, self.awarded_at)
+                for value in (
+                    self.closed_at,
+                    self.awarded_quote_id,
+                    self.booking_id,
+                    self.awarded_at,
+                )
             ):
                 raise DomainValidationError(
                     "best-and-final tender has inconsistent lifecycle state"
@@ -240,7 +245,9 @@ class Tender(AggregateRoot[TenderId]):
 
         if self.status is TenderStatus.AWARDED:
             if self.awarded_quote_id is None or self.booking_id is None or self.awarded_at is None:
-                raise DomainValidationError("awarded tender requires quote, booking, and award time")
+                raise DomainValidationError(
+                    "awarded tender requires quote, booking, and award time"
+                )
             if self.awarded_at < self.closed_at:
                 raise DomainValidationError("awarded_at cannot precede closed_at")
 
