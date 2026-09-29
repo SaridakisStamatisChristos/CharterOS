@@ -85,6 +85,15 @@ class DisruptionProposalRow(Base):
             name="ck_disruption_proposals_lifecycle",
         ),
         CheckConstraint(
+            "proposed_operator_version >= 0 AND proposed_aircraft_version >= 0",
+            name="ck_disruption_proposals_reference_versions",
+        ),
+        CheckConstraint(
+            "(availability_record_id IS NULL AND availability_recorded_at IS NULL) OR "
+            "(availability_record_id IS NOT NULL AND availability_recorded_at IS NOT NULL)",
+            name="ck_disruption_proposals_availability_evidence",
+        ),
+        CheckConstraint(
             "(departure_start IS NULL AND departure_end IS NULL) OR "
             "(departure_start IS NOT NULL AND departure_end IS NOT NULL "
             "AND departure_start < departure_end)",
@@ -127,6 +136,13 @@ class DisruptionProposalRow(Base):
         ForeignKey("aircraft.id", ondelete="RESTRICT"),
         nullable=False,
     )
+    proposed_operator_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    proposed_aircraft_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    availability_record_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("aircraft_availability_records.id", ondelete="RESTRICT"),
+    )
+    availability_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     departure_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     departure_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     requires_buyer_decision: Mapped[bool] = mapped_column(Boolean, nullable=False)
