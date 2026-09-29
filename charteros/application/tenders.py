@@ -405,13 +405,18 @@ class TenderService:
         if when >= tender.deadline_at:
             raise EntityConflictError("tender deadline has passed")
         invitations = self._tenders.list_invitations(tender.id)
-        has_bid = any(
-            invitation.status is TenderInvitationStatus.ACCEPTED
-            and invitation.last_quote_id is not None
-            for invitation in invitations
-        )
+        has_bid = False
+        for invitation in invitations:
+            if (
+                invitation.status is TenderInvitationStatus.ACCEPTED
+                and invitation.last_quote_id is not None
+            ):
+                quote = self._quotes.get(invitation.last_quote_id)
+                if quote is not None and quote.status is QuoteStatus.SUBMITTED and quote.is_current:
+                    has_bid = True
+                    break
         if not has_bid:
-            raise EntityConflictError("best-and-final requires at least one submitted bid")
+            raise EntityConflictError("best-and-final requires at least one active submitted bid")
         expected_version = tender.version
         tender.request_best_and_final(requested_at=when, correlation_id=correlation_id)
         self._tenders.save(tender, expected_version=expected_version)
