@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Annotated, TypeVar, cast
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, status
@@ -59,9 +59,6 @@ IdempotencyKeyDep = Annotated[
     str,
     Header(alias="Idempotency-Key", min_length=1, max_length=128),
 ]
-ResponseT = TypeVar("ResponseT", bound=BaseModel)
-
-
 class TenderCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -308,7 +305,7 @@ def _stored_response(
     return stored
 
 
-def _run_idempotent(
+def _run_idempotent[ResponseT: BaseModel](
     *,
     session: Session,
     scope: str,
