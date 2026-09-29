@@ -275,7 +275,10 @@ def test_sealed_tender_bafo_deadline_admin_correction_and_canonical_award() -> N
 
         supplier_view = client.get(
             f"/v1/tenders/{tender_id}/supplier-view",
-            headers={"X-Operator-Id": first["operator_id"]},
+            headers={
+                "X-Operator-Id": first["operator_id"],
+                "X-Tender-Invitation-Id": first["invitation_id"],
+            },
         )
         assert supplier_view.status_code == 200
         payload_text = supplier_view.text
@@ -284,6 +287,29 @@ def test_sealed_tender_bafo_deadline_admin_correction_and_canonical_award() -> N
         assert second["operator_id"] not in payload_text
         assert second["quote_id"] not in payload_text
         assert second["amount"] not in payload_text
+
+        wrong_capability = client.get(
+            f"/v1/tenders/{tender_id}/supplier-view",
+            headers={
+                "X-Operator-Id": first["operator_id"],
+                "X-Tender-Invitation-Id": second["invitation_id"],
+            },
+        )
+        assert wrong_capability.status_code == 404
+
+        sealed_detail = client.get(f"/v1/tenders/{tender_id}")
+        assert sealed_detail.status_code == 200
+        assert sealed_detail.json()["invitations"] == []
+
+        assert client.get(f"/v1/quotes/{second['quote_id']}").status_code == 409
+        assert client.get(f"/v1/rfqs/{second['rfq_id']}/quotes").status_code == 409
+        assert (
+            client.get(f"/v1/quotes/{second['quote_id']}/normalization").status_code
+            == 409
+        )
+        assert client.get(f"/v1/missions/{mission_id}/quotes/compare").status_code == 409
+        assert client.get(f"/v1/graph/quotes/{second['quote_id']}/history").status_code == 409
+        assert client.get(f"/v1/tenders/{tender_id}/audit").status_code == 409
 
         bypass_revision = client.post(
             f"/v1/quotes/{first['quote_id']}/revise",
@@ -326,14 +352,6 @@ def test_sealed_tender_bafo_deadline_admin_correction_and_canonical_award() -> N
             assert final.status_code == 201
             bafo_quotes.append(str(final.json()["id"]))
 
-        pre_close_audit = client.get(f"/v1/tenders/{tender_id}/audit")
-        assert pre_close_audit.status_code == 200
-        causal_event = next(
-            event["event_id"]
-            for event in reversed(pre_close_audit.json()["events"])
-            if event["event_type"] == "TENDER_BEST_AND_FINAL_SUBMITTED"
-        )
-
         _force_deadline_past(settings, tender_id)
 
         late_revision = client.post(
@@ -349,6 +367,32 @@ def test_sealed_tender_bafo_deadline_admin_correction_and_canonical_award() -> N
         )
         assert closed.status_code == 200
         assert closed.json()["status"] == "closed"
+
+        post_close_audit = client.get(f"/v1/tenders/{tender_id}/audit")
+        assert post_close_audit.status_code == 200
+        causal_event = next(
+            event["event_id"]
+            for event in reversed(post_close_audit.json()["events"])
+            if event["event_type"] == "TENDER_BEST_AND_FINAL_SUBMITTED"
+        )
+
+        invalid_correction = client.post(
+            f"/v1/tenders/{tender_id}/admin-corrections",
+            headers={"Idempotency-Key": "pr17-invalid-causation-ta"},
+            json={
+                "actor_id": str(UUID("00000000-0000-0000-0000-000000000017")),
+                "target_type": "quote",
+                "target_id": bafo_quotes[0],
+                "field_name": "payment_terms",
+                "original_value": "50% on confirmation",
+                "replacement_value": "50% on contract",
+                "reason": "Invalid causal lineage must fail closed",
+                "causation_event_id": str(
+                    UUID("00000000-0000-0000-0000-000000000099")
+                ),
+            },
+        )
+        assert invalid_correction.status_code == 409
 
         correction_body = {
             "actor_id": str(UUID("00000000-0000-0000-0000-000000000017")),
