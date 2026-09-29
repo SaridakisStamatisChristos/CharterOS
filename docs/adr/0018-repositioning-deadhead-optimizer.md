@@ -113,17 +113,22 @@ gross_margin
 
 opportunity_cost
     = max(0, reposition_cost - baseline_reposition_cost)
+      when direct baseline reposition is feasible
+    = reposition_cost
+      when the direct baseline is infeasible
 
 continuity_adjusted_margin
     = quoted revenue - revenue_leg_operating_cost - opportunity_cost
 ```
 
-The optimizer objective is continuity-adjusted margin. The baseline direct empty flight is treated as
-an unavoidable continuity cost; only additional deadhead burden beyond that baseline is charged as
-opportunity cost in the assignment objective.
+The optimizer objective is continuity-adjusted margin. When the baseline direct empty flight is
+feasible, it is treated as an unavoidable continuity cost and only additional deadhead burden is
+charged as opportunity cost. A direct baseline that violates deadhead/range policy does **not**
+discard the structural gap: a revenue stop can split the movement into feasible segments. In that
+case the full pre/post reposition cost is charged as opportunity cost, which is conservative.
 
-Both gross margin and continuity-adjusted margin are exposed so the economic interpretation is
-auditable.
+Both direct-baseline feasibility, gross margin, and continuity-adjusted margin are exposed so the
+economic interpretation is auditable.
 
 Candidates with non-positive continuity-adjusted margin are not assignable.
 
