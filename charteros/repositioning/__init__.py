@@ -19,6 +19,7 @@ from charteros.repositioning.types import (
     RepositionAssignment,
     RepositionOptimization,
     RepositionReasonCode,
+    StructuralEmptyLeg,
 )
 
 __all__ = [
@@ -32,6 +33,7 @@ __all__ = [
     "RepositionAssignment",
     "RepositionOptimization",
     "RepositionReasonCode",
+    "StructuralEmptyLeg",
     "build_currency_plan",
     "evaluate_baseline",
     "evaluate_insertion",
