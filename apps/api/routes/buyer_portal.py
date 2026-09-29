@@ -42,7 +42,6 @@ from charteros.domain.shared.ids import CorrelationId
 from charteros.domain.shared.money import Money
 from charteros.domain.shared.time_range import TimeRange
 from charteros.infrastructure.db.repositories import (
-    SqlAlchemyAircraftRepository,
     SqlAlchemyAirportRepository,
     SqlAlchemyBookingRepository,
     SqlAlchemyBuyerProcurementAuditRepository,
