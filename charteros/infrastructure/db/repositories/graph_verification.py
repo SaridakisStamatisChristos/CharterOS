@@ -120,12 +120,18 @@ def verify_graph_projection(
         issues.append("aggregate cursor version sum does not match event history")
 
     persisted = GraphReferenceState()
-    for row in nodes:
-        persisted.nodes[(row.node_type, row.node_id)] = dict(row.attributes)
-    for row in edges:
+    for node_row in nodes:
+        persisted.nodes[(node_row.node_type, node_row.node_id)] = dict(node_row.attributes)
+    for edge_row in edges:
         persisted.edges[
-            (row.edge_type, row.source_type, row.source_id, row.target_type, row.target_id)
-        ] = dict(row.attributes)
+            (
+                edge_row.edge_type,
+                edge_row.source_type,
+                edge_row.source_id,
+                edge_row.target_type,
+                edge_row.target_id,
+            )
+        ] = dict(edge_row.attributes)
     persisted_digest = persisted.digest()
 
     if reference is not None:
