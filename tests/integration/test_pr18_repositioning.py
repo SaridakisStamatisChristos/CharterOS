@@ -519,6 +519,34 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
             assert assignment["previous_revenue_minutes"] > 0
             assert datetime.fromisoformat(assignment["aircraft_available_at"]) > previous_to
             assert datetime.fromisoformat(assignment["continuity_ready_at"]) <= next_from
+
+            portal = client.get(
+                "/v1/operator-portal/empty-legs",
+                headers={"X-Operator-Id": str(operator_id)},
+                params={
+                    "window_start": previous_to.isoformat(),
+                    "window_end": next_from.isoformat(),
+                    "evaluated_at": evaluated_at.isoformat(),
+                    "mode": "both",
+                    "empty_leg_limit": 10,
+                    "opportunity_limit": 100,
+                },
+            )
+            assert portal.status_code == 200, portal.text
+            portal_body = portal.json()
+            assert portal_body["operator_id"] == str(operator_id)
+            assert portal_body["structural_count"] == 1
+            assert {
+                item["operator_id"] for item in portal_body["structural_candidates"]
+            } == {str(operator_id)}
+            portal_optimization = portal_body["optimization"]
+            assert portal_optimization is not None
+            assert portal_optimization["structural_empty_leg_count"] == 1
+            assert all(
+                item["operator_id"] == str(operator_id)
+                for plan in portal_optimization["currency_plans"]
+                for item in plan["assignments"]
+            )
     finally:
         with factory.begin() as session:
             session.execute(
