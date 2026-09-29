@@ -216,7 +216,9 @@ class DisruptionCommercialChange:
         if self.resulting_expected_total != expected:
             raise DomainValidationError("resulting expected total is inconsistent with adjustment")
         if self.resulting_worst_case_total != worst_case:
-            raise DomainValidationError("resulting worst-case total is inconsistent with adjustment")
+            raise DomainValidationError(
+                "resulting worst-case total is inconsistent with adjustment"
+            )
         if self.resulting_expected_total.amount_minor < 0:
             raise DomainValidationError("resulting expected total cannot be negative")
         if self.resulting_worst_case_total.amount_minor < 0:
@@ -342,7 +344,9 @@ class Disruption(AggregateRoot[DisruptionId]):
                 or self.resolution_outcome is None
                 or self.booking_state_at_resolution is None
             ):
-                raise DomainValidationError("resolved disruption requires complete resolution evidence")
+                raise DomainValidationError(
+                    "resolved disruption requires complete resolution evidence"
+                )
         elif any(
             value is not None
             for value in (
@@ -598,16 +602,15 @@ class Disruption(AggregateRoot[DisruptionId]):
             raise DomainValidationError("resolution commercial evidence is stale")
 
         buyer_required = proposal.requires_buyer_decision or commercial_change is not None
-        if buyer_required:
-            if (
-                buyer_decision is None
-                or buyer_decision.id != self.latest_buyer_decision_id
-                or buyer_decision.proposal_id != proposal.id
-                or buyer_decision.commercial_change_id != self.current_commercial_change_id
-                or buyer_decision.decision is not DisruptionBuyerDecisionValue.APPROVED
-                or self.status is not DisruptionStatus.BUYER_APPROVED
-            ):
-                raise DomainValidationError("current disruption evidence requires buyer approval")
+        if buyer_required and (
+            buyer_decision is None
+            or buyer_decision.id != self.latest_buyer_decision_id
+            or buyer_decision.proposal_id != proposal.id
+            or buyer_decision.commercial_change_id != self.current_commercial_change_id
+            or buyer_decision.decision is not DisruptionBuyerDecisionValue.APPROVED
+            or self.status is not DisruptionStatus.BUYER_APPROVED
+        ):
+            raise DomainValidationError("current disruption evidence requires buyer approval")
         when = _utc(resolved_at, field_name="resolved_at")
         if when < proposal.proposed_at:
             raise DomainValidationError("resolved_at cannot precede the selected proposal")
