@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.graph_queries import GraphQueryService, MAX_EMPTY_LEG_WINDOW
@@ -14,9 +14,11 @@ from charteros.domain.operators import OperatorId
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.repositioning import (
     POLICY_VERSION,
+    BaselineEmptyLeg,
     BaselineEvaluation,
     FeasibleInsertion,
     InsertionEvaluation,
+    QuotedFutureLeg,
     RepositionOptimization,
     StructuralEmptyLeg,
     build_currency_plan,
@@ -156,7 +158,7 @@ class RepositioningService:
         airports = self._load_airports(airport_ids)
 
         evaluations: list[BaselineEvaluation | InsertionEvaluation] = []
-        baselines: list[tuple[StructuralEmptyLeg, object]] = []
+        baselines: list[tuple[StructuralEmptyLeg, BaselineEmptyLeg]] = []
         for item in structural:
             snapshot = snapshot_by_aircraft[item.aircraft_id]
             baseline_eval = evaluate_baseline(
@@ -169,23 +171,19 @@ class RepositioningService:
             if baseline_eval.baseline is not None:
                 baselines.append((item, baseline_eval.baseline))
 
-        opportunities_by_aircraft: dict[tuple[object, object], list[object]] = defaultdict(list)
+        opportunities_by_aircraft: dict[tuple[object, object], list[QuotedFutureLeg]] = defaultdict(list)
         for opportunity in opportunities:
             opportunities_by_aircraft[
                 (opportunity.aircraft_id.value, opportunity.operator_id.value)
             ].append(opportunity)
 
         feasible: list[FeasibleInsertion] = []
-        for structural_item, baseline_object in baselines:
+        for structural_item, baseline in baselines:
             snapshot = snapshot_by_aircraft[structural_item.aircraft_id]
-            baseline = baseline_object
-            assert hasattr(baseline, "structural")
-            for opportunity_object in opportunities_by_aircraft.get(
+            for opportunity in opportunities_by_aircraft.get(
                 (structural_item.aircraft_id, structural_item.operator_id),
                 [],
             ):
-                opportunity = opportunity_object
-                assert hasattr(opportunity, "mission_id")
                 insertion_eval = evaluate_insertion(
                     baseline=baseline,
                     candidate=snapshot,
