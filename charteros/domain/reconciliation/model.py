@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from charteros.domain.bookings import BookingId
+from charteros.domain.disruptions import DisruptionCommercialChangeId
 from charteros.domain.operators import OperatorId
 from charteros.domain.organizations import OrganizationId
 from charteros.domain.quotes import QuoteId
@@ -296,6 +297,7 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
         quote_revision_number: int,
         booked_amount: Money,
         booked_worst_case_amount: Money,
+        commercial_change_ids: tuple[DisruptionCommercialChangeId, ...],
         opened_at: datetime,
         status: FinancialReconciliationStatus,
         current_invoice_revision_id: OperatorInvoiceRevisionId | None = None,
@@ -451,6 +453,7 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
                 "quote_revision_number": quote_revision_number,
                 "booked_amount_minor": booked_amount.amount_minor,
                 "booked_worst_case_amount_minor": booked_worst_case_amount.amount_minor,
+                "commercial_change_ids": [str(item) for item in commercial_change_ids],
                 "opened_at": _iso(reconciliation.opened_at),
             },
             actor_id=actor_id,
