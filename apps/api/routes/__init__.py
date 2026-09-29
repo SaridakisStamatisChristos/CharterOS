@@ -6,6 +6,7 @@ from apps.api.routes.graph_queries import router as graph_query_router
 from apps.api.routes.matching import router as matching_router
 from apps.api.routes.missions import router as mission_router
 from apps.api.routes.quotes import router as quote_router
+from apps.api.routes.repositioning import router as repositioning_router
 from apps.api.routes.rfqs import router as rfq_router
 from apps.api.routes.tenders import router as tender_router
 
@@ -18,6 +19,7 @@ __all__ = [
     "matching_router",
     "mission_router",
     "quote_router",
+    "repositioning_router",
     "rfq_router",
     "tender_router",
 ]
