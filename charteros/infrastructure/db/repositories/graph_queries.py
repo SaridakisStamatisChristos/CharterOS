@@ -349,9 +349,7 @@ class SqlAlchemyGraphQueryRepository:
             target_type="operator",
             source_ids=booking_ids,
         )
-        aircraft_by_booking = {
-            edge.source_id: edge.target_id for edge in aircraft_edges
-        }
+        aircraft_by_booking = {edge.source_id: edge.target_id for edge in aircraft_edges}
 
         by_aircraft: dict[UUID, list[OperatorRoute]] = defaultdict(list)
         for route in routes:
@@ -359,9 +357,7 @@ class SqlAlchemyGraphQueryRepository:
             if aircraft_id is not None:
                 by_aircraft[aircraft_id].append(route)
 
-        airport_ids = {
-            route.origin_airport_id for route in routes
-        } | {
+        airport_ids = {route.origin_airport_id for route in routes} | {
             route.destination_airport_id for route in routes
         }
         icao_by_airport = self._airport_icaos(airport_ids)
@@ -494,9 +490,7 @@ class SqlAlchemyGraphQueryRepository:
         )
         if len(mission_to_booking) != len(set(booking_ids)):
             raise EntityConflictError("booking graph has incomplete or ambiguous mission lineage")
-        mission_by_booking = {
-            edge.target_id: edge.source_id for edge in mission_to_booking
-        }
+        mission_by_booking = {edge.target_id: edge.source_id for edge in mission_to_booking}
         mission_ids = tuple(mission_by_booking.values())
         mission_nodes = {
             node.node_id: node
@@ -659,9 +653,7 @@ class SqlAlchemyGraphQueryRepository:
         rows = tuple(
             self._session.scalars(select(AirportRow).where(AirportRow.id.in_(airport_ids)))
         )
-        values = {
-            row.id: (Decimal(row.latitude), Decimal(row.longitude)) for row in rows
-        }
+        values = {row.id: (Decimal(row.latitude), Decimal(row.longitude)) for row in rows}
         missing = airport_ids - set(values)
         if missing:
             raise EntityConflictError("graph position references an unknown canonical airport")
