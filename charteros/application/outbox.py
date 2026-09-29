@@ -87,4 +87,4 @@ def retry_delay_seconds(*, attempt: int, base_seconds: int, max_seconds: int) ->
     if max_seconds < base_seconds:
         raise ValueError("max_seconds must be greater than or equal to base_seconds")
     exponent = min(attempt - 1, 30)
-    return min(base_seconds * (2**exponent), max_seconds)
+    return min(base_seconds * (1 << exponent), max_seconds)
