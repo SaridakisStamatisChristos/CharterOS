@@ -832,9 +832,7 @@ def get_tender(tender_id: UUID, session: SessionDep) -> TenderDetailResponse:
     tender = service.get(TenderId(tender_id))
     return TenderDetailResponse(
         tender=_tender_response(tender),
-        invitations=[
-            _invitation_response(item) for item in service.list_invitations(tender.id)
-        ],
+        invitations=[_invitation_response(item) for item in service.list_invitations(tender.id)],
     )
 
 
