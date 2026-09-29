@@ -39,6 +39,17 @@ def main() -> None:
     verify = subparsers.add_parser("verify", help="Verify a projection against event history")
     verify.add_argument("--version", type=int, required=True)
 
+    activate = subparsers.add_parser(
+        "activate",
+        help="Activate an already verified projection version",
+    )
+    activate.add_argument("--version", type=int, required=True)
+    activate.add_argument(
+        "--maintenance-mode",
+        action="store_true",
+        help="Confirm writes/workers are quiesced for the activation pointer switch",
+    )
+
     subparsers.add_parser("status", help="List persisted projection versions")
 
     args = parser.parse_args()
@@ -68,6 +79,17 @@ def main() -> None:
             _print_json(asdict(report))
             if not report.ok:
                 raise SystemExit(1)
+            return
+        if args.command == "activate":
+            store.activate(
+                args.version,
+                now=datetime.now(UTC),
+                maintenance_mode=args.maintenance_mode,
+            )
+            status = next(
+                item for item in store.statuses() if item.projection_version == args.version
+            )
+            _print_json(asdict(status))
             return
         if args.command == "status":
             _print_json([asdict(item) for item in store.statuses()])
