@@ -59,6 +59,7 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyMissionRepository,
     SqlAlchemyQuoteRepository,
     SqlAlchemyRfqRepository,
+    SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import (
     SqlAlchemyAirportRepository,
@@ -259,6 +260,7 @@ def _service(session: Session) -> QuoteService:
         missions=SqlAlchemyMissionRepository(session),
         aircraft=SqlAlchemyAircraftRepository(session),
         events=SqlAlchemyDomainEventRepository(session),
+        tenders=SqlAlchemyTenderRepository(session),
     )
 
 
