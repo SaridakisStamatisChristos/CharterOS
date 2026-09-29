@@ -168,3 +168,173 @@ def _setup_tender(
     suppliers: list[dict[str, str]] = []
     for ordinal, amount in ((1, 7_000_000), (2, 8_000_000)):
         operator_id, aircraft_id = _operator_aircraft(
+            client,
+            suffix=suffix,
+            ordinal=ordinal,
+            home_base=str(origin.json()["id"]),
+        )
+        headers = {"Idempotency-Key": f"pr17-invite-{suffix}-{ordinal}"}
+        invited = client.post(
+            f"/v1/tenders/{tender_id}/invitations",
+            headers=headers,
+            json={"operator_id": operator_id},
+        )
+        assert invited.status_code == 201
+        replay_invite = client.post(
+            f"/v1/tenders/{tender_id}/invitations",
+            headers=headers,
+            json={"operator_id": operator_id},
+        )
+        assert replay_invite.status_code == 201
+        assert replay_invite.json() == invited.json()
+        invitation_id = str(invited.json()["id"])
+        rfq_id = str(invited.json()["rfq_id"])
+
+        accepted = client.post(
+            f"/v1/tender-invitations/{invitation_id}/accept",
+            headers={"Idempotency-Key": f"pr17-accept-invite-{suffix}-{ordinal}"},
+        )
+        assert accepted.status_code == 200
+
+        bid_headers = {"Idempotency-Key": f"pr17-bid-{suffix}-{ordinal}"}
+        bid_body = _quote_body(aircraft_id, departure - timedelta(days=1), amount)
+        bid = client.post(
+            f"/v1/tender-invitations/{invitation_id}/bids",
+            headers=bid_headers,
+            json=bid_body,
+        )
+        assert bid.status_code == 201
+        replay_bid = client.post(
+            f"/v1/tender-invitations/{invitation_id}/bids",
+            headers=bid_headers,
+            json=bid_body,
+        )
+        assert replay_bid.status_code == 201
+        assert replay_bid.json() == bid.json()
+        suppliers.append(
+            {
+                "operator_id": operator_id,
+                "aircraft_id": aircraft_id,
+                "invitation_id": invitation_id,
+                "rfq_id": rfq_id,
+                "quote_id": str(bid.json()["id"]),
+                "amount": str(amount),
+            }
+        )
+    return mission_id, tender_id, departure, suppliers
+
+
+def _force_deadline_past(settings: Settings, tender_id: str) -> None:
+    engine = create_engine(settings.database_url)
+    try:
+        now = datetime.now(UTC)
+        deadline = now - timedelta(minutes=1)
+        created = now - timedelta(hours=1)
+        opened = now - timedelta(minutes=50)
+        with engine.begin() as connection:
+            rfq_ids = connection.execute(
+                text("SELECT rfq_id FROM tender_invitations WHERE tender_id = :id"),
+                {"id": UUID(tender_id)},
+            ).scalars().all()
+            connection.execute(
+                text(
+                    "UPDATE tenders SET created_at = :created, opens_at = :created, "
+                    "opened_at = :opened, deadline_at = :deadline WHERE id = :id"
+                ),
+                {
+                    "created": created,
+                    "opened": opened,
+                    "deadline": deadline,
+                    "id": UUID(tender_id),
+                },
+            )
+            for rfq_id in rfq_ids:
+                connection.execute(
+                    text("UPDATE rfqs SET response_deadline = :deadline WHERE id = :id"),
+                    {"deadline": deadline, "id": rfq_id},
+                )
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_sealed_tender_bafo_deadline_admin_correction_and_canonical_award() -> None:
+    settings = _settings()
+    with TestClient(create_app(settings)) as client:
+        mission_id, tender_id, departure, suppliers = _setup_tender(client, suffix="TA")
+        first, second = suppliers
+
+        supplier_view = client.get(
+            f"/v1/tenders/{tender_id}/supplier-view",
+            headers={"X-Operator-Id": first["operator_id"]},
+        )
+        assert supplier_view.status_code == 200
+        payload_text = supplier_view.text
+        assert supplier_view.json()["invitation"]["operator_id"] == first["operator_id"]
+        assert len(supplier_view.json()["own_quotes"]) == 1
+        assert second["operator_id"] not in payload_text
+        assert second["quote_id"] not in payload_text
+        assert second["amount"] not in payload_text
+
+        bypass_revision = client.post(
+            f"/v1/quotes/{first['quote_id']}/revise",
+            headers={"Idempotency-Key": "pr17-bypass-revision-ta"},
+            json=_quote_body(first["aircraft_id"], departure - timedelta(hours=12), 6_900_000),
+        )
+        assert bypass_revision.status_code == 409
+        bypass_award = client.post(
+            f"/v1/quotes/{first['quote_id']}/accept",
+            headers={"Idempotency-Key": "pr17-bypass-award-ta"},
+        )
+        assert bypass_award.status_code == 409
+
+        bafo = client.post(
+            f"/v1/tenders/{tender_id}/best-and-final",
+            headers={"Idempotency-Key": "pr17-bafo-ta"},
+        )
+        assert bafo.status_code == 200
+        assert bafo.json()["status"] == "best_and_final"
+
+        ordinary_revision = client.post(
+            f"/v1/tender-invitations/{first['invitation_id']}/bids/{first['quote_id']}/revise",
+            headers={"Idempotency-Key": "pr17-ordinary-after-bafo-ta"},
+            json=_quote_body(first["aircraft_id"], departure - timedelta(hours=12), 6_850_000),
+        )
+        assert ordinary_revision.status_code == 409
+
+        bafo_quotes: list[str] = []
+        for ordinal, supplier in enumerate(suppliers, start=1):
+            final = client.post(
+                f"/v1/tender-invitations/{supplier['invitation_id']}"
+                f"/best-and-final/{supplier['quote_id']}",
+                headers={"Idempotency-Key": f"pr17-final-ta-{ordinal}"},
+                json=_quote_body(
+                    supplier["aircraft_id"],
+                    departure - timedelta(hours=12),
+                    6_700_000 + ordinal * 100_000,
+                ),
+            )
+            assert final.status_code == 201
+            bafo_quotes.append(str(final.json()["id"]))
+
+        pre_close_audit = client.get(f"/v1/tenders/{tender_id}/audit")
+        assert pre_close_audit.status_code == 200
+        causal_event = next(
+            event["event_id"]
+            for event in reversed(pre_close_audit.json()["events"])
+            if event["event_type"] == "TENDER_BEST_AND_FINAL_SUBMITTED"
+        )
+
+        _force_deadline_past(settings, tender_id)
+
+        late_revision = client.post(
+            f"/v1/tender-invitations/{first['invitation_id']}"
+            f"/best-and-final/{bafo_quotes[0]}",
+            headers={"Idempotency-Key": "pr17-late-final-ta"},
+            json=_quote_body(first["aircraft_id"], departure - timedelta(hours=6), 6_500_000),
+        )
+        assert late_revision.status_code == 409
+
+        closed = client.post(
+            f"/v1/tenders/{tender_id}/close",
+            headers={"Idempotency-Key": "pr17-close-ta"},
