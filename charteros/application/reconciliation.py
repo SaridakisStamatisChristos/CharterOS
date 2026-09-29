@@ -184,8 +184,7 @@ class FinancialReconciliationService:
         correlation_id: CorrelationId,
     ) -> OperatorInvoiceRevision:
         when = _utc(submitted_at, field_name="submitted_at")
-        reconciliation = self._locked_reconciliation(reconciliation_id)
-        context = self._booking_context(reconciliation.booking_id, for_update=True)
+        reconciliation, context = self._locked_mutation_context(reconciliation_id)
         self._assert_operator(context, operator_id)
         self._assert_reconciliation_lineage(reconciliation, context)
         self._assert_reconciliation_mutable(reconciliation)
@@ -268,8 +267,7 @@ class FinancialReconciliationService:
         correlation_id: CorrelationId,
     ) -> ReconciliationDispute:
         when = _utc(opened_at, field_name="opened_at")
-        reconciliation = self._locked_reconciliation(reconciliation_id)
-        context = self._booking_context(reconciliation.booking_id, for_update=True)
+        reconciliation, context = self._locked_mutation_context(reconciliation_id)
         self._assert_buyer(context, buyer_id)
         self._assert_reconciliation_lineage(reconciliation, context)
         self._assert_reconciliation_mutable(reconciliation)
@@ -315,8 +313,7 @@ class FinancialReconciliationService:
         correlation_id: CorrelationId,
     ) -> VarianceApproval:
         when = _utc(approved_at, field_name="approved_at")
-        reconciliation = self._locked_reconciliation(reconciliation_id)
-        context = self._booking_context(reconciliation.booking_id, for_update=True)
+        reconciliation, context = self._locked_mutation_context(reconciliation_id)
         self._assert_buyer(context, buyer_id)
         self._assert_reconciliation_lineage(reconciliation, context)
         self._assert_reconciliation_mutable(reconciliation)
@@ -414,14 +411,20 @@ class FinancialReconciliationService:
         self._events.add_aggregate_events(context.booking)
         return reconciliation
 
-    def _locked_reconciliation(
+    def _locked_mutation_context(
         self,
         reconciliation_id: FinancialReconciliationId,
-    ) -> FinancialReconciliation:
+    ) -> tuple[FinancialReconciliation, _BookingContext]:
+        observed = self._reconciliations.get(reconciliation_id)
+        if observed is None:
+            raise EntityNotFoundError("financial reconciliation does not exist")
+        context = self._booking_context(observed.booking_id, for_update=True)
         reconciliation = self._reconciliations.get_for_update(reconciliation_id)
         if reconciliation is None:
             raise EntityNotFoundError("financial reconciliation does not exist")
-        return reconciliation
+        if reconciliation.booking_id != observed.booking_id:
+            raise EntityConflictError("financial reconciliation booking lineage changed")
+        return reconciliation, context
 
     def _booking_context(
         self,
