@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from apps.api.main import create_app
 from charteros.domain.shared.currency import Currency
-from charteros.infrastructure.db.models.fx import FxLockRow
+from charteros.infrastructure.db.models.fx import FxLockConversionRow, FxLockRow
 from charteros.infrastructure.db.repositories.fx import SqlAlchemyFxRateRepository
 from charteros.shared.config import Settings
 from tests.integration.test_pr25_audit_evidence import (
@@ -545,3 +545,62 @@ def test_pr26_one_fx_lock_cannot_back_two_concurrent_approvals() -> None:
         statuses = sorted(pool.map(approve, ("pr26-approve-fe-a", "pr26-approve-fe-b")))
 
     assert statuses == [201, 409]
+
+
+@pytest.mark.integration
+def test_pr26_tampered_conversion_cannot_reconstruct_as_complete_evidence() -> None:
+    settings = _settings()
+    with TestClient(create_app(settings)) as client:
+        setup = _setup_cross_currency(
+            client,
+            settings,
+            suffix="FF",
+            origin_icao="FXFA",
+            origin_iata="FXG",
+            destination_icao="FXFB",
+            destination_iata="FXH",
+        )
+        _create_rate(client, suffix="ff")
+        locked = _fx_lock(
+            client,
+            buyer_id=setup["buyer_id"],
+            mission_id=setup["mission_id"],
+            idempotency_key="pr26-lock-ff",
+        )
+        approval = client.post(
+            (
+                f"/v1/buyer-portal/missions/{setup['mission_id']}/quotes/"
+                f"{setup['usd_quote_id']}/approve"
+            ),
+            headers={
+                "X-Buyer-Id": setup["buyer_id"],
+                "Idempotency-Key": "pr26-approve-ff",
+            },
+            json={"fx_lock_id": locked["fx_lock_id"]},
+        )
+        assert approval.status_code == 201
+
+        engine = create_engine(settings.database_url)
+        try:
+            with Session(engine) as session, session.begin():
+                conversion = session.get(
+                    FxLockConversionRow,
+                    (
+                        UUID(str(locked["fx_lock_id"])),
+                        UUID(setup["usd_quote_id"]),
+                    ),
+                )
+                assert conversion is not None
+                conversion.converted_expected_minor += 1
+        finally:
+            engine.dispose()
+
+        evidence = client.get(
+            f"/v1/evidence/missions/{setup['mission_id']}",
+            headers={"X-Buyer-Id": setup["buyer_id"]},
+        )
+        assert evidence.status_code == 409
+        assert (
+            "deterministic replay" in evidence.json()["detail"]
+            or "integrity digest" in evidence.json()["detail"]
+        )
