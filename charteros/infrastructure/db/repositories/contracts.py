@@ -74,6 +74,12 @@ class SqlAlchemyContractRepository:
         )
         return _to_domain(row) if row is not None else None
 
+    def get_for_booking_for_update(self, booking_id: BookingId) -> Contract | None:
+        row = self._session.scalar(
+            select(ContractRow).where(ContractRow.booking_id == booking_id.value).with_for_update()
+        )
+        return _to_domain(row) if row is not None else None
+
     def save(self, contract: Contract, *, expected_version: int) -> None:
         statement = (
             update(ContractRow)

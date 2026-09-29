@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,7 @@ from charteros.domain.bookings import Booking, BookingId, BookingState
 from charteros.domain.missions import MissionId
 from charteros.domain.operators import OperatorId
 from charteros.domain.quotes import QuoteId
+from charteros.domain.shared.exceptions import OptimisticConcurrencyError
 from charteros.infrastructure.db.models.bookings import BookingRow
 
 
@@ -22,6 +23,7 @@ def _to_domain(row: BookingRow) -> Booking:
         aircraft_id=AircraftId(row.aircraft_id),
         state=BookingState(row.state),
         created_at=row.created_at,
+        state_changed_at=row.state_changed_at,
         version=row.version,
     )
 
@@ -41,6 +43,7 @@ class SqlAlchemyBookingRepository:
                 aircraft_id=booking.aircraft_id.value,
                 state=booking.state.value,
                 created_at=booking.created_at,
+                state_changed_at=booking.state_changed_at,
             )
         )
         try:
@@ -65,3 +68,24 @@ class SqlAlchemyBookingRepository:
             select(BookingRow).where(BookingRow.mission_id == mission_id.value)
         )
         return _to_domain(row) if row is not None else None
+
+    def save(self, booking: Booking, *, expected_version: int) -> None:
+        statement = (
+            update(BookingRow)
+            .where(
+                BookingRow.id == booking.id.value,
+                BookingRow.version == expected_version,
+            )
+            .values(
+                version=booking.version,
+                state=booking.state.value,
+                state_changed_at=booking.state_changed_at,
+            )
+            .returning(BookingRow.id)
+        )
+        updated_id = self._session.scalar(statement)
+        if updated_id is None:
+            raise OptimisticConcurrencyError(
+                f"expected aggregate version {expected_version} for booking {booking.id}"
+            )
+        self._session.flush()
