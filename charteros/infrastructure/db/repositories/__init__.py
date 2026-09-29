@@ -17,6 +17,9 @@ from charteros.infrastructure.db.repositories.graph_queries import SqlAlchemyGra
 from charteros.infrastructure.db.repositories.graph_verification import GraphVerificationReport
 from charteros.infrastructure.db.repositories.matching import SqlAlchemyMatchingSnapshotRepository
 from charteros.infrastructure.db.repositories.missions import SqlAlchemyMissionRepository
+from charteros.infrastructure.db.repositories.operator_portal import (
+    SqlAlchemyOperatorPortalRepository,
+)
 from charteros.infrastructure.db.repositories.outbox import (
     SqlAlchemyIdempotentConsumerRunner,
     SqlAlchemyOutboxDeliveryRepository,
@@ -46,6 +49,7 @@ __all__ = [
     "SqlAlchemyIdempotentConsumerRunner",
     "SqlAlchemyMatchingSnapshotRepository",
     "SqlAlchemyMissionRepository",
+    "SqlAlchemyOperatorPortalRepository",
     "SqlAlchemyOperatorRepository",
     "SqlAlchemyOrganizationRepository",
     "SqlAlchemyOutboxDeliveryRepository",
