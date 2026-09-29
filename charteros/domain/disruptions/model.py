@@ -624,9 +624,7 @@ class Disruption(AggregateRoot[DisruptionId]):
         self.selected_commercial_change_id = (
             commercial_change.id if commercial_change is not None else None
         )
-        self.selected_buyer_decision_id = (
-            buyer_decision.id if buyer_decision is not None else None
-        )
+        self.selected_buyer_decision_id = buyer_decision.id if buyer_decision is not None else None
         self.resolved_at = when
         self.resolution_outcome = resolution
         self.booking_state_at_resolution = BookingState(booking_state)
