@@ -17,7 +17,11 @@ from charteros.domain.rfqs import RfqId
 from charteros.domain.shared.currency import Currency
 from charteros.domain.shared.money import Money
 from charteros.domain.shared.time_range import TimeRange
-from charteros.matching import MatchingCandidateSnapshot, MatchingProfileId, MatchingReferenceProfile
+from charteros.matching import (
+    MatchingCandidateSnapshot,
+    MatchingProfileId,
+    MatchingReferenceProfile,
+)
 from charteros.repositioning import (
     BaselineEmptyLeg,
     FeasibleInsertion,
