@@ -203,15 +203,15 @@ def test_pr25_procurement_evidence_is_deterministic_isolated_and_redacted() -> N
         other_buyer_id = _organization(client, suffix="BUY-EB", kind="buyer")
         origin = _airport(
             client,
-            icao="E25A",
-            iata="E2A",
+            icao="EPXA",
+            iata="PXA",
             lat="37.9364",
             lon="23.9445",
         )
         destination = _airport(
             client,
-            icao="E25B",
-            iata="E2B",
+            icao="EPXB",
+            iata="PXB",
             lat="40.5197",
             lon="22.9709",
         )
@@ -418,7 +418,7 @@ def test_pr25_procurement_evidence_is_deterministic_isolated_and_redacted() -> N
 def test_pr25_active_sealed_tender_evidence_does_not_disclose_competitor_topology() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        mission_id, _, _, suppliers = _setup_tender(client, suffix="E5")
+        mission_id, _, _, suppliers = _setup_tender(client, suffix="EY")
         mission = client.get(f"/v1/missions/{mission_id}")
         assert mission.status_code == 200
         buyer_id = str(mission.json()["buyer_id"])
@@ -445,7 +445,7 @@ def test_pr25_active_sealed_tender_evidence_does_not_disclose_competitor_topolog
 def test_pr25_disruption_and_final_reconciliation_reconstruct_exact_lineage() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        setup = _booked_operation(client, suffix="E6")
+        setup = _booked_operation(client, suffix="EZ")
         booking_id = str(setup["booking_id"])
         buyer_id = str(setup["buyer_id"])
         other_buyer_id = str(setup["other_buyer_id"])
