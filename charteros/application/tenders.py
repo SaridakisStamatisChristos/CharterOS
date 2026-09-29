@@ -681,9 +681,7 @@ class TenderService:
             raise EntityNotFoundError("tender does not exist")
         return tender
 
-    def _get_invitation_for_update(
-        self, invitation_id: TenderInvitationId
-    ) -> TenderInvitation:
+    def _get_invitation_for_update(self, invitation_id: TenderInvitationId) -> TenderInvitation:
         invitation = self._tenders.get_invitation_for_update(invitation_id)
         if invitation is None:
             raise EntityNotFoundError("tender invitation does not exist")
