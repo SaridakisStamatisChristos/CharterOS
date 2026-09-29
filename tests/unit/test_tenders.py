@@ -16,7 +16,6 @@ from charteros.domain.tenders import (
     TenderAdminCorrectionId,
     TenderId,
     TenderInvitationId,
-    TenderStatus,
 )
 
 
