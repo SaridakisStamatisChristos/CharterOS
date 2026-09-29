@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -155,11 +156,11 @@ class FxLockConversionRow(Base):
     )
     quote_revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
     original_currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    original_expected_minor: Mapped[int] = mapped_column(nullable=False)
-    original_worst_case_minor: Mapped[int] = mapped_column(nullable=False)
+    original_expected_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    original_worst_case_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     base_currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    converted_expected_minor: Mapped[int] = mapped_column(nullable=False)
-    converted_worst_case_minor: Mapped[int] = mapped_column(nullable=False)
+    converted_expected_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    converted_worst_case_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     rate_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("fx_rates.id", ondelete="RESTRICT"),
