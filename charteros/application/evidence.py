@@ -42,7 +42,9 @@ class EvidenceParty:
 
     def __post_init__(self) -> None:
         if (self.buyer_id is None) == (self.operator_id is None):
-            raise DomainValidationError(\n                "exactly one buyer or operator evidence context is required"\n            )
+            raise DomainValidationError(
+                "exactly one buyer or operator evidence context is required"
+            )
 
 
 @dataclass(frozen=True, slots=True)
