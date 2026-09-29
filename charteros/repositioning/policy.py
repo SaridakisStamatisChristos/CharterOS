@@ -90,26 +90,19 @@ def evaluate_baseline(
         continuity_airport.latitude,
         continuity_airport.longitude,
     )
-    if distance > profile.max_reposition_nm * 10:
-        return BaselineEvaluation(
-            baseline=None,
-            reasons=(RepositionReasonCode.BASELINE_REPOSITION_TOO_FAR,),
-        )
-    if required_range_nm(distance) > candidate.range_nm:
-        return BaselineEvaluation(
-            baseline=None,
-            reasons=(RepositionReasonCode.BASELINE_REPOSITION_RANGE,),
-        )
-
     minutes = flight_minutes(distance, profile.cruise_speed_kts)
     ready_at = aircraft_available_at + timedelta(
         minutes=minutes + profile.turnaround_buffer_minutes
     )
+
+    baseline_reasons: list[RepositionReasonCode] = []
+    if distance > profile.max_reposition_nm * 10:
+        baseline_reasons.append(RepositionReasonCode.BASELINE_REPOSITION_TOO_FAR)
+    if required_range_nm(distance) > candidate.range_nm:
+        baseline_reasons.append(RepositionReasonCode.BASELINE_REPOSITION_RANGE)
     if ready_at > structural.window_end:
-        return BaselineEvaluation(
-            baseline=None,
-            reasons=(RepositionReasonCode.BASELINE_REPOSITION_TOO_LATE,),
-        )
+        baseline_reasons.append(RepositionReasonCode.BASELINE_REPOSITION_TOO_LATE)
+
     return BaselineEvaluation(
         baseline=BaselineEmptyLeg(
             structural=structural,
@@ -122,8 +115,9 @@ def evaluate_baseline(
                 profile.operating_cost_per_hour,
                 minutes,
             ),
+            baseline_reposition_feasible=not baseline_reasons,
         ),
-        reasons=(),
+        reasons=tuple(baseline_reasons),
     )
 
 
@@ -232,9 +226,13 @@ def evaluate_insertion(
         route_minutes,
     )
     gross_margin = opportunity.revenue - reposition_cost - revenue_leg_cost
-    extra_reposition_minor = max(
-        0,
-        reposition_cost.amount_minor - baseline.baseline_reposition_cost.amount_minor,
+    extra_reposition_minor = (
+        max(
+            0,
+            reposition_cost.amount_minor - baseline.baseline_reposition_cost.amount_minor,
+        )
+        if baseline.baseline_reposition_feasible
+        else reposition_cost.amount_minor
     )
     opportunity_cost = Money(extra_reposition_minor, opportunity.revenue.currency)
     margin = opportunity.revenue - revenue_leg_cost - opportunity_cost
