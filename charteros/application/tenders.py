@@ -598,3 +598,138 @@ class TenderService:
             field_name=field_name,
             original_value=original_value,
             replacement_value=replacement_value,
+            reason=reason,
+            corrected_at=when,
+            causation_event_id=causation_event_id,
+        )
+        expected_version = tender.version
+        tender.record_admin_correction(correction, correlation_id=correlation_id)
+        self._tenders.add_correction(correction)
+        self._tenders.save(tender, expected_version=expected_version)
+        self._events.add_aggregate_events(tender)
+        return correction
+
+    def get(self, tender_id: TenderId) -> Tender:
+        tender = self._tenders.get(tender_id)
+        if tender is None:
+            raise EntityNotFoundError("tender does not exist")
+        return tender
+
+    def list_invitations(self, tender_id: TenderId) -> tuple[TenderInvitation, ...]:
+        self.get(tender_id)
+        return self._tenders.list_invitations(tender_id)
+
+    def supplier_view(
+        self,
+        *,
+        tender_id: TenderId,
+        operator_id: OperatorId,
+    ) -> TenderSupplierView:
+        tender = self.get(tender_id)
+        invitation = self._tenders.find_invitation_for_operator(tender.id, operator_id)
+        if invitation is None:
+            raise EntityNotFoundError("operator is not invited to this tender")
+        # Deliberately return only this operator's RFQ lineage. In sealed mode no competitor
+        # identifiers, commercial values, revision history, or rank are exposed.
+        quotes = self._quotes.list_for_rfq(invitation.rfq_id)
+        return TenderSupplierView(tender=tender, invitation=invitation, quotes=quotes)
+
+    def audit_trail(self, tender_id: TenderId) -> TenderAuditTrail:
+        tender = self.get(tender_id)
+        return TenderAuditTrail(
+            tender=tender,
+            invitations=self._tenders.list_invitations(tender.id),
+            corrections=self._tenders.list_corrections(tender.id),
+            events=self._tenders.list_audit_events(tender.id),
+        )
+
+    def _rfq_service(self) -> RfqService:
+        return RfqService(
+            rfqs=self._rfqs,
+            missions=self._missions,
+            operators=self._operators,
+            events=self._events,
+            tenders=self._tenders,
+        )
+
+    def _quote_service(self) -> QuoteService:
+        return QuoteService(
+            quotes=self._quotes,
+            rfqs=self._rfqs,
+            missions=self._missions,
+            aircraft=self._aircraft,
+            events=self._events,
+            tenders=self._tenders,
+        )
+
+    def _booking_service(self) -> BookingService:
+        return BookingService(
+            bookings=self._bookings,
+            quotes=self._quotes,
+            rfqs=self._rfqs,
+            missions=self._missions,
+            events=self._events,
+            tenders=self._tenders,
+        )
+
+    def _get_for_update(self, tender_id: TenderId) -> Tender:
+        tender = self._tenders.get_for_update(tender_id)
+        if tender is None:
+            raise EntityNotFoundError("tender does not exist")
+        return tender
+
+    def _get_invitation_for_update(
+        self, invitation_id: TenderInvitationId
+    ) -> TenderInvitation:
+        invitation = self._tenders.get_invitation_for_update(invitation_id)
+        if invitation is None:
+            raise EntityNotFoundError("tender invitation does not exist")
+        return invitation
+
+    def _lock_participation(
+        self,
+        invitation_id: TenderInvitationId,
+        *,
+        now: datetime,
+    ) -> tuple[TenderInvitation, Tender]:
+        invitation = self._get_invitation_for_update(invitation_id)
+        if invitation.status is not TenderInvitationStatus.ACCEPTED:
+            raise EntityConflictError("supplier must accept the tender invitation before bidding")
+        tender = self._get_for_update(invitation.tender_id)
+        if tender.status not in (TenderStatus.OPEN, TenderStatus.BEST_AND_FINAL):
+            raise EntityConflictError("tender is not accepting supplier bid mutations")
+        if now >= tender.deadline_at:
+            raise EntityConflictError("tender deadline has passed")
+        return invitation, tender
+
+    @staticmethod
+    def _assert_latest_quote(invitation: TenderInvitation, quote_id: QuoteId) -> None:
+        if invitation.last_quote_id != quote_id:
+            raise EntityConflictError("only the invitation's latest tender quote can be mutated")
+
+    @staticmethod
+    def _validate_tender_quote_validity(*, tender: Tender, valid_until: datetime) -> None:
+        valid = _utc(valid_until, field_name="valid_until")
+        if valid <= tender.deadline_at:
+            raise EntityConflictError(
+                "tender quote valid_until must extend beyond the tender deadline for award"
+            )
+
+    @staticmethod
+    def _invitation_with_quote(
+        invitation: TenderInvitation,
+        quote: Quote,
+        *,
+        best_and_final: bool,
+    ) -> TenderInvitation:
+        return TenderInvitation(
+            id=invitation.id,
+            tender_id=invitation.tender_id,
+            operator_id=invitation.operator_id,
+            rfq_id=invitation.rfq_id,
+            status=invitation.status,
+            invited_at=invitation.invited_at,
+            responded_at=invitation.responded_at,
+            last_quote_id=quote.id,
+            best_and_final_quote_id=quote.id if best_and_final else invitation.best_and_final_quote_id,
+        )
