@@ -4,6 +4,7 @@ import json
 from collections import defaultdict
 from datetime import UTC, datetime
 from decimal import Decimal
+from itertools import pairwise
 from typing import cast
 from uuid import UUID
 
@@ -11,6 +12,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session, aliased
 
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
+from charteros.application.graph_projection import PROJECTION_NAME
 from charteros.application.graph_queries import (
     BookingFlightLineage,
     EmptyLegCandidate,
@@ -21,7 +23,6 @@ from charteros.application.graph_queries import (
     QuoteHistory,
     QuoteRevision,
 )
-from charteros.application.graph_projection import PROJECTION_NAME
 from charteros.infrastructure.db.models.catalog import AirportRow, OutboxEventRow
 from charteros.infrastructure.db.models.graph import (
     GraphEdgeRow,
@@ -378,7 +379,7 @@ class SqlAlchemyGraphQueryRepository:
                     item.booking_id.hex,
                 ),
             )
-            for previous, following in zip(ordered, ordered[1:], strict=False):
+            for previous, following in pairwise(ordered):
                 if previous.destination_airport_id == following.origin_airport_id:
                     continue
                 if previous.departure_to > following.departure_from:
