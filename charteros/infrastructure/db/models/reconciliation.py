@@ -254,6 +254,10 @@ class VarianceApprovalRow(Base):
             "invoice_revision_id",
             name="uq_reconciliation_variance_approvals_invoice_revision",
         ),
+        UniqueConstraint(
+            "resolves_dispute_id",
+            name="uq_reconciliation_variance_approvals_resolves_dispute",
+        ),
         CheckConstraint(
             "approved_variance_minor >= 0",
             name="ck_reconciliation_variance_approvals_nonnegative",
@@ -282,5 +286,9 @@ class VarianceApprovalRow(Base):
         nullable=False,
     )
     approved_variance_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    resolves_dispute_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("reconciliation_disputes.id", ondelete="RESTRICT"),
+    )
     approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     note: Mapped[str | None] = mapped_column(String(1000))
