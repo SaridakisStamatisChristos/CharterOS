@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
 
-from charteros.application.graph_queries import EmptyLegCandidate
 from charteros.domain.airports import Airport
 from charteros.domain.operators import CommercialStatus, InsuranceStatus, VerificationStatus
 from charteros.domain.shared.money import Money
@@ -21,6 +20,7 @@ from charteros.repositioning.types import (
     FeasibleInsertion,
     QuotedFutureLeg,
     RepositionReasonCode,
+    StructuralEmptyLeg,
 )
 
 
@@ -53,7 +53,7 @@ def _aircraft_reasons(candidate: MatchingCandidateSnapshot) -> tuple[RepositionR
 
 def evaluate_baseline(
     *,
-    structural: EmptyLegCandidate,
+    structural: StructuralEmptyLeg,
     candidate: MatchingCandidateSnapshot,
     from_airport: Airport,
     continuity_airport: Airport,
