@@ -193,6 +193,25 @@ class BuyerRfqBatchResponse(BaseModel):
     rfqs: list[BuyerRfqResponse]
 
 
+class FxQuoteConversionResponse(BaseModel):
+    base_currency: str
+    converted_expected_total: MoneyResponse
+    converted_worst_case_total: MoneyResponse
+    fx_rate_id: UUID | None
+    fx_rate: str
+    fx_source: str
+    fx_source_version: str
+    fx_timestamp: datetime
+    fx_rate_recorded_at: datetime
+    source_minor_exponent: int | None
+    target_minor_exponent: int | None
+    rounding_policy: str
+    conversion_policy_version: str
+    global_rank: int
+    global_score_method: str
+    global_score_total_basis_points: int
+
+
 class QuoteComparisonEntryResponse(BaseModel):
     quote_id: UUID
     operator_id: UUID
@@ -213,6 +232,7 @@ class QuoteComparisonEntryResponse(BaseModel):
     currency_rank: int | None
     score_method: str
     score_total_basis_points: int | None
+    fx: FxQuoteConversionResponse | None = None
 
 
 class BuyerQuoteComparisonResponse(BaseModel):
@@ -222,13 +242,29 @@ class BuyerQuoteComparisonResponse(BaseModel):
     evaluated_at: datetime
     pricing_currencies: list[str]
     global_rank_available: bool
+    base_currency: str | None = None
+    fx_lock_id: UUID | None = None
+    fx_locked_at: datetime | None = None
+    fx_expires_at: datetime | None = None
+    fx_lock_policy_version: str | None = None
+    fx_conversion_policy_version: str | None = None
+    fx_rounding_policy: str | None = None
+    fx_integrity_digest: str | None = None
     quotes: list[QuoteComparisonEntryResponse]
+
+
+class FxComparisonLockRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    base_currency: str = Field(min_length=3, max_length=3)
+    fx_source: str = Field(min_length=1, max_length=64)
 
 
 class ApprovalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     note: str | None = Field(default=None, max_length=1000)
+    fx_lock_id: UUID | None = None
 
 
 class ApprovalResponse(BaseModel):
