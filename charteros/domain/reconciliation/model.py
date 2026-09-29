@@ -367,14 +367,18 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
         if self.status is FinancialReconciliationStatus.INVOICE_SUBMITTED:
             if self.current_dispute_id is not None or self.current_variance_approval_id is not None:
                 raise DomainValidationError("submitted invoice cannot already contain a decision")
-        elif self.status is FinancialReconciliationStatus.DISPUTED:
-            if self.current_dispute_id is None or self.current_variance_approval_id is not None:
-                raise DomainValidationError("disputed reconciliation requires exact dispute evidence")
-        elif self.status is FinancialReconciliationStatus.VARIANCE_APPROVED:
-            if self.current_variance_approval_id is None or self.current_dispute_id is not None:
-                raise DomainValidationError(
-                    "variance-approved reconciliation requires exact approval evidence"
-                )
+        elif self.status is FinancialReconciliationStatus.DISPUTED and (
+            self.current_dispute_id is None or self.current_variance_approval_id is not None
+        ):
+            raise DomainValidationError(
+                "disputed reconciliation requires exact dispute evidence"
+            )
+        elif self.status is FinancialReconciliationStatus.VARIANCE_APPROVED and (
+            self.current_variance_approval_id is None or self.current_dispute_id is not None
+        ):
+            raise DomainValidationError(
+                "variance-approved reconciliation requires exact approval evidence"
+            )
 
         if self.status is FinancialReconciliationStatus.COMPLETED:
             if (
@@ -386,7 +390,9 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
             ):
                 raise DomainValidationError("completed reconciliation requires final evidence")
             if self.final_invoice_revision_id != self.current_invoice_revision_id:
-                raise DomainValidationError("completed reconciliation must finalize current invoice")
+                raise DomainValidationError(
+                    "completed reconciliation must finalize current invoice"
+                )
             if self.final_payable.amount_minor <= 0:
                 raise DomainValidationError("final payable must be positive")
         elif any(
@@ -464,7 +470,9 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
         if invoice.reconciliation_id != self.id:
             raise DomainValidationError("invoice revision belongs to another reconciliation")
         if invoice.currency != self.currency or invoice.booked_amount != self.booked_amount:
-            raise DomainValidationError("invoice booked-price evidence conflicts with reconciliation")
+            raise DomainValidationError(
+                "invoice booked-price evidence conflicts with reconciliation"
+            )
         self.current_invoice_revision_id = invoice.id
         self.current_dispute_id = None
         self.current_variance_approval_id = None
