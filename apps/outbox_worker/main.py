@@ -22,7 +22,11 @@ def _worker_id() -> str:
     return f"{socket.gethostname()}:{os.getpid()}:{uuid4()}"
 
 
-def build_worker(settings: Settings, *, worker_id: str | None = None) -> tuple[Engine, OutboxWorker]:
+def build_worker(
+    settings: Settings,
+    *,
+    worker_id: str | None = None,
+) -> tuple[Engine, OutboxWorker]:
     engine = build_engine(settings)
     session_factory = build_session_factory(engine)
     worker = OutboxWorker(
