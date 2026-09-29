@@ -235,8 +235,8 @@ def test_verified_principal_cannot_expand_authority_with_selector_headers() -> N
     assert buyer_to_tender_admin.status_code == 403
     assert service_to_human.status_code == 403
     # This buyer has the evidence capability above, so authorization passes and the missing
-    # resource is handled by the domain boundary without leaking a different tenant's data.
-    assert unauthorized_evidence.status_code == 404
+    # subject is handled by the existing evidence boundary.
+    assert unauthorized_evidence.status_code == 409
 
 
 @pytest.mark.integration
@@ -267,7 +267,7 @@ def test_sealed_tender_operator_cannot_use_competitor_invitation() -> None:
     with TestClient(create_app(settings)) as setup_client:
         _mission_id, tender_id, _departure, suppliers = _setup_tender(
             setup_client,
-            suffix="27",
+            suffix="TD",
         )
 
     operator_id = UUID(suppliers[0]["operator_id"])

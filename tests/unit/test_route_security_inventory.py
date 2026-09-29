@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
@@ -16,11 +18,11 @@ def _settings() -> Settings:
 
 def test_every_v1_route_has_exactly_one_security_policy_and_dependency() -> None:
     app = create_app(_settings(), auth_backend=RejectingAuthenticationBackend())
-    routes = [
-        route
-        for route in app.routes
-        if isinstance(route, APIRoute) and route.path.startswith("/v1")
-    ]
+    routes: list[APIRoute] = []
+    for raw_route in app.routes:
+        path = getattr(raw_route, "path", None)
+        if isinstance(path, str) and path.startswith("/v1"):
+            routes.append(cast(APIRoute, raw_route))
     actual: set[tuple[str, str]] = set()
     for route in routes:
         assert route.methods is not None
