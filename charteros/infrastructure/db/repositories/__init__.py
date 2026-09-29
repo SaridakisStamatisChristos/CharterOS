@@ -11,9 +11,9 @@ from charteros.infrastructure.db.repositories.catalog import (
 from charteros.infrastructure.db.repositories.contracts import SqlAlchemyContractRepository
 from charteros.infrastructure.db.repositories.graph import (
     GraphProjectionStatus,
-    GraphVerificationReport,
     SqlAlchemyGraphProjectionStore,
 )
+from charteros.infrastructure.db.repositories.graph_verification import GraphVerificationReport
 from charteros.infrastructure.db.repositories.matching import SqlAlchemyMatchingSnapshotRepository
 from charteros.infrastructure.db.repositories.missions import SqlAlchemyMissionRepository
 from charteros.infrastructure.db.repositories.outbox import (
