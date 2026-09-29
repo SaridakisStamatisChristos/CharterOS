@@ -69,9 +69,7 @@ class ProcurementApproval(AggregateRoot[ProcurementApprovalId]):
         self.note = _note(note)
         self.supersedes_approval_id = supersedes_approval_id
         self.superseded_at = (
-            _utc(superseded_at, field_name="superseded_at")
-            if superseded_at is not None
-            else None
+            _utc(superseded_at, field_name="superseded_at") if superseded_at is not None else None
         )
         self.consumed_at = (
             _utc(consumed_at, field_name="consumed_at") if consumed_at is not None else None
@@ -101,9 +99,7 @@ class ProcurementApproval(AggregateRoot[ProcurementApprovalId]):
             ):
                 raise DomainValidationError("superseded procurement approval has invalid evidence")
         elif self.status is ProcurementApprovalStatus.CONSUMED and (
-            self.consumed_at is None
-            or self.booking_id is None
-            or self.superseded_at is not None
+            self.consumed_at is None or self.booking_id is None or self.superseded_at is not None
         ):
             raise DomainValidationError("consumed procurement approval has invalid evidence")
 
