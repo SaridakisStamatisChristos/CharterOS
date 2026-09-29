@@ -119,12 +119,8 @@ class RepositioningService:
             )
         structural_items: list[StructuralEmptyLeg] = []
         for graph_item in graph_items:
-            previous = self._graph.booking_flight_lineage(
-                booking_id=graph_item.previous_booking_id
-            )
-            following = self._graph.booking_flight_lineage(
-                booking_id=graph_item.next_booking_id
-            )
+            previous = self._graph.booking_flight_lineage(booking_id=graph_item.previous_booking_id)
+            following = self._graph.booking_flight_lineage(booking_id=graph_item.next_booking_id)
             _validate_structural_lineage(graph_item, previous, following)
             structural_items.append(
                 StructuralEmptyLeg(
