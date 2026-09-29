@@ -197,6 +197,7 @@ def to_assignment(item: FeasibleInsertion) -> RepositionAssignment:
         revenue_distance_tenths_nm=item.revenue_distance_tenths_nm,
         post_reposition_distance_tenths_nm=item.post_reposition_distance_tenths_nm,
         baseline_reposition_cost=item.empty_leg.baseline_reposition_cost,
+        baseline_reposition_feasible=item.empty_leg.baseline_reposition_feasible,
         reposition_cost=item.reposition_cost,
         revenue_leg_operating_cost=item.revenue_leg_operating_cost,
         revenue=item.revenue,
