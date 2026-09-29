@@ -32,7 +32,7 @@ from charteros.domain.shared.time_range import TimeRange
 def test_all_disruption_types_open_as_typed_canonical_evidence(
     disruption_type: DisruptionType,
 ) -> None:
-    now = datetime.now(UTC)
+    now = datetime.now(UTC) - timedelta(hours=1)
     disruption = Disruption.open(
         booking_id=BookingId.new(),
         disruption_type=disruption_type,
@@ -102,7 +102,7 @@ def _commercial(
 
 
 def test_material_resolution_requires_decision_bound_to_exact_current_evidence() -> None:
-    now = datetime.now(UTC)
+    now = datetime.now(UTC) - timedelta(hours=1)
     buyer_id = OrganizationId.new()
     operator_id = OperatorId.new()
     disruption = Disruption.open(
@@ -179,7 +179,7 @@ def test_material_resolution_requires_decision_bound_to_exact_current_evidence()
 
 
 def test_buyer_rejection_cannot_resolve_material_proposal() -> None:
-    now = datetime.now(UTC)
+    now = datetime.now(UTC) - timedelta(hours=1)
     buyer_id = OrganizationId.new()
     operator_id = OperatorId.new()
     disruption = Disruption.open(
@@ -218,7 +218,7 @@ def test_buyer_rejection_cannot_resolve_material_proposal() -> None:
 
 
 def test_commercial_change_is_exact_money_and_rejects_inconsistent_or_negative_totals() -> None:
-    now = datetime.now(UTC)
+    now = datetime.now(UTC) - timedelta(hours=1)
     disruption = Disruption.open(
         booking_id=BookingId.new(),
         disruption_type=DisruptionType.WEATHER,
