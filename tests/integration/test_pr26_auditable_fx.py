@@ -157,9 +157,7 @@ def _setup_cross_currency(
         },
     )
     assert rfqs.status_code == 201
-    rfq_by_operator = {
-        str(item["operator_id"]): str(item["id"]) for item in rfqs.json()["rfqs"]
-    }
+    rfq_by_operator = {str(item["operator_id"]): str(item["id"]) for item in rfqs.json()["rfqs"]}
 
     for operator_id, rfq_id in rfq_by_operator.items():
         acknowledged = client.post(
@@ -355,22 +353,16 @@ def test_pr26_lock_uses_exact_seen_rate_and_correction_only_affects_new_locks() 
         source_types = {item["source_type"] for item in package["sources"]}
         assert "fx_lock" in source_types
         assert "fx_rate" in source_types
-        fx_rates = [
-            item for item in package["sources"] if item["source_type"] == "fx_rate"
-        ]
+        fx_rates = [item for item in package["sources"] if item["source_type"] == "fx_rate"]
         assert {item["source_id"] for item in fx_rates} == {rate_v1["id"]}
 
         decision = next(
-            item
-            for item in package["decisions"]
-            if item["decision_type"] == "quote_comparison"
+            item for item in package["decisions"] if item["decision_type"] == "quote_comparison"
         )
         committed_lock = decision["content"]["fx_lock"]
         assert committed_lock["lock_id"] == lock_v1["fx_lock_id"]
         committed_usd = next(
-            item
-            for item in committed_lock["quotes"]
-            if item["quote_id"] == setup["usd_quote_id"]
+            item for item in committed_lock["quotes"] if item["quote_id"] == setup["usd_quote_id"]
         )
         assert committed_usd["fx_rate"] == "0.8421"
         assert committed_usd["fx_rate_id"] == rate_v1["id"]
@@ -389,9 +381,7 @@ def test_pr26_historical_rate_resolution_never_uses_later_correction() -> None:
         )
         assert corrected.status_code == 201
 
-    original_recorded = datetime.fromisoformat(
-        str(rate_v1["recorded_at"]).replace("Z", "+00:00")
-    )
+    original_recorded = datetime.fromisoformat(str(rate_v1["recorded_at"]).replace("Z", "+00:00"))
     corrected_recorded = datetime.fromisoformat(
         str(corrected.json()["recorded_at"]).replace("Z", "+00:00")
     )
