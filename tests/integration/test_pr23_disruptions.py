@@ -383,6 +383,10 @@ def test_pr23_disruption_workflow_preserves_booking_quote_and_party_authority() 
         assert proposal.json()["requires_buyer_decision"] is True
         assert proposal.json()["proposed_operator_id"] == operator_id
         assert proposal.json()["proposed_aircraft_id"] == replacement_aircraft_id
+        assert proposal.json()["proposed_operator_version"] >= 1
+        assert proposal.json()["proposed_aircraft_version"] >= 1
+        assert proposal.json()["availability_record_id"] is not None
+        assert proposal.json()["availability_recorded_at"] is not None
 
         fx_attempt = client.post(
             f"/v1/disruptions/{disruption_id}/requotes",
