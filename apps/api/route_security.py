@@ -320,4 +320,3 @@ ROUTE_POLICIES = _build_route_policies()
 
 def route_policy(method: str, path_template: str) -> RoutePolicy | None:
     return ROUTE_POLICIES.get((method.upper(), path_template))
-
