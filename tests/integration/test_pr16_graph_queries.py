@@ -9,7 +9,6 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
-from sqlalchemy.orm import Session
 
 from apps.api.main import create_app
 from charteros.application.graph_queries import GraphQueryService
@@ -227,7 +226,11 @@ def test_pr16_graph_queries_are_bounded_bitemporal_and_lineage_preserving() -> N
                     _node(node_type="airport", node_id=airport_b, attributes={"icao": "LGBB"}),
                     _node(node_type="airport", node_id=airport_c, attributes={"icao": "LGCC"}),
                     _node(node_type="operator", node_id=operator_id, attributes={}),
-                    _node(node_type="aircraft", node_id=aircraft_id, attributes={"status": "active"}),
+                    _node(
+                        node_type="aircraft",
+                        node_id=aircraft_id,
+                        attributes={"status": "active"},
+                    ),
                     _node(
                         node_type="aircraft_position",
                         node_id=position_early,
