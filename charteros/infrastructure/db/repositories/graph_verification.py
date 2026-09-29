@@ -46,9 +46,7 @@ def verify_graph_projection(
 ) -> GraphVerificationReport:
     issues: list[str] = []
     with session_factory() as session:
-        version = session.get(
-            GraphProjectionVersionRow, (PROJECTION_NAME, projection_version)
-        )
+        version = session.get(GraphProjectionVersionRow, (PROJECTION_NAME, projection_version))
         if version is None:
             return _missing_report(projection_version)
 
@@ -62,29 +60,39 @@ def verify_graph_projection(
         issues.append(str(exc))
 
     with session_factory() as session:
-        nodes = tuple(session.scalars(select(GraphNodeRow).where(
-            GraphNodeRow.projection_name == PROJECTION_NAME,
-            GraphNodeRow.projection_version == projection_version,
-        )))
-        edges = tuple(session.scalars(select(GraphEdgeRow).where(
-            GraphEdgeRow.projection_name == PROJECTION_NAME,
-            GraphEdgeRow.projection_version == projection_version,
-        )))
-        cursors = tuple(session.scalars(select(GraphAggregateCursorRow).where(
-            GraphAggregateCursorRow.projection_name == PROJECTION_NAME,
-            GraphAggregateCursorRow.projection_version == projection_version,
-        )))
+        nodes = tuple(
+            session.scalars(
+                select(GraphNodeRow).where(
+                    GraphNodeRow.projection_name == PROJECTION_NAME,
+                    GraphNodeRow.projection_version == projection_version,
+                )
+            )
+        )
+        edges = tuple(
+            session.scalars(
+                select(GraphEdgeRow).where(
+                    GraphEdgeRow.projection_name == PROJECTION_NAME,
+                    GraphEdgeRow.projection_version == projection_version,
+                )
+            )
+        )
+        cursors = tuple(
+            session.scalars(
+                select(GraphAggregateCursorRow).where(
+                    GraphAggregateCursorRow.projection_name == PROJECTION_NAME,
+                    GraphAggregateCursorRow.projection_version == projection_version,
+                )
+            )
+        )
         checkpoint = session.get(
             GraphProjectionCheckpointRow, (PROJECTION_NAME, projection_version)
         )
         receipt_count = session.scalar(
-            select(func.count()).select_from(OutboxConsumerReceiptRow).where(
-                OutboxConsumerReceiptRow.consumer_name == consumer_name(projection_version)
-            )
+            select(func.count())
+            .select_from(OutboxConsumerReceiptRow)
+            .where(OutboxConsumerReceiptRow.consumer_name == consumer_name(projection_version))
         )
-        current = session.get(
-            GraphProjectionVersionRow, (PROJECTION_NAME, projection_version)
-        )
+        current = session.get(GraphProjectionVersionRow, (PROJECTION_NAME, projection_version))
         assert current is not None
         stored_digest = current.state_digest
         checkpoint_count = checkpoint.processed_event_count if checkpoint else -1
@@ -127,7 +135,8 @@ def verify_graph_projection(
 
     node_keys = set(persisted.nodes)
     invalid = [
-        key for key in persisted.edges
+        key
+        for key in persisted.edges
         if (key[1], key[2]) not in node_keys or (key[3], key[4]) not in node_keys
     ]
     if invalid:
@@ -154,16 +163,18 @@ def historical_graph_envelopes(
     session_factory: sessionmaker[Session],
 ) -> tuple[OutboxEnvelope, ...]:
     with session_factory() as session:
-        rows = tuple(session.scalars(
-            select(OutboxEventRow)
-            .where(OutboxEventRow.aggregate_type.in_(tuple(sorted(SUPPORTED_AGGREGATE_TYPES))))
-            .order_by(
-                OutboxEventRow.aggregate_type,
-                OutboxEventRow.aggregate_id,
-                OutboxEventRow.aggregate_version,
-                OutboxEventRow.event_id,
+        rows = tuple(
+            session.scalars(
+                select(OutboxEventRow)
+                .where(OutboxEventRow.aggregate_type.in_(tuple(sorted(SUPPORTED_AGGREGATE_TYPES))))
+                .order_by(
+                    OutboxEventRow.aggregate_type,
+                    OutboxEventRow.aggregate_id,
+                    OutboxEventRow.aggregate_version,
+                    OutboxEventRow.event_id,
+                )
             )
-        ))
+        )
         return tuple(_to_envelope(row) for row in rows)
 
 
