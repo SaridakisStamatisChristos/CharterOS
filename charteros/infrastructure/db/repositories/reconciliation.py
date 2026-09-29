@@ -274,27 +274,28 @@ class SqlAlchemyFinancialReconciliationRepository:
         self._session.flush()
 
     def add_invoice(self, invoice: OperatorInvoiceRevision) -> None:
-        self._session.add(
-            OperatorInvoiceRevisionRow(
-                id=invoice.id.value,
-                reconciliation_id=invoice.reconciliation_id.value,
-                revision_number=invoice.revision_number,
-                supersedes_invoice_revision_id=(
-                    invoice.supersedes_invoice_revision_id.value
-                    if invoice.supersedes_invoice_revision_id is not None
-                    else None
-                ),
-                status=invoice.status.value,
-                invoice_reference=invoice.invoice_reference,
-                currency=str(invoice.currency),
-                booked_amount_minor=invoice.booked_amount.amount_minor,
-                total_amount_minor=invoice.total_amount.amount_minor,
-                variance_minor=invoice.variance.amount_minor,
-                surcharge_reason=invoice.surcharge_reason,
-                submitted_at=invoice.submitted_at,
-                superseded_at=invoice.superseded_at,
-            )
+        invoice_row = OperatorInvoiceRevisionRow(
+            id=invoice.id.value,
+            reconciliation_id=invoice.reconciliation_id.value,
+            revision_number=invoice.revision_number,
+            supersedes_invoice_revision_id=(
+                invoice.supersedes_invoice_revision_id.value
+                if invoice.supersedes_invoice_revision_id is not None
+                else None
+            ),
+            status=invoice.status.value,
+            invoice_reference=invoice.invoice_reference,
+            currency=str(invoice.currency),
+            booked_amount_minor=invoice.booked_amount.amount_minor,
+            total_amount_minor=invoice.total_amount.amount_minor,
+            variance_minor=invoice.variance.amount_minor,
+            surcharge_reason=invoice.surcharge_reason,
+            submitted_at=invoice.submitted_at,
+            superseded_at=invoice.superseded_at,
         )
+        self._session.add(invoice_row)
+        self._flush("invoice revision conflicts with persisted reconciliation evidence")
+
         self._session.add_all(
             [
                 OperatorInvoiceLineRow(
@@ -308,7 +309,7 @@ class SqlAlchemyFinancialReconciliationRepository:
                 for line in invoice.line_items
             ]
         )
-        self._flush("invoice revision conflicts with persisted reconciliation evidence")
+        self._flush("invoice lines conflict with persisted reconciliation evidence")
 
     def get_invoice(
         self,
