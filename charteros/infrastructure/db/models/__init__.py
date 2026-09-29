@@ -17,6 +17,7 @@ def load_models() -> None:
         DisruptionProposalRow,
         DisruptionRow,
     )
+    from charteros.infrastructure.db.models.evidence import DecisionEvidenceSnapshotRow
     from charteros.infrastructure.db.models.fleet import (
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
@@ -59,6 +60,7 @@ def load_models() -> None:
         DisruptionCommercialChangeRow,
         DisruptionProposalRow,
         DisruptionRow,
+        DecisionEvidenceSnapshotRow,
         FinancialReconciliationRow,
         GraphAggregateCursorRow,
         GraphEdgeRow,

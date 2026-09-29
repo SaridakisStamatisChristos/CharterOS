@@ -12,6 +12,11 @@ from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_correlation_id, get_session
 from charteros.application.buyer_portal import BuyerPortalService
+from charteros.application.evidence import (
+    SUPPLIER_SELECTION_POLICY_VERSION,
+    quote_comparison_evidence,
+    supplier_selection_evidence,
+)
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -46,6 +51,7 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyBookingRepository,
     SqlAlchemyBuyerProcurementAuditRepository,
     SqlAlchemyContractRepository,
+    SqlAlchemyDecisionEvidenceRepository,
     SqlAlchemyDomainEventRepository,
     SqlAlchemyIdempotencyRepository,
     SqlAlchemyMatchingSnapshotRepository,
@@ -510,7 +516,7 @@ def open_mission(
     scope = f"POST:/v1/buyer-portal/missions/{mission_id}/open:{buyer_id}"
     request_hash = canonical_request_hash({})
     with session.begin():
-        _portal(session).mission(
+        mission = _portal(session).mission(
             buyer_id=typed_buyer,
             mission_id=MissionId(mission_id),
         )
@@ -623,7 +629,7 @@ def issue_rfqs(
     scope = f"POST:/v1/buyer-portal/missions/{mission_id}/rfqs:{buyer_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
-        _portal(session).mission(
+        mission = _portal(session).mission(
             buyer_id=typed_buyer,
             mission_id=MissionId(mission_id),
         )
@@ -638,17 +644,53 @@ def issue_rfqs(
         if stored is not None:
             return BuyerRfqBatchResponse.model_validate(stored.response_body)
 
+        issued_at = datetime.now(UTC)
+        matching_decision = (
+            _matching_service(session).match_mission(
+                mission_id=MissionId(mission_id),
+                known_as_of=issued_at,
+            )
+            if mission.status is MissionStatus.OPEN
+            else None
+        )
         service = _rfq_service(session)
         rfqs = [
             service.create_and_send(
                 mission_id=MissionId(mission_id),
                 operator_id=OperatorId(operator_id),
                 response_deadline=body.response_deadline,
-                now=datetime.now(UTC),
+                now=issued_at,
                 correlation_id=correlation_id,
             )
             for operator_id in body.operator_ids
         ]
+        evidence = SqlAlchemyDecisionEvidenceRepository(session)
+        for rfq in rfqs:
+            content = supplier_selection_evidence(
+                decision=matching_decision,
+                operator_id=rfq.operator_id.value,
+                rfq_id=rfq.id.value,
+            )
+            policy_versions: dict[str, object] = {
+                "supplier_selection": SUPPLIER_SELECTION_POLICY_VERSION,
+            }
+            if matching_decision is not None:
+                policy_versions["matching"] = matching_decision.policy_version
+            evidence.add_snapshot(
+                decision_type="supplier_selection",
+                subject_type="mission",
+                subject_id=mission_id,
+                source_aggregate_type="rfq",
+                source_aggregate_id=rfq.id.value,
+                decided_at=issued_at,
+                known_as_of=(
+                    matching_decision.known_as_of if matching_decision is not None else None
+                ),
+                actor_id=buyer_id,
+                correlation_id=correlation_id.value,
+                policy_versions=policy_versions,
+                content=content,
+            )
         response = BuyerRfqBatchResponse(
             mission_id=mission_id,
             issued_count=len(rfqs),
@@ -794,6 +836,26 @@ def approve_quote(
             approved_at=datetime.now(UTC),
             note=body.note,
             correlation_id=correlation_id,
+        )
+        SqlAlchemyDecisionEvidenceRepository(session).add_snapshot(
+            decision_type="quote_comparison",
+            subject_type="mission",
+            subject_id=mission_id,
+            source_aggregate_type="procurement_approval",
+            source_aggregate_id=approval.id.value,
+            decided_at=approval.approved_at,
+            known_as_of=comparison.evaluated_at,
+            actor_id=buyer_id,
+            correlation_id=correlation_id.value,
+            policy_versions={
+                "quote_comparison": comparison.comparison_policy_version,
+                "matching": comparison.matching_policy_version,
+                "quote_normalization": selected.normalization.normalization_version,
+            },
+            content=quote_comparison_evidence(
+                comparison=comparison,
+                selected_quote_id=quote_id,
+            ),
         )
         response = _approval_response(approval)
         idempotency.add(
