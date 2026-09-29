@@ -22,7 +22,6 @@ from charteros.simulation.types import (
     PPM,
     SIMULATOR_POLICY_VERSION,
     DemandCurvePoint,
-    MarketRoute,
     MarketSimulation,
     MarketSimulationConfig,
     SimulatedCompletedMission,
@@ -318,7 +317,11 @@ def simulate_market(
                     f"quote-response:{demand.demand_id}:{operator.key}"
                 )
                 quote_responded = quote_response_draw < operator.quote_response_probability_ppm
-            reason = schedule_reason if not feasible else ("accepted" if acceptance_hit else "rejected")
+            reason = (
+                schedule_reason
+                if not feasible
+                else ("accepted" if acceptance_hit else "rejected")
+            )
             decision_time = min(
                 demand.departure_window.start,
                 demand.created_at
