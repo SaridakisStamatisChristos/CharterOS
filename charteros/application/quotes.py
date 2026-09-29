@@ -7,6 +7,7 @@ from charteros.application.ports.catalog import AircraftRepository, DomainEventR
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
+from charteros.application.ports.tenders import TenderRepository
 from charteros.domain.aircraft import AircraftId
 from charteros.domain.missions import MissionStatus
 from charteros.domain.operators import OperatorId
@@ -32,12 +33,14 @@ class QuoteService:
         missions: MissionRepository,
         aircraft: AircraftRepository,
         events: DomainEventRepository,
+        tenders: TenderRepository | None = None,
     ) -> None:
         self._quotes = quotes
         self._rfqs = rfqs
         self._missions = missions
         self._aircraft = aircraft
         self._events = events
+        self._tenders = tenders
 
     def submit(
         self,
@@ -54,12 +57,14 @@ class QuoteService:
         valid_until: datetime,
         now: datetime,
         correlation_id: CorrelationId,
+        tender_command: bool = False,
     ) -> Quote:
         submitted_at = _utc(now, field_name="now")
         valid = _utc(valid_until, field_name="valid_until")
         rfq = self._rfqs.get_for_update(rfq_id)
         if rfq is None:
             raise EntityNotFoundError("RFQ does not exist")
+        self._assert_tender_command(rfq.id, tender_command=tender_command)
         if rfq.status is not RfqStatus.ACKNOWLEDGED:
             raise EntityConflictError("quotes can only be submitted for acknowledged RFQs")
         assert rfq.response_deadline is not None
@@ -121,6 +126,7 @@ class QuoteService:
         valid_until: datetime,
         now: datetime,
         correlation_id: CorrelationId,
+        tender_command: bool = False,
     ) -> Quote:
         submitted_at = _utc(now, field_name="now")
         valid = _utc(valid_until, field_name="valid_until")
@@ -130,6 +136,10 @@ class QuoteService:
         rfq = self._rfqs.get(observed.rfq_id)
         if rfq is None:
             raise EntityNotFoundError("quote RFQ does not exist")
+        self._assert_tender_command(rfq.id, tender_command=tender_command)
+        assert rfq.response_deadline is not None
+        if submitted_at >= rfq.response_deadline:
+            raise EntityConflictError("RFQ response deadline has passed")
         mission = self._missions.get_for_update(rfq.mission_id)
         if mission is None:
             raise EntityNotFoundError("RFQ mission does not exist")
@@ -184,9 +194,17 @@ class QuoteService:
         quote_id: QuoteId,
         now: datetime,
         correlation_id: CorrelationId,
+        tender_command: bool = False,
     ) -> Quote:
         when = _utc(now, field_name="now")
         quote = self._get_for_update(quote_id)
+        rfq = self._rfqs.get(quote.rfq_id)
+        if rfq is None:
+            raise EntityNotFoundError("quote RFQ does not exist")
+        self._assert_tender_command(rfq.id, tender_command=tender_command)
+        assert rfq.response_deadline is not None
+        if when >= rfq.response_deadline:
+            raise EntityConflictError("RFQ response deadline has passed")
         if quote.status is not QuoteStatus.SUBMITTED or not quote.is_current:
             raise EntityConflictError("only the current submitted quote can be withdrawn")
         if when >= quote.valid_until:
@@ -226,6 +244,14 @@ class QuoteService:
         if self._rfqs.get(rfq_id) is None:
             raise EntityNotFoundError("RFQ does not exist")
         return self._quotes.list_for_rfq(rfq_id)
+
+    def _assert_tender_command(self, rfq_id: RfqId, *, tender_command: bool) -> None:
+        if self._tenders is None or tender_command:
+            return
+        if self._tenders.find_invitation_for_rfq(rfq_id) is not None:
+            raise EntityConflictError(
+                "tender bids must be mutated through the tender participation workflow"
+            )
 
     def _get_for_update(self, quote_id: QuoteId) -> Quote:
         quote = self._quotes.get_for_update(quote_id)
