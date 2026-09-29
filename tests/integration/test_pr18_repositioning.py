@@ -496,7 +496,8 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
             assert body["policy_version"] == "reposition-v1"
             assert datetime.fromisoformat(body["graph_knowledge_cutoff"]) <= evaluated_at
             assert body["structural_empty_leg_count"] == 1
-            assert body["feasible_empty_leg_count"] == 1
+            assert body["evaluable_empty_leg_count"] == 1
+            assert body["direct_reposition_feasible_count"] == 1
             assert body["quoted_future_leg_count"] == 1
             assert body["feasible_candidate_count"] == 1
             assert body["global_plan_available"] is True
@@ -512,6 +513,7 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
             assert assignment["previous_booking_id"] == str(previous_booking)
             assert assignment["next_booking_id"] == str(next_booking)
             assert assignment["margin_minor"] > 0
+            assert assignment["baseline_reposition_feasible"] is True
             assert assignment["opportunity_cost_minor"] >= 0
             assert assignment["previous_revenue_distance_nm"] > 0
             assert assignment["previous_revenue_minutes"] > 0
