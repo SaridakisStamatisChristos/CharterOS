@@ -17,6 +17,10 @@ from charteros.infrastructure.db.repositories.evidence import (
     SqlAlchemyDecisionEvidenceRepository,
     SqlAlchemyEvidenceRepository,
 )
+from charteros.infrastructure.db.repositories.fx import (
+    SqlAlchemyFxLockRepository,
+    SqlAlchemyFxRateRepository,
+)
 from charteros.infrastructure.db.repositories.graph import (
     GraphProjectionStatus,
     SqlAlchemyGraphProjectionStore,
@@ -62,6 +66,8 @@ __all__ = [
     "SqlAlchemyDomainEventRepository",
     "SqlAlchemyEvidenceRepository",
     "SqlAlchemyFinancialReconciliationRepository",
+    "SqlAlchemyFxLockRepository",
+    "SqlAlchemyFxRateRepository",
     "SqlAlchemyGraphProjectionStore",
     "SqlAlchemyGraphQueryRepository",
     "SqlAlchemyIdempotencyRepository",
