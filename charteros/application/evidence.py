@@ -503,9 +503,7 @@ def quote_comparison_evidence(
         "matching_policy_version": comparison.matching_policy_version,
         "evaluated_at": comparison.evaluated_at,
         "pricing_currencies": [str(item) for item in comparison.pricing_currencies],
-        "global_rank_available": (
-            fx_lock is not None or comparison.global_rank_available
-        ),
+        "global_rank_available": (fx_lock is not None or comparison.global_rank_available),
         "quotes": entries,
         "fx_lock": fx_evidence,
         "no_implicit_fx": fx_lock is None,
@@ -776,9 +774,7 @@ class EvidenceService:
 
     @staticmethod
     def _verify_decisions(material: EvidenceMaterial) -> None:
-        source_ids = {
-            (source.source_type, source.source_id) for source in material.sources
-        }
+        source_ids = {(source.source_type, source.source_id) for source in material.sources}
         for decision in material.decisions:
             if decision.schema_version != SNAPSHOT_SCHEMA_VERSION:
                 raise EntityConflictError(
