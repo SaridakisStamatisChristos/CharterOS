@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from charteros.domain.aircraft import AircraftId
+from charteros.domain.aircraft import AircraftId, AvailabilityRecordId
 from charteros.domain.bookings import BookingId, BookingState
 from charteros.domain.operators import OperatorId
 from charteros.domain.organizations import OrganizationId
@@ -118,6 +118,10 @@ class ReplacementProposal:
     status: DisruptionProposalStatus
     proposed_operator_id: OperatorId
     proposed_aircraft_id: AircraftId
+    proposed_operator_version: int
+    proposed_aircraft_version: int
+    availability_record_id: AvailabilityRecordId | None
+    availability_recorded_at: datetime | None
     departure_window: TimeRange | None
     requires_buyer_decision: bool
     source: str
@@ -136,7 +140,26 @@ class ReplacementProposal:
             raise DomainValidationError("revised disruption proposal must identify its predecessor")
         if self.supersedes_proposal_id == self.id:
             raise DomainValidationError("disruption proposal cannot supersede itself")
+        for field_name, version in (
+            ("proposed_operator_version", self.proposed_operator_version),
+            ("proposed_aircraft_version", self.proposed_aircraft_version),
+        ):
+            if not isinstance(version, int) or isinstance(version, bool) or version < 0:
+                raise DomainValidationError(f"{field_name} must be a non-negative integer")
         proposed_at = _utc(self.proposed_at, field_name="proposed_at")
+        availability_recorded_at = (
+            _utc(self.availability_recorded_at, field_name="availability_recorded_at")
+            if self.availability_recorded_at is not None
+            else None
+        )
+        if (self.availability_record_id is None) != (availability_recorded_at is None):
+            raise DomainValidationError(
+                "availability evidence requires both record id and recorded_at"
+            )
+        if availability_recorded_at is not None and availability_recorded_at > proposed_at:
+            raise DomainValidationError(
+                "availability evidence cannot be learned after proposal time"
+            )
         superseded_at = (
             _utc(self.superseded_at, field_name="superseded_at")
             if self.superseded_at is not None
@@ -158,6 +181,7 @@ class ReplacementProposal:
         object.__setattr__(self, "status", status)
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "source_evidence", evidence)
+        object.__setattr__(self, "availability_recorded_at", availability_recorded_at)
         object.__setattr__(self, "proposed_at", proposed_at)
         object.__setattr__(self, "superseded_at", superseded_at)
 
@@ -428,6 +452,18 @@ class Disruption(AggregateRoot[DisruptionId]):
                 ),
                 "proposed_operator_id": str(proposal.proposed_operator_id),
                 "proposed_aircraft_id": str(proposal.proposed_aircraft_id),
+                "proposed_operator_version": proposal.proposed_operator_version,
+                "proposed_aircraft_version": proposal.proposed_aircraft_version,
+                "availability_record_id": (
+                    str(proposal.availability_record_id)
+                    if proposal.availability_record_id is not None
+                    else None
+                ),
+                "availability_recorded_at": (
+                    _iso(proposal.availability_recorded_at)
+                    if proposal.availability_recorded_at is not None
+                    else None
+                ),
                 "departure_window": (
                     {
                         "start": _iso(proposal.departure_window.start),
