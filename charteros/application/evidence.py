@@ -12,15 +12,15 @@ from typing import Protocol, cast
 from uuid import UUID
 
 from charteros.application.exceptions import EntityConflictError
-from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.application.quote_comparison import MissionQuoteComparison
+from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.matching import MatchingDecision
 
 PACKAGE_SCHEMA_VERSION = "audit-evidence-v1"
 SNAPSHOT_SCHEMA_VERSION = "decision-evidence-v1"
 SUPPLIER_SELECTION_POLICY_VERSION = "buyer-supplier-selection-v1"
 
-type JsonValue = None | bool | int | str | list[JsonValue] | dict[str, JsonValue]
+type JsonValue = bool | int | str | list[JsonValue] | dict[str, JsonValue] | None
 
 
 class EvidenceSubjectType(StrEnum):
@@ -42,7 +42,7 @@ class EvidenceParty:
 
     def __post_init__(self) -> None:
         if (self.buyer_id is None) == (self.operator_id is None):
-            raise DomainValidationError("exactly one buyer or operator evidence context is required")
+            raise DomainValidationError(\n                "exactly one buyer or operator evidence context is required"\n            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -654,7 +654,6 @@ class EvidenceService:
                     f"{aggregate_type}:{aggregate_id}: {ordered}"
                 )
 
-        source_ids = {(source.source_type, source.source_id) for source in material.sources}
         commercial_change_ids = {
             source.source_id
             for source in material.sources
