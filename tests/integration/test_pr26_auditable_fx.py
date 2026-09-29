@@ -8,7 +8,7 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, update
+from sqlalchemy import create_engine, text, update
 from sqlalchemy.orm import Session
 
 from apps.api.main import create_app
@@ -436,33 +436,76 @@ def test_pr26_expired_lock_fails_instead_of_repricing_silently() -> None:
         )
 
         engine = create_engine(settings.database_url)
+        original_locked_at = datetime.fromisoformat(
+            str(locked["fx_locked_at"]).replace("Z", "+00:00")
+        )
+        original_expires_at = datetime.fromisoformat(
+            str(locked["fx_expires_at"]).replace("Z", "+00:00")
+        )
         try:
             past = datetime.now(UTC) - timedelta(minutes=2)
-            with Session(engine) as session, session.begin():
-                session.execute(
-                    update(FxLockRow)
-                    .where(FxLockRow.id == UUID(str(locked["fx_lock_id"])))
-                    .values(
-                        locked_at=past,
-                        expires_at=past + timedelta(seconds=30),
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "ALTER TABLE fx_locks DISABLE TRIGGER "
+                        "trg_ei_fx_lock_guard"
                     )
                 )
-        finally:
-            engine.dispose()
+                try:
+                    connection.execute(
+                        update(FxLockRow)
+                        .where(FxLockRow.id == UUID(str(locked["fx_lock_id"])))
+                        .values(
+                            locked_at=past,
+                            expires_at=past + timedelta(seconds=30),
+                        )
+                    )
+                finally:
+                    connection.execute(
+                        text(
+                            "ALTER TABLE fx_locks ENABLE ALWAYS TRIGGER "
+                            "trg_ei_fx_lock_guard"
+                        )
+                    )
 
-        approval = client.post(
-            (
-                f"/v1/buyer-portal/missions/{setup['mission_id']}/quotes/"
-                f"{setup['usd_quote_id']}/approve"
-            ),
-            headers={
-                "X-Buyer-Id": setup["buyer_id"],
-                "Idempotency-Key": "pr26-expired-approve-fc",
-            },
-            json={"fx_lock_id": locked["fx_lock_id"]},
-        )
-        assert approval.status_code == 409
-        assert "expired" in approval.json()["detail"]
+            approval = client.post(
+                (
+                    f"/v1/buyer-portal/missions/{setup['mission_id']}/quotes/"
+                    f"{setup['usd_quote_id']}/approve"
+                ),
+                headers={
+                    "X-Buyer-Id": setup["buyer_id"],
+                    "Idempotency-Key": "pr26-expired-approve-fc",
+                },
+                json={"fx_lock_id": locked["fx_lock_id"]},
+            )
+            assert approval.status_code == 409
+            assert "expired" in approval.json()["detail"]
+        finally:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "ALTER TABLE fx_locks DISABLE TRIGGER "
+                        "trg_ei_fx_lock_guard"
+                    )
+                )
+                try:
+                    connection.execute(
+                        update(FxLockRow)
+                        .where(FxLockRow.id == UUID(str(locked["fx_lock_id"])))
+                        .values(
+                            locked_at=original_locked_at,
+                            expires_at=original_expires_at,
+                        )
+                    )
+                finally:
+                    connection.execute(
+                        text(
+                            "ALTER TABLE fx_locks ENABLE ALWAYS TRIGGER "
+                            "trg_ei_fx_lock_guard"
+                        )
+                    )
+            engine.dispose()
 
 
 @pytest.mark.integration
@@ -572,26 +615,78 @@ def test_pr26_tampered_conversion_cannot_reconstruct_as_complete_evidence() -> N
         assert approval.status_code == 201
 
         engine = create_engine(settings.database_url)
+        lock_id = UUID(str(locked["fx_lock_id"]))
+        quote_id = UUID(setup["usd_quote_id"])
+        original_expected: int | None = None
+        evidence = None
         try:
-            with Session(engine) as session, session.begin():
-                conversion = session.get(
-                    FxLockConversionRow,
-                    (
-                        UUID(str(locked["fx_lock_id"])),
-                        UUID(setup["usd_quote_id"]),
+            with engine.begin() as connection:
+                original_expected = connection.execute(
+                    text(
+                        "SELECT converted_expected_minor "
+                        "FROM fx_lock_conversions "
+                        "WHERE lock_id = :lock_id AND quote_id = :quote_id"
                     ),
+                    {"lock_id": lock_id, "quote_id": quote_id},
+                ).scalar_one()
+                connection.execute(
+                    text(
+                        "ALTER TABLE fx_lock_conversions DISABLE TRIGGER "
+                        "trg_ei_fx_conversion_guard"
+                    )
                 )
-                assert conversion is not None
-                conversion.converted_expected_minor += 1
+                try:
+                    connection.execute(
+                        text(
+                            "UPDATE fx_lock_conversions "
+                            "SET converted_expected_minor = converted_expected_minor + 1 "
+                            "WHERE lock_id = :lock_id AND quote_id = :quote_id"
+                        ),
+                        {"lock_id": lock_id, "quote_id": quote_id},
+                    )
+                finally:
+                    connection.execute(
+                        text(
+                            "ALTER TABLE fx_lock_conversions ENABLE ALWAYS TRIGGER "
+                            "trg_ei_fx_conversion_guard"
+                        )
+                    )
+
+            evidence = client.get(
+                f"/v1/evidence/missions/{setup['mission_id']}",
+                headers={"X-Buyer-Id": setup["buyer_id"]},
+            )
         finally:
+            if original_expected is not None:
+                with engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "ALTER TABLE fx_lock_conversions DISABLE TRIGGER "
+                            "trg_ei_fx_conversion_guard"
+                        )
+                    )
+                    try:
+                        connection.execute(
+                            text(
+                                "UPDATE fx_lock_conversions "
+                                "SET converted_expected_minor = :original_expected "
+                                "WHERE lock_id = :lock_id AND quote_id = :quote_id"
+                            ),
+                            {
+                                "lock_id": lock_id,
+                                "quote_id": quote_id,
+                                "original_expected": original_expected,
+                            },
+                        )
+                    finally:
+                        connection.execute(
+                            text(
+                                "ALTER TABLE fx_lock_conversions ENABLE ALWAYS TRIGGER "
+                                "trg_ei_fx_conversion_guard"
+                            )
+                        )
             engine.dispose()
 
-        evidence = client.get(
-            f"/v1/evidence/missions/{setup['mission_id']}",
-            headers={"X-Buyer-Id": setup["buyer_id"]},
-        )
+        assert evidence is not None
         assert evidence.status_code == 409
-        assert (
-            "deterministic replay" in evidence.json()["detail"]
-            or "integrity digest" in evidence.json()["detail"]
-        )
+        assert "database evidence integrity violation" in evidence.json()["detail"]

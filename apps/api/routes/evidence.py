@@ -16,6 +16,7 @@ from charteros.application.evidence import (
     EvidenceService,
     EvidenceSubjectType,
 )
+from charteros.infrastructure.db.evidence_integrity import assert_evidence_integrity
 from charteros.infrastructure.db.repositories.evidence import SqlAlchemyEvidenceRepository
 
 router = APIRouter(prefix="/v1/evidence", tags=["audit-evidence"])
@@ -60,6 +61,7 @@ def _build(
 ) -> EvidencePackageResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        assert_evidence_integrity(session)
         package = EvidenceService(SqlAlchemyEvidenceRepository(session)).build(
             subject_type=subject_type,
             subject_id=subject_id,
