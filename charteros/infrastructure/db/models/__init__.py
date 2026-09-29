@@ -15,6 +15,13 @@ def load_models() -> None:
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
     )
+    from charteros.infrastructure.db.models.graph import (
+        GraphAggregateCursorRow,
+        GraphEdgeRow,
+        GraphNodeRow,
+        GraphProjectionCheckpointRow,
+        GraphProjectionVersionRow,
+    )
     from charteros.infrastructure.db.models.matching import MatchingReferenceProfileRow
     from charteros.infrastructure.db.models.missions import MissionRow
     from charteros.infrastructure.db.models.outbox import OutboxConsumerReceiptRow
@@ -29,6 +36,11 @@ def load_models() -> None:
         AirportRow,
         BookingRow,
         ContractRow,
+        GraphAggregateCursorRow,
+        GraphEdgeRow,
+        GraphNodeRow,
+        GraphProjectionCheckpointRow,
+        GraphProjectionVersionRow,
         IdempotencyRecordRow,
         MatchingReferenceProfileRow,
         MissionRow,

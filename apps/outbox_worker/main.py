@@ -9,10 +9,12 @@ from threading import Event
 from uuid import UUID, uuid4
 
 from sqlalchemy import Engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from charteros.infrastructure.db.engine import build_engine, build_session_factory
 from charteros.infrastructure.db.repositories.outbox import SqlAlchemyOutboxDeliveryRepository
-from charteros.infrastructure.outbox import JsonLogOutboxPublisher
+from charteros.infrastructure.graph_projection import GraphProjectionPublisher
+from charteros.infrastructure.outbox import CompositeOutboxPublisher, JsonLogOutboxPublisher
 from charteros.outbox import OutboxWorker, OutboxWorkerConfig
 from charteros.shared.config import Settings, get_settings
 from charteros.shared.logging import configure_logging, get_logger
@@ -20,6 +22,14 @@ from charteros.shared.logging import configure_logging, get_logger
 
 def _worker_id() -> str:
     return f"{socket.gethostname()}:{os.getpid()}:{uuid4()}"
+
+
+def _publisher(session_factory: sessionmaker[Session]) -> CompositeOutboxPublisher:
+    # Kept as a helper so production and test worker composition cannot drift.
+    return CompositeOutboxPublisher(
+        GraphProjectionPublisher(session_factory),
+        JsonLogOutboxPublisher(),
+    )
 
 
 def build_worker(
@@ -31,7 +41,7 @@ def build_worker(
     session_factory = build_session_factory(engine)
     worker = OutboxWorker(
         repository=SqlAlchemyOutboxDeliveryRepository(session_factory),
-        publisher=JsonLogOutboxPublisher(),
+        publisher=_publisher(session_factory),
         worker_id=worker_id or _worker_id(),
         config=OutboxWorkerConfig(
             batch_size=settings.outbox_batch_size,
@@ -63,7 +73,7 @@ def main() -> None:
     repository = SqlAlchemyOutboxDeliveryRepository(session_factory)
     worker = OutboxWorker(
         repository=repository,
-        publisher=JsonLogOutboxPublisher(),
+        publisher=_publisher(session_factory),
         worker_id=_worker_id(),
         config=OutboxWorkerConfig(
             batch_size=settings.outbox_batch_size,

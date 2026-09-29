@@ -1,7 +1,20 @@
 from __future__ import annotations
 
-from charteros.application.outbox import OutboxEnvelope
+from charteros.application.outbox import OutboxEnvelope, OutboxPublisher
 from charteros.shared.logging import get_logger
+
+
+class CompositeOutboxPublisher:
+    """Runs durable publishers in order; any failure leaves PR14 delivery retryable."""
+
+    def __init__(self, *publishers: OutboxPublisher) -> None:
+        if not publishers:
+            raise ValueError("at least one outbox publisher is required")
+        self._publishers = publishers
+
+    def publish(self, envelope: OutboxEnvelope) -> None:
+        for publisher in self._publishers:
+            publisher.publish(envelope)
 
 
 class JsonLogOutboxPublisher:
