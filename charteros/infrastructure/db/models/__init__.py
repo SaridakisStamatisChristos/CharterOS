@@ -6,8 +6,6 @@ def load_models() -> None:
         AircraftTypeRow,
         AirportRow,
         IdempotencyRecordRow,
-        OperatorInvoiceLineRow,
-        OperatorInvoiceRevisionRow,
         OperatorRow,
         OrganizationRow,
         OutboxEventRow,
@@ -28,7 +26,6 @@ def load_models() -> None:
         GraphEdgeRow,
         GraphNodeRow,
         GraphProjectionCheckpointRow,
-        FinancialReconciliationRow,
         GraphProjectionVersionRow,
     )
     from charteros.infrastructure.db.models.matching import MatchingReferenceProfileRow
@@ -48,7 +45,6 @@ def load_models() -> None:
         TenderAdminCorrectionRow,
         TenderInvitationRow,
         TenderRow,
-        VarianceApprovalRow,
     )
 
     _ = (
@@ -63,6 +59,7 @@ def load_models() -> None:
         DisruptionCommercialChangeRow,
         DisruptionProposalRow,
         DisruptionRow,
+        FinancialReconciliationRow,
         GraphAggregateCursorRow,
         GraphEdgeRow,
         GraphNodeRow,
@@ -71,6 +68,8 @@ def load_models() -> None:
         IdempotencyRecordRow,
         MatchingReferenceProfileRow,
         MissionRow,
+        OperatorInvoiceLineRow,
+        OperatorInvoiceRevisionRow,
         OperatorRow,
         OrganizationRow,
         OutboxConsumerReceiptRow,
@@ -83,6 +82,7 @@ def load_models() -> None:
         TenderAdminCorrectionRow,
         TenderInvitationRow,
         TenderRow,
+        VarianceApprovalRow,
     )
 
 
