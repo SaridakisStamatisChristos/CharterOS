@@ -43,6 +43,7 @@ def _reconciliation() -> FinancialReconciliation:
         quote_revision_number=1,
         booked_amount=Money(8_000_000, EUR),
         booked_worst_case_amount=Money(8_100_000, EUR),
+        commercial_change_ids=(),
         opened_at=NOW,
         actor_id=OperatorId(_id(4)),
     )
