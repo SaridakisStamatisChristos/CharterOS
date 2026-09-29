@@ -599,8 +599,7 @@ class TenderService:
             )
         normalized_target_type = " ".join(target_type.split()).lower()
         if not any(
-            item.aggregate_type == normalized_target_type
-            and item.aggregate_id == target_id.value
+            item.aggregate_type == normalized_target_type and item.aggregate_id == target_id.value
             for item in audit_events
         ):
             raise EntityConflictError(
