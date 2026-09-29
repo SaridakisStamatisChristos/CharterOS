@@ -592,11 +592,25 @@ class TenderService:
             raise EntityConflictError(
                 "admin correction path is only available at or after the tender deadline"
             )
+        audit_events = self._tenders.list_audit_events(tender.id)
+        if not any(item.event_id == causation_event_id.value for item in audit_events):
+            raise EntityConflictError(
+                "admin correction causation event is not part of this tender's evidence"
+            )
+        normalized_target_type = " ".join(target_type.split()).lower()
+        if not any(
+            item.aggregate_type == normalized_target_type
+            and item.aggregate_id == target_id.value
+            for item in audit_events
+        ):
+            raise EntityConflictError(
+                "admin correction target is not part of this tender's evidence"
+            )
         correction = TenderAdminCorrection(
             id=TenderAdminCorrectionId.new(),
             tender_id=tender.id,
             actor_id=actor_id,
-            target_type=target_type,
+            target_type=normalized_target_type,
             target_id=target_id,
             field_name=field_name,
             original_value=original_value,
@@ -627,18 +641,31 @@ class TenderService:
         *,
         tender_id: TenderId,
         operator_id: OperatorId,
+        invitation_id: TenderInvitationId,
     ) -> TenderSupplierView:
         tender = self.get(tender_id)
-        invitation = self._tenders.find_invitation_for_operator(tender.id, operator_id)
-        if invitation is None:
-            raise EntityNotFoundError("operator is not invited to this tender")
-        # Deliberately return only this operator's RFQ lineage. In sealed mode no competitor
-        # identifiers, commercial values, revision history, or rank are exposed.
+        invitation = self._tenders.get_invitation(invitation_id)
+        if (
+            invitation is None
+            or invitation.tender_id != tender.id
+            or invitation.operator_id != operator_id
+        ):
+            raise EntityNotFoundError("tender supplier capability does not match this invitation")
+        # The unguessable invitation ID acts as a capability boundary until platform identity
+        # authentication is introduced. Only this invitation's own RFQ lineage is returned.
         quotes = self._quotes.list_for_rfq(invitation.rfq_id)
         return TenderSupplierView(tender=tender, invitation=invitation, quotes=quotes)
 
     def audit_trail(self, tender_id: TenderId) -> TenderAuditTrail:
         tender = self.get(tender_id)
+        if tender.sealed_bid and tender.status in (
+            TenderStatus.DRAFT,
+            TenderStatus.OPEN,
+            TenderStatus.BEST_AND_FINAL,
+        ):
+            raise EntityConflictError(
+                "sealed tender audit evidence is unavailable until the tender is closed"
+            )
         return TenderAuditTrail(
             tender=tender,
             invitations=self._tenders.list_invitations(tender.id),
