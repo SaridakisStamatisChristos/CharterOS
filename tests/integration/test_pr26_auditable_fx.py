@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import UUID
 
 import pytest
@@ -203,7 +204,7 @@ def _create_rate(
     *,
     suffix: str,
     rate: str = "0.8421",
-) -> dict[str, object]:
+) -> dict[str, Any]:
     response = client.post(
         "/v1/fx/rates",
         headers={"Idempotency-Key": f"pr26-rate-{suffix}"},
@@ -219,7 +220,7 @@ def _create_rate(
         },
     )
     assert response.status_code == 201
-    return response.json()
+    return cast(dict[str, Any], response.json())
 
 
 def _fx_lock(
@@ -228,7 +229,7 @@ def _fx_lock(
     buyer_id: str,
     mission_id: str,
     idempotency_key: str,
-) -> dict[str, object]:
+) -> dict[str, Any]:
     response = client.post(
         f"/v1/buyer-portal/missions/{mission_id}/quotes/compare/fx-locks",
         headers={
@@ -238,7 +239,7 @@ def _fx_lock(
         json={"base_currency": "EUR", "fx_source": "ecb-test"},
     )
     assert response.status_code == 201
-    return response.json()
+    return cast(dict[str, Any], response.json())
 
 
 @pytest.mark.integration
@@ -481,7 +482,7 @@ def test_pr26_concurrent_rate_corrections_cannot_fork_lineage() -> None:
                     "fx_source_version": f"race-{key}",
                 },
             )
-            return response.status_code
+            return int(response.status_code)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         statuses = sorted(
