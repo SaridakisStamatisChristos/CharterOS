@@ -176,10 +176,7 @@ def test_booking_workflow_contract_guard_idempotency_mission_coupling_and_outbox
             ]
 
             persisted = connection.execute(
-                text(
-                    "SELECT state, version, state_changed_at, created_at "
-                    "FROM bookings WHERE id=:id"
-                ),
+                text("SELECT state, version, state_changed_at, created_at FROM bookings WHERE id=:id"),
                 {"id": UUID(booking_id)},
             ).one()
             assert persisted.state == "reconciled"
@@ -269,13 +266,17 @@ def test_competing_next_step_commands_serialize_without_skipping_state() -> None
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            rows = connection.execute(
-                text(
-                    "SELECT event_type FROM outbox_events WHERE aggregate_id=:id "
-                    "AND event_type LIKE 'BOOKING_%' ORDER BY aggregate_version"
-                ),
-                {"id": UUID(booking_id)},
-            ).scalars().all()
+            rows = (
+                connection.execute(
+                    text(
+                        "SELECT event_type FROM outbox_events WHERE aggregate_id=:id "
+                        "AND event_type LIKE 'BOOKING_%' ORDER BY aggregate_version"
+                    ),
+                    {"id": UUID(booking_id)},
+                )
+                .scalars()
+                .all()
+            )
             assert rows[:2] == ["BOOKING_CREATED", "BOOKING_CONTRACTED"]
             assert rows.count("BOOKING_CONTRACTED") == 1
             assert rows.count("BOOKING_PAYMENT_PENDING") == (1 if payment_status == 200 else 0)
