@@ -785,9 +785,7 @@ def approve_quote(
         if selected is None:
             raise EntityConflictError("quote is not part of the current mission comparison")
         if not selected.decision_eligible:
-            raise EntityConflictError(
-                "quote is not currently eligible for procurement approval"
-            )
+            raise EntityConflictError("quote is not currently eligible for procurement approval")
 
         approval = _approval_service(session).approve(
             buyer_id=typed_buyer,
