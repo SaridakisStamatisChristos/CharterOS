@@ -56,12 +56,21 @@ Mission/Quote lifecycle still otherwise qualifies.
 
 ### Feasibility and aircraft continuity
 
-For every structural empty-leg window, PR18 evaluates:
+For every structural empty-leg window, PR18 first resolves both bounding Booking lineages from
+the active graph and verifies that aircraft, operator, Mission, airport, and window evidence agrees
+with the structural candidate. The raw PR16 window starts at the end of the previous Mission's
+*departure* window, which is not yet aircraft availability at the destination. PR18 therefore
+conservatively computes the previous booked Mission's great-circle flight duration from its origin
+to the structural `from_airport`, adds turnaround, and uses that derived timestamp as
+`aircraft_available_at`.
 
-1. direct baseline reposition from the previous Mission destination to the next Mission origin;
-2. pre-reposition from that location to the candidate Mission origin;
-3. the candidate revenue Mission;
-4. post-reposition from candidate destination to the next Mission origin.
+PR18 then evaluates:
+
+1. the previous booked revenue leg needed to establish actual destination availability;
+2. direct baseline reposition from the previous Mission destination to the next Mission origin;
+3. pre-reposition from that location to the candidate Mission origin;
+4. the candidate revenue Mission;
+5. post-reposition from candidate destination to the next Mission origin.
 
 The existing matching reference profile is reused for:
 
@@ -74,9 +83,11 @@ The existing matching distance/range/cost primitives are reused rather than intr
 aviation math.
 
 A candidate must preserve aircraft continuity before the next planned booking. PR18 schedules the
-candidate at the earliest feasible instant inside its half-open Mission departure window after
-pre-reposition and turnaround. It then requires enough time for the revenue leg, turnaround,
-post-reposition, and final turnaround before the structural empty-leg window closes.
+candidate at the earliest feasible instant inside its half-open Mission departure window after the
+derived `aircraft_available_at`, pre-reposition, and turnaround. It then requires enough time for
+the revenue leg, turnaround, post-reposition, and final turnaround before the structural empty-leg
+window closes. Using the latest previous departure bound makes v1 conservative rather than assuming
+an aircraft is already at the previous Mission destination when its departure window ends.
 
 Aircraft capacity, route range, reposition range, operator verification, insurance, commercial
 status, aircraft active status, and reference-profile presence all fail closed.
