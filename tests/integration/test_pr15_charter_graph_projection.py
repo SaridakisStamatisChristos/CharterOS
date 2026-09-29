@@ -261,10 +261,13 @@ def test_event_to_node_and_edge_projection_with_restart_checkpoint() -> None:
         assert restarted.consume_into_version(version, position, processed_at=position.recorded_at)
 
         with factory() as session:
-            assert session.get(
-                GraphNodeRow,
-                (PROJECTION_NAME, version, "aircraft", aircraft_id),
-            ) is not None
+            assert (
+                session.get(
+                    GraphNodeRow,
+                    (PROJECTION_NAME, version, "aircraft", aircraft_id),
+                )
+                is not None
+            )
             edges = tuple(
                 session.scalars(
                     select(GraphEdgeRow).where(
@@ -372,10 +375,13 @@ def test_projection_version_isolation() -> None:
 
         with factory() as session:
             for projection_version in (first_version, second_version):
-                assert session.get(
-                    GraphNodeRow,
-                    (PROJECTION_NAME, projection_version, "airport", event.aggregate_id),
-                ) is not None
+                assert (
+                    session.get(
+                        GraphNodeRow,
+                        (PROJECTION_NAME, projection_version, "airport", event.aggregate_id),
+                    )
+                    is not None
+                )
     finally:
         engine.dispose()
 
@@ -468,8 +474,7 @@ def test_full_rebuild_is_deterministic_and_verification_detects_corruption() -> 
         assert not corrupted.ok
         assert any("invalid edge references" in issue for issue in corrupted.issues)
         assert any(
-            "deterministic reference rebuild digest mismatch" in issue
-            for issue in corrupted.issues
+            "deterministic reference rebuild digest mismatch" in issue for issue in corrupted.issues
         )
     finally:
         engine.dispose()
