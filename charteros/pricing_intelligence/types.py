@@ -64,6 +64,7 @@ class PricingFeatures:
     position_state: PositionState
     position_age_minutes: int | None
     quote_revision_number: int
+    normalization_version: str
     currency: Currency
     normalized_expected_total_minor: int
     normalized_worst_case_total_minor: int
