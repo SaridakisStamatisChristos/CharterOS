@@ -55,6 +55,7 @@ def evaluate_baseline(
     *,
     structural: StructuralEmptyLeg,
     candidate: MatchingCandidateSnapshot,
+    previous_origin_airport: Airport,
     from_airport: Airport,
     continuity_airport: Airport,
 ) -> BaselineEvaluation:
@@ -64,6 +65,25 @@ def evaluate_baseline(
 
     profile = candidate.reference_profile
     assert profile is not None
+    previous_revenue_distance = haversine_distance_tenths_nm(
+        previous_origin_airport.latitude,
+        previous_origin_airport.longitude,
+        from_airport.latitude,
+        from_airport.longitude,
+    )
+    if required_range_nm(previous_revenue_distance) > candidate.range_nm:
+        return BaselineEvaluation(
+            baseline=None,
+            reasons=(RepositionReasonCode.INSUFFICIENT_ROUTE_RANGE,),
+        )
+    previous_revenue_minutes = flight_minutes(
+        previous_revenue_distance,
+        profile.cruise_speed_kts,
+    )
+    aircraft_available_at = structural.window_start + timedelta(
+        minutes=previous_revenue_minutes + profile.turnaround_buffer_minutes
+    )
+
     distance = haversine_distance_tenths_nm(
         from_airport.latitude,
         from_airport.longitude,
@@ -82,7 +102,7 @@ def evaluate_baseline(
         )
 
     minutes = flight_minutes(distance, profile.cruise_speed_kts)
-    ready_at = structural.window_start + timedelta(
+    ready_at = aircraft_available_at + timedelta(
         minutes=minutes + profile.turnaround_buffer_minutes
     )
     if ready_at > structural.window_end:
@@ -93,6 +113,9 @@ def evaluate_baseline(
     return BaselineEvaluation(
         baseline=BaselineEmptyLeg(
             structural=structural,
+            aircraft_available_at=aircraft_available_at,
+            previous_revenue_distance_tenths_nm=previous_revenue_distance,
+            previous_revenue_minutes=previous_revenue_minutes,
             baseline_distance_tenths_nm=distance,
             baseline_minutes=minutes,
             baseline_reposition_cost=operating_cost_for_minutes(
@@ -178,7 +201,7 @@ def evaluate_insertion(
     post_minutes = flight_minutes(post_distance, profile.cruise_speed_kts)
     buffer = profile.turnaround_buffer_minutes
 
-    earliest_after_preposition = baseline.structural.window_start + timedelta(
+    earliest_after_preposition = baseline.aircraft_available_at + timedelta(
         minutes=pre_minutes + buffer
     )
     scheduled_departure = max(
