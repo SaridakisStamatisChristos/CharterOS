@@ -12,6 +12,7 @@ from apps.api.routes import (
     catalog_router,
     contract_router,
     disruption_router,
+    evidence_router,
     fleet_router,
     graph_query_router,
     matching_router,
@@ -76,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(booking_router)
     app.include_router(contract_router)
     app.include_router(disruption_router)
+    app.include_router(evidence_router)
 
     @app.exception_handler(DomainValidationError)
     async def domain_validation_handler(
