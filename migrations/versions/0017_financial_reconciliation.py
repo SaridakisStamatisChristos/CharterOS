@@ -282,6 +282,7 @@ def upgrade() -> None:
         sa.Column("invoice_revision_id", sa.Uuid(), nullable=False),
         sa.Column("buyer_id", sa.Uuid(), nullable=False),
         sa.Column("approved_variance_minor", sa.BigInteger(), nullable=False),
+        sa.Column("resolves_dispute_id", sa.Uuid(), nullable=True),
         sa.Column("approved_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("note", sa.String(length=1000), nullable=True),
         sa.ForeignKeyConstraint(
@@ -302,9 +303,19 @@ def upgrade() -> None:
             ondelete="RESTRICT",
             name="fk_reconciliation_variance_approvals_buyer",
         ),
+        sa.ForeignKeyConstraint(
+            ["resolves_dispute_id"],
+            ["reconciliation_disputes.id"],
+            ondelete="RESTRICT",
+            name="fk_reconciliation_variance_approvals_resolves_dispute",
+        ),
         sa.UniqueConstraint(
             "invoice_revision_id",
             name="uq_reconciliation_variance_approvals_invoice_revision",
+        ),
+        sa.UniqueConstraint(
+            "resolves_dispute_id",
+            name="uq_reconciliation_variance_approvals_resolves_dispute",
         ),
         sa.CheckConstraint(
             "approved_variance_minor >= 0",
