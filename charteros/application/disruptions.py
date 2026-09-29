@@ -123,7 +123,9 @@ class DisruptionService:
         context = self._booking_context(booking_id, for_update=True)
         self._assert_party(context, party)
         if context.booking.state in (BookingState.COMPLETED, BookingState.RECONCILED):
-            raise EntityConflictError("completed or reconciled booking cannot open a new disruption")
+            raise EntityConflictError(
+                "completed or reconciled booking cannot open a new disruption"
+            )
         if when < context.booking.created_at:
             raise EntityConflictError("disruption detected_at cannot precede booking creation")
         effective = (
