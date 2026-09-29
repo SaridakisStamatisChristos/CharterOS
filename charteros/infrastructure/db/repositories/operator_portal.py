@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, or_, select
@@ -263,7 +262,7 @@ class SqlAlchemyOperatorPortalRepository:
         return PortalBookingPage(items=items, next_cursor=next_cursor)
 
     @staticmethod
-    def _aircraft_statement() -> Select[Any]:
+    def _aircraft_statement() -> Select[AircraftRow, AircraftTypeRow, AirportRow]:
         return (
             select(AircraftRow, AircraftTypeRow, AirportRow)
             .join(AircraftTypeRow, AircraftTypeRow.id == AircraftRow.aircraft_type_id)
@@ -271,7 +270,7 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _aircraft_view(row: Row[Any]) -> PortalAircraft:
+    def _aircraft_view(row: Row[AircraftRow, AircraftTypeRow, AirportRow]) -> PortalAircraft:
         aircraft = row[0]
         aircraft_type = row[1]
         home_base = row[2]
@@ -299,7 +298,7 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _rfq_statement() -> Select[Any]:
+    def _rfq_statement() -> Select[RfqRow, MissionRow, str, str, QuoteRow, TenderInvitationRow, TenderRow]:
         origin = aliased(AirportRow)
         destination = aliased(AirportRow)
         return (
@@ -327,7 +326,9 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _rfq_view(row: Row[Any]) -> PortalRfq:
+    def _rfq_view(
+        row: Row[RfqRow, MissionRow, str, str, QuoteRow, TenderInvitationRow, TenderRow],
+    ) -> PortalRfq:
         rfq = row[0]
         mission = row[1]
         current_quote = row[4]
@@ -386,7 +387,7 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _booking_statement() -> Select[Any]:
+    def _booking_statement() -> Select[BookingRow, MissionRow, QuoteRow, RfqRow, AircraftRow, str, str]:
         origin = aliased(AirportRow)
         destination = aliased(AirportRow)
         return (
@@ -408,7 +409,9 @@ class SqlAlchemyOperatorPortalRepository:
         )
 
     @staticmethod
-    def _booking_view(row: Row[Any]) -> PortalBooking:
+    def _booking_view(
+        row: Row[BookingRow, MissionRow, QuoteRow, RfqRow, AircraftRow, str, str],
+    ) -> PortalBooking:
         booking = row[0]
         mission = row[1]
         quote = row[2]
