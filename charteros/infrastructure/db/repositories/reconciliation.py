@@ -123,7 +123,11 @@ def _invoice_from_row(
     )
 
 
-def _dispute_from_row(row: ReconciliationDisputeRow, *, currency: Currency) -> ReconciliationDispute:
+def _dispute_from_row(
+    row: ReconciliationDisputeRow,
+    *,
+    currency: Currency,
+) -> ReconciliationDispute:
     return ReconciliationDispute(
         id=ReconciliationDisputeId(row.id),
         reconciliation_id=FinancialReconciliationId(row.reconciliation_id),
