@@ -24,9 +24,9 @@ legitimately advances remain mutable. Examples:
   retry, poison and delivery metadata remain mutable;
 - FX observations and lock conversion rows are append-only; FX lock terms and digest are immutable
   while consumption status/version fields may advance;
-- quote commercial terms/components are immutable per revision while quote status/timestamps may
-  advance;
-- booking/contract commercial identities are immutable while workflow/signature state may advance;
+- live quote and booking rows remain operational records and are not frozen by PR28;
+- commitment evidence is protected at the contract, procurement-approval, decision-snapshot and
+  immutable outbox-event layers; contract signature/status state may advance;
 - reconciliation monetary basis and append-only invoice/dispute/approval evidence are protected
   while reconciliation lifecycle pointers and completion fields may advance;
 - decision snapshots, tender admin corrections and consumer receipts are append-only.

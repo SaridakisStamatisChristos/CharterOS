@@ -532,12 +532,8 @@ def test_pr16_graph_queries_are_bounded_bitemporal_and_lineage_preserving() -> N
             assert lineage.lineage_status == "planned_route_only"
     finally:
         with factory.begin() as session:
-            session.execute(
-                delete(OutboxEventRow).where(
-                    OutboxEventRow.aggregate_type == "quote",
-                    OutboxEventRow.aggregate_id == quote_v2,
-                )
-            )
+            # PR28 makes the historical outbox envelope append-only. These synthetic
+            # UUID-keyed events can safely remain as evidence after this test.
             session.execute(
                 delete(GraphEdgeRow).where(
                     GraphEdgeRow.projection_name == "charter_graph",

@@ -82,39 +82,6 @@ _PROTECTED_TABLES: tuple[
         "mission_id, approved_at, id",
     ),
     (
-        "quotes",
-        "quote",
-        ("id",),
-        ("rfq_id",),
-        (
-            "version",
-            "status",
-            "is_current",
-            "accepted_at",
-            "rejected_at",
-            "expired_at",
-            "withdrawn_at",
-            "superseded_at",
-        ),
-        "rfq_id, revision_number, id",
-    ),
-    (
-        "quote_price_components",
-        "quote_component",
-        ("quote_id", "line_number"),
-        ("quote_id",),
-        (),
-        "quote_id, line_number",
-    ),
-    (
-        "bookings",
-        "booking",
-        ("id",),
-        ("mission_id",),
-        ("version", "state", "state_changed_at"),
-        "mission_id, created_at, id",
-    ),
-    (
         "contracts",
         "contract",
         ("id",),
@@ -203,14 +170,6 @@ _PROTECTED_TABLES: tuple[
         ("tender_id",),
         (),
         "tender_id, corrected_at, id",
-    ),
-    (
-        "outbox_consumer_receipts",
-        "consumer_receipt",
-        ("consumer_name", "event_id"),
-        ("consumer_name",),
-        (),
-        "consumer_name, processed_at, event_id",
     ),
 )
 
@@ -831,9 +790,6 @@ def upgrade() -> None:
                 'fx_locks',
                 'fx_lock_conversions',
                 'procurement_approvals',
-                'quotes',
-                'quote_price_components',
-                'bookings',
                 'contracts',
                 'disruption_proposals',
                 'disruption_commercial_changes',
@@ -843,8 +799,7 @@ def upgrade() -> None:
                 'operator_invoice_lines',
                 'reconciliation_disputes',
                 'reconciliation_variance_approvals',
-                'tender_admin_corrections',
-                'outbox_consumer_receipts'
+                'tender_admin_corrections'
             ]
             LOOP
                 EXECUTE format('REVOKE DELETE ON TABLE public.%I FROM %I', v_table, p_role);
@@ -854,13 +809,11 @@ def upgrade() -> None:
                 'decision_evidence_snapshots',
                 'fx_rates',
                 'fx_lock_conversions',
-                'quote_price_components',
                 'disruption_buyer_decisions',
                 'operator_invoice_lines',
                 'reconciliation_disputes',
                 'reconciliation_variance_approvals',
                 'tender_admin_corrections',
-                'outbox_consumer_receipts'
             ]
             LOOP
                 EXECUTE format('REVOKE UPDATE ON TABLE public.%I FROM %I', v_table, p_role);
