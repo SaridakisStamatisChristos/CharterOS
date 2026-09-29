@@ -259,7 +259,9 @@ class GraphQueryService:
     def booking_flight_lineage(self, *, booking_id: UUID) -> BookingFlightLineage:
         item = self._repository.booking_flight_lineage(booking_id=booking_id)
         if item is None:
-            raise EntityNotFoundError("booking does not exist in the active Charter Graph projection")
+            raise EntityNotFoundError(
+                "booking does not exist in the active Charter Graph projection"
+            )
         return item
 
 
