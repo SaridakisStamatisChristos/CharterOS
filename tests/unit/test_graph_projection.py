@@ -57,6 +57,33 @@ def _envelope(
     )
 
 
+def _testbench_position_at(
+    positions: dict[str, dict[str, object]], *, event_time: str, known_as_of: str
+) -> str:
+    event_cutoff = _parse_iso(event_time)
+    knowledge_cutoff = _parse_iso(known_as_of)
+    candidates: list[tuple[datetime, datetime, str, str]] = []
+    for position_id, attributes in positions.items():
+        position_event_time = _parse_iso(attributes.get("event_time"))
+        position_knowledge_time = _parse_iso(attributes.get("knowledge_time"))
+        airport_id = attributes.get("airport_id")
+        if not isinstance(airport_id, str):
+            raise AssertionError("testbench position must reference an airport")
+        if position_event_time <= event_cutoff and position_knowledge_time <= knowledge_cutoff:
+            candidates.append(
+                (position_event_time, position_knowledge_time, position_id, airport_id)
+            )
+    if not candidates:
+        raise AssertionError("testbench expected a historically knowable position")
+    return max(candidates)[3]
+
+
+def _parse_iso(value: object) -> datetime:
+    if not isinstance(value, str):
+        raise AssertionError("testbench timestamp must be a string")
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+
+
 def test_aircraft_registration_projects_node_and_relations() -> None:
     aircraft_id = uuid4()
     operator_id = uuid4()
@@ -219,4 +246,14 @@ def test_charter_graph_testbench_preserves_no_hindsight_position_history() -> No
         positions[fixture["positions"][1]["id"]]["knowledge_time"]
         == (fixture["positions"][1]["recorded_at"])
     )
+    assert _testbench_position_at(
+        positions,
+        event_time=fixture["decision_event_time"],
+        known_as_of=fixture["historical_known_as_of"],
+    ) == fixture["expected_historical_airport_id"]
+    assert _testbench_position_at(
+        positions,
+        event_time=fixture["decision_event_time"],
+        known_as_of=fixture["later_known_as_of"],
+    ) == fixture["expected_later_airport_id"]
     assert GraphReferenceState().digest() != state.digest()
