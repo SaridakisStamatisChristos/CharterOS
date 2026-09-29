@@ -291,7 +291,6 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
         quote_revision_number: int,
         booked_amount: Money,
         booked_worst_case_amount: Money,
-        commercial_change_ids: tuple[DisruptionCommercialChangeId, ...],
         opened_at: datetime,
         status: FinancialReconciliationStatus,
         current_invoice_revision_id: OperatorInvoiceRevisionId | None = None,
