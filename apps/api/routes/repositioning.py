@@ -44,8 +44,11 @@ class RepositionAssignmentResponse(BaseModel):
     continuity_airport_id: UUID
     window_start: datetime
     window_end: datetime
+    aircraft_available_at: datetime
     scheduled_departure: datetime
     continuity_ready_at: datetime
+    previous_revenue_distance_nm: Decimal
+    previous_revenue_minutes: int
     baseline_reposition_distance_nm: Decimal
     pre_reposition_distance_nm: Decimal
     revenue_distance_nm: Decimal
@@ -112,8 +115,13 @@ def _assignment_response(item: RepositionAssignment) -> RepositionAssignmentResp
         continuity_airport_id=item.continuity_airport_id,
         window_start=item.window_start,
         window_end=item.window_end,
+        aircraft_available_at=item.aircraft_available_at,
         scheduled_departure=item.scheduled_departure,
         continuity_ready_at=item.continuity_ready_at,
+        previous_revenue_distance_nm=_distance(
+            item.previous_revenue_distance_tenths_nm
+        ),
+        previous_revenue_minutes=item.previous_revenue_minutes,
         baseline_reposition_distance_nm=_distance(
             item.baseline_reposition_distance_tenths_nm
         ),
