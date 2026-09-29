@@ -640,12 +640,10 @@ def test_pr25_disruption_and_final_reconciliation_reconstruct_exact_lineage() ->
         source_by_type = {
             item["source_type"]: item
             for item in package["sources"]
-            if item["source_type"]
-            in {"financial_reconciliation", "disruption_commercial_change"}
+            if item["source_type"] in {"financial_reconciliation", "disruption_commercial_change"}
         }
         assert (
-            source_by_type["financial_reconciliation"]["facts"]["final_payable_minor"]
-            == 8_375_000
+            source_by_type["financial_reconciliation"]["facts"]["final_payable_minor"] == 8_375_000
         )
         assert source_by_type["disruption_commercial_change"]["source_id"] == change_id
 
