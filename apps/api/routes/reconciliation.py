@@ -38,6 +38,7 @@ from charteros.domain.shared.currency import Currency
 from charteros.domain.shared.ids import CorrelationId
 from charteros.infrastructure.db.repositories import (
     SqlAlchemyBookingRepository,
+    SqlAlchemyDisruptionRepository,
     SqlAlchemyDomainEventRepository,
     SqlAlchemyFinancialReconciliationRepository,
     SqlAlchemyMissionRepository,
@@ -177,6 +178,7 @@ class VarianceApprovalResponse(BaseModel):
 def _service(session: Session) -> FinancialReconciliationService:
     return FinancialReconciliationService(
         reconciliations=SqlAlchemyFinancialReconciliationRepository(session),
+        disruptions=SqlAlchemyDisruptionRepository(session),
         bookings=SqlAlchemyBookingRepository(session),
         missions=SqlAlchemyMissionRepository(session),
         quotes=SqlAlchemyQuoteRepository(session),
