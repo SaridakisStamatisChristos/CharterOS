@@ -17,6 +17,7 @@ from charteros.application.idempotency import (
     StoredResponse,
     canonical_request_hash,
 )
+from charteros.domain.aircraft import AircraftId
 from charteros.domain.bookings import BookingId, BookingState
 from charteros.domain.disruptions import (
     Disruption,
@@ -33,7 +34,6 @@ from charteros.domain.disruptions import (
 from charteros.domain.operators import OperatorId
 from charteros.domain.organizations import OrganizationId
 from charteros.domain.shared.currency import Currency
-from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.ids import CorrelationId
 from charteros.domain.shared.time_range import TimeRange
 from charteros.infrastructure.db.repositories import (
@@ -487,7 +487,7 @@ def propose_replacement(
                 else None
             ),
             proposed_aircraft_id=(
-                charter_aircraft_id(body.proposed_aircraft_id)
+                AircraftId(body.proposed_aircraft_id)
                 if body.proposed_aircraft_id is not None
                 else None
             ),
@@ -506,12 +506,6 @@ def propose_replacement(
             response_body=response.model_dump(mode="json"),
         )
     return response
-
-
-def charter_aircraft_id(value: UUID) -> object:
-    from charteros.domain.aircraft import AircraftId
-
-    return AircraftId(value)
 
 
 @router.get(
