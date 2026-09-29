@@ -167,9 +167,7 @@ def test_reposition_policy_preserves_continuity_and_computes_incremental_margin(
         - insertion.empty_leg.baseline_reposition_cost.amount_minor,
     )
     assert insertion.margin == (
-        insertion.revenue
-        - insertion.revenue_leg_operating_cost
-        - insertion.opportunity_cost
+        insertion.revenue - insertion.revenue_leg_operating_cost - insertion.opportunity_cost
     )
 
 
