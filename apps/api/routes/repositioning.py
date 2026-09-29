@@ -118,13 +118,9 @@ def _assignment_response(item: RepositionAssignment) -> RepositionAssignmentResp
         aircraft_available_at=item.aircraft_available_at,
         scheduled_departure=item.scheduled_departure,
         continuity_ready_at=item.continuity_ready_at,
-        previous_revenue_distance_nm=_distance(
-            item.previous_revenue_distance_tenths_nm
-        ),
+        previous_revenue_distance_nm=_distance(item.previous_revenue_distance_tenths_nm),
         previous_revenue_minutes=item.previous_revenue_minutes,
-        baseline_reposition_distance_nm=_distance(
-            item.baseline_reposition_distance_tenths_nm
-        ),
+        baseline_reposition_distance_nm=_distance(item.baseline_reposition_distance_tenths_nm),
         pre_reposition_distance_nm=_distance(item.pre_reposition_distance_tenths_nm),
         revenue_distance_nm=_distance(item.revenue_distance_tenths_nm),
         post_reposition_distance_nm=_distance(item.post_reposition_distance_tenths_nm),
