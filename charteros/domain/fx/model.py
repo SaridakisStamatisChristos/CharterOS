@@ -284,11 +284,18 @@ class FxRateObservation(AggregateRoot[FxRateId]):
         }
 
 
-def convert_money(*, amount: Money, rate: FxRateObservation, base_currency: Currency) -> FxConversion:
+def convert_money(
+    *,
+    amount: Money,
+    rate: FxRateObservation,
+    base_currency: Currency,
+) -> FxConversion:
     if amount.currency != rate.source_currency:
         raise DomainValidationError("FX rate source currency does not match amount currency")
     if base_currency != rate.target_currency:
-        raise DomainValidationError("FX rate target currency does not match requested base currency")
+        raise DomainValidationError(
+            "FX rate target currency does not match requested base currency"
+        )
 
     with localcontext() as context:
         context.prec = 80
