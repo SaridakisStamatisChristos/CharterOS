@@ -54,6 +54,7 @@ class RepositionAssignmentResponse(BaseModel):
     revenue_distance_nm: Decimal
     post_reposition_distance_nm: Decimal
     baseline_reposition_cost_minor: int
+    baseline_reposition_feasible: bool
     reposition_cost_minor: int
     revenue_leg_operating_cost_minor: int
     revenue_minor: int
@@ -81,7 +82,8 @@ class RepositionOptimizationResponse(BaseModel):
     window_start: datetime
     window_end: datetime
     structural_empty_leg_count: int
-    feasible_empty_leg_count: int
+    evaluable_empty_leg_count: int
+    direct_reposition_feasible_count: int
     quoted_future_leg_count: int
     feasible_candidate_count: int
     rejection_summary: dict[str, int]
@@ -126,6 +128,7 @@ def _assignment_response(item: RepositionAssignment) -> RepositionAssignmentResp
         revenue_distance_nm=_distance(item.revenue_distance_tenths_nm),
         post_reposition_distance_nm=_distance(item.post_reposition_distance_tenths_nm),
         baseline_reposition_cost_minor=item.baseline_reposition_cost.amount_minor,
+        baseline_reposition_feasible=item.baseline_reposition_feasible,
         reposition_cost_minor=item.reposition_cost.amount_minor,
         revenue_leg_operating_cost_minor=item.revenue_leg_operating_cost.amount_minor,
         revenue_minor=item.revenue.amount_minor,
@@ -157,7 +160,8 @@ def _response(value: RepositionOptimization) -> RepositionOptimizationResponse:
         window_start=value.window_start,
         window_end=value.window_end,
         structural_empty_leg_count=value.structural_empty_leg_count,
-        feasible_empty_leg_count=value.feasible_empty_leg_count,
+        evaluable_empty_leg_count=value.evaluable_empty_leg_count,
+        direct_reposition_feasible_count=value.direct_reposition_feasible_count,
         quoted_future_leg_count=value.quoted_future_leg_count,
         feasible_candidate_count=value.feasible_candidate_count,
         rejection_summary={
