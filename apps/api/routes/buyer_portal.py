@@ -18,6 +18,7 @@ from charteros.application.evidence import (
     supplier_selection_evidence,
 )
 from charteros.application.exceptions import EntityConflictError
+from charteros.application.fx import FxService
 from charteros.application.idempotency import (
     IdempotencyRepository,
     StoredResponse,
@@ -26,11 +27,18 @@ from charteros.application.idempotency import (
 from charteros.application.matching import MatchingService
 from charteros.application.missions import MissionService
 from charteros.application.procurement_approvals import ProcurementApprovalService
-from charteros.application.quote_comparison import QuoteComparisonService
+from charteros.application.quote_comparison import MissionQuoteComparison, QuoteComparisonService
 from charteros.application.rfqs import RfqService
 from charteros.application.tender_visibility import TenderVisibilityPolicy
 from charteros.domain.airports import AirportId
 from charteros.domain.bookings import Booking, BookingState
+from charteros.domain.fx import (
+    CONVERSION_POLICY_VERSION,
+    LOCK_POLICY_VERSION,
+    ROUNDING_POLICY_VERSION,
+    FxLock,
+    FxLockId,
+)
 from charteros.domain.missions import Mission, MissionId, MissionStatus
 from charteros.domain.operators import OperatorId
 from charteros.domain.organizations import OrganizationId
@@ -53,6 +61,8 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyContractRepository,
     SqlAlchemyDecisionEvidenceRepository,
     SqlAlchemyDomainEventRepository,
+    SqlAlchemyFxLockRepository,
+    SqlAlchemyFxRateRepository,
     SqlAlchemyIdempotencyRepository,
     SqlAlchemyMatchingSnapshotRepository,
     SqlAlchemyMissionRepository,
