@@ -64,16 +64,21 @@ that invitation must be `ACCEPTED`.
 
 ### Sealed-bid visibility
 
-`sealed_bid` is a domain property, not a UI convention. The supplier-facing Tender query is bounded
-by `(tender_id, operator_id)` and can return only that operator's invitation and its own RFQ/Quote
-revision lineage. It never enumerates competitor operators, competitor quote IDs, commercial values,
-revision histories, or ranks.
+`sealed_bid` is a domain property, not a UI convention. While a sealed Tender is `DRAFT`, `OPEN`,
+or `BEST_AND_FINAL`, competitive evidence is fail-closed across the application/API boundary:
+generic RFQ Quote listing, Quote detail, normalization, Mission Quote comparison, Charter Graph Quote
+history, and the full Tender audit feed reject access. The generic Tender detail also withholds the
+invitation topology during the sealed phase, so it does not disclose competitor invitation/RFQ/Quote
+identifiers that could be chained into another read surface.
 
-Existing buyer/internal procurement Quote APIs are not reclassified as supplier surfaces in PR17.
-PR21 will add operator-portal authentication/authorization. Until then, the supplier-view endpoint
-requires an operator identity input and its application query remains structurally scoped to that
-operator; a production identity provider must inject/authorize that identity rather than trusting an
-arbitrary client header.
+The supplier-facing query returns only one invitation's own RFQ/Quote lineage. Until PR21 supplies
+operator-portal authentication/authorization, it requires both the operator identifier and the
+unguessable persisted invitation identifier as a capability pair; the application verifies that both
+belong to the requested Tender. Possession of an operator ID alone is insufficient. A production
+identity provider must ultimately bind that capability to an authenticated operator principal.
+
+After `CLOSED` or `AWARDED`, the sealed phase has ended and the bounded audit/procurement read
+surfaces can expose the frozen evidence needed for award review and reconstruction.
 
 ### Quote revisions
 
@@ -130,8 +135,11 @@ causation_event_id
 ```
 
 and emits `TENDER_ADMIN_CORRECTED` with the actor in the event envelope and the required causal event
-as `causation_id`. It is accepted only at/after the Tender deadline. Therefore the original evidence
-and the corrective interpretation coexist and can be reconstructed independently.
+as `causation_id`. It is accepted only at/after the Tender deadline. Before persistence, the
+application verifies that the causal event is part of this Tender's bounded evidence graph and that
+the correction target aggregate is also part of that graph; no-op corrections are rejected. Therefore
+the original evidence and the corrective interpretation coexist and can be reconstructed
+independently.
 
 ### Audit reconstruction
 
