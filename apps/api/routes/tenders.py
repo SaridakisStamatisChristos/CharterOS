@@ -656,3 +656,207 @@ def request_best_and_final(
                 )
             ),
         )
+
+
+@router.post(
+    "/tender-invitations/{invitation_id}/best-and-final/{quote_id}",
+    response_model=QuoteResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def submit_best_and_final(
+    invitation_id: UUID,
+    quote_id: UUID,
+    body: QuoteTermsRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> QuoteResponse:
+    scope = f"POST:/v1/tender-invitations/{invitation_id}/best-and-final/{quote_id}"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            success_status=status.HTTP_201_CREATED,
+            response_type=QuoteResponse,
+            action=lambda: _submit_terms(
+                session=session,
+                invitation_id=invitation_id,
+                quote_id=quote_id,
+                body=body,
+                correlation_id=correlation_id,
+                best_and_final=True,
+            ),
+        )
+
+
+@router.post(
+    "/tender-invitations/{invitation_id}/bids/{quote_id}/withdraw",
+    response_model=QuoteResponse,
+)
+def withdraw_bid(
+    invitation_id: UUID,
+    quote_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> QuoteResponse:
+    scope = f"POST:/v1/tender-invitations/{invitation_id}/bids/{quote_id}/withdraw"
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=canonical_request_hash({}),
+            success_status=status.HTTP_200_OK,
+            response_type=QuoteResponse,
+            action=lambda: quote_response(
+                _service(session).withdraw_bid(
+                    invitation_id=TenderInvitationId(invitation_id),
+                    quote_id=QuoteId(quote_id),
+                    now=datetime.now(UTC),
+                    correlation_id=correlation_id,
+                )
+            ),
+        )
+
+
+@router.post("/tenders/{tender_id}/close", response_model=TenderResponse)
+def close_tender(
+    tender_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> TenderResponse:
+    scope = f"POST:/v1/tenders/{tender_id}/close"
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=canonical_request_hash({}),
+            success_status=status.HTTP_200_OK,
+            response_type=TenderResponse,
+            action=lambda: _tender_response(
+                _service(session).close(
+                    tender_id=TenderId(tender_id),
+                    now=datetime.now(UTC),
+                    correlation_id=correlation_id,
+                )
+            ),
+        )
+
+
+@router.post("/tenders/{tender_id}/award", response_model=TenderAwardResponse)
+def award_tender(
+    tender_id: UUID,
+    body: TenderAwardRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> TenderAwardResponse:
+    scope = f"POST:/v1/tenders/{tender_id}/award"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+
+    def action() -> TenderAwardResponse:
+        tender, booking = _service(session).award(
+            tender_id=TenderId(tender_id),
+            quote_id=QuoteId(body.quote_id),
+            now=datetime.now(UTC),
+            correlation_id=correlation_id,
+        )
+        return TenderAwardResponse(
+            tender=_tender_response(tender),
+            booking=booking_response(booking),
+        )
+
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            success_status=status.HTTP_200_OK,
+            response_type=TenderAwardResponse,
+            action=action,
+        )
+
+
+@router.post(
+    "/tenders/{tender_id}/admin-corrections",
+    response_model=TenderAdminCorrectionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_correct(
+    tender_id: UUID,
+    body: TenderAdminCorrectionRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> TenderAdminCorrectionResponse:
+    scope = f"POST:/v1/tenders/{tender_id}/admin-corrections"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            success_status=status.HTTP_201_CREATED,
+            response_type=TenderAdminCorrectionResponse,
+            action=lambda: _correction_response(
+                _service(session).admin_correct(
+                    tender_id=TenderId(tender_id),
+                    actor_id=TenderActorId(body.actor_id),
+                    target_type=body.target_type,
+                    target_id=TypedId(body.target_id),
+                    field_name=body.field_name,
+                    original_value=body.original_value,
+                    replacement_value=body.replacement_value,
+                    reason=body.reason,
+                    causation_event_id=EventId(body.causation_event_id),
+                    now=datetime.now(UTC),
+                    correlation_id=correlation_id,
+                )
+            ),
+        )
+
+
+@router.get("/tenders/{tender_id}", response_model=TenderDetailResponse)
+def get_tender(tender_id: UUID, session: SessionDep) -> TenderDetailResponse:
+    service = _service(session)
+    tender = service.get(TenderId(tender_id))
+    return TenderDetailResponse(
+        tender=_tender_response(tender),
+        invitations=[
+            _invitation_response(item) for item in service.list_invitations(tender.id)
+        ],
+    )
+
+
+@router.get(
+    "/tenders/{tender_id}/supplier-view",
+    response_model=TenderSupplierViewResponse,
+)
+def supplier_view(
+    tender_id: UUID,
+    session: SessionDep,
+    operator_id: Annotated[UUID, Header(alias="X-Operator-Id")],
+) -> TenderSupplierViewResponse:
+    with session.begin():
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        view = _service(session).supplier_view(
+            tender_id=TenderId(tender_id),
+            operator_id=OperatorId(operator_id),
+        )
+    return _supplier_response(view)
+
+
+@router.get("/tenders/{tender_id}/audit", response_model=TenderAuditResponse)
+def audit_tender(tender_id: UUID, session: SessionDep) -> TenderAuditResponse:
+    with session.begin():
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        audit = _service(session).audit_trail(TenderId(tender_id))
+    return _audit_response(audit)
