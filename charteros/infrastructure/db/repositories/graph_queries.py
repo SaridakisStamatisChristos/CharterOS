@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from itertools import pairwise
-from typing import cast
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -70,31 +70,34 @@ class SqlAlchemyGraphQueryRepository:
     ) -> HistoricalPosition | None:
         version = self.active_version()
         position_node = aliased(GraphNodeRow)
-        rows = self._session.execute(
-            select(
-                GraphEdgeRow.source_id,
-                position_node.node_id,
-                position_node.attributes,
-            )
-            .join(
-                position_node,
-                and_(
-                    position_node.projection_name == GraphEdgeRow.projection_name,
-                    position_node.projection_version == GraphEdgeRow.projection_version,
-                    position_node.node_type == GraphEdgeRow.target_type,
-                    position_node.node_id == GraphEdgeRow.target_id,
-                ),
-            )
-            .where(
-                GraphEdgeRow.projection_name == PROJECTION_NAME,
-                GraphEdgeRow.projection_version == version,
-                GraphEdgeRow.edge_type == "HAS_POSITION",
-                GraphEdgeRow.source_type == "aircraft",
-                GraphEdgeRow.source_id == aircraft_id,
-                GraphEdgeRow.target_type == "aircraft_position",
-            )
-            .limit(MAX_POSITION_SCAN + 1)
-        ).all()
+        rows = [
+            (row[0], row[1], row[2])
+            for row in self._session.execute(
+                select(
+                    GraphEdgeRow.source_id,
+                    position_node.node_id,
+                    position_node.attributes,
+                )
+                .join(
+                    position_node,
+                    and_(
+                        position_node.projection_name == GraphEdgeRow.projection_name,
+                        position_node.projection_version == GraphEdgeRow.projection_version,
+                        position_node.node_type == GraphEdgeRow.target_type,
+                        position_node.node_id == GraphEdgeRow.target_id,
+                    ),
+                )
+                .where(
+                    GraphEdgeRow.projection_name == PROJECTION_NAME,
+                    GraphEdgeRow.projection_version == version,
+                    GraphEdgeRow.edge_type == "HAS_POSITION",
+                    GraphEdgeRow.source_type == "aircraft",
+                    GraphEdgeRow.source_id == aircraft_id,
+                    GraphEdgeRow.target_type == "aircraft_position",
+                )
+                .limit(MAX_POSITION_SCAN + 1)
+            ).all()
+        ]
         if len(rows) > MAX_POSITION_SCAN:
             raise EntityConflictError(
                 f"aircraft position history exceeds bounded PR16 scan of {MAX_POSITION_SCAN}"
@@ -132,30 +135,33 @@ class SqlAlchemyGraphQueryRepository:
             raise EntityNotFoundError("airport does not exist")
 
         position_node = aliased(GraphNodeRow)
-        rows = self._session.execute(
-            select(
-                GraphEdgeRow.source_id,
-                position_node.node_id,
-                position_node.attributes,
-            )
-            .join(
-                position_node,
-                and_(
-                    position_node.projection_name == GraphEdgeRow.projection_name,
-                    position_node.projection_version == GraphEdgeRow.projection_version,
-                    position_node.node_type == GraphEdgeRow.target_type,
-                    position_node.node_id == GraphEdgeRow.target_id,
-                ),
-            )
-            .where(
-                GraphEdgeRow.projection_name == PROJECTION_NAME,
-                GraphEdgeRow.projection_version == version,
-                GraphEdgeRow.edge_type == "HAS_POSITION",
-                GraphEdgeRow.source_type == "aircraft",
-                GraphEdgeRow.target_type == "aircraft_position",
-            )
-            .limit(MAX_POSITION_SCAN + 1)
-        ).all()
+        rows = [
+            (row[0], row[1], row[2])
+            for row in self._session.execute(
+                select(
+                    GraphEdgeRow.source_id,
+                    position_node.node_id,
+                    position_node.attributes,
+                )
+                .join(
+                    position_node,
+                    and_(
+                        position_node.projection_name == GraphEdgeRow.projection_name,
+                        position_node.projection_version == GraphEdgeRow.projection_version,
+                        position_node.node_type == GraphEdgeRow.target_type,
+                        position_node.node_id == GraphEdgeRow.target_id,
+                    ),
+                )
+                .where(
+                    GraphEdgeRow.projection_name == PROJECTION_NAME,
+                    GraphEdgeRow.projection_version == version,
+                    GraphEdgeRow.edge_type == "HAS_POSITION",
+                    GraphEdgeRow.source_type == "aircraft",
+                    GraphEdgeRow.target_type == "aircraft_position",
+                )
+                .limit(MAX_POSITION_SCAN + 1)
+            ).all()
+        ]
         if len(rows) > MAX_POSITION_SCAN:
             raise EntityConflictError(
                 f"position projection exceeds bounded PR16 scan of {MAX_POSITION_SCAN}; "
@@ -681,19 +687,14 @@ class SqlAlchemyGraphQueryRepository:
 
 
 def _visible_positions(
-    rows: list[object] | tuple[object, ...],
+    rows: Sequence[tuple[UUID, UUID, dict[str, object]]],
     *,
     event_time: datetime,
     known_as_of: datetime,
 ) -> tuple[list[tuple[UUID, UUID, dict[str, object]]], set[UUID]]:
     values: list[tuple[UUID, UUID, dict[str, object]]] = []
     airport_ids: set[UUID] = set()
-    for row in rows:
-        source_id = cast(UUID, row[0])
-        position_id = cast(UUID, row[1])
-        raw = row[2]
-        if not isinstance(raw, dict):
-            raise EntityConflictError("position projection attributes must be an object")
+    for source_id, position_id, raw in rows:
         attributes = {str(key): value for key, value in raw.items()}
         item_event_time = _datetime_attr(attributes, "event_time")
         item_knowledge_time = _datetime_attr(attributes, "knowledge_time")
