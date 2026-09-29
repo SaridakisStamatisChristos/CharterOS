@@ -321,7 +321,5 @@ class FxService:
         self._events.add_aggregate_events(lock)
         return FxLockSummary(
             lock=lock,
-            global_rank_by_quote={
-                entry.quote_id: entry.global_rank for entry in ordered_entries
-            },
+            global_rank_by_quote={entry.quote_id: entry.global_rank for entry in ordered_entries},
         )
