@@ -118,27 +118,31 @@ class RepositioningService:
                 "historical PR18 replay requires an as-of graph projection"
             )
         structural_items: list[StructuralEmptyLeg] = []
-        for item in graph_items:
-            previous = self._graph.booking_flight_lineage(booking_id=item.previous_booking_id)
-            following = self._graph.booking_flight_lineage(booking_id=item.next_booking_id)
-            _validate_structural_lineage(item, previous, following)
+        for graph_item in graph_items:
+            previous = self._graph.booking_flight_lineage(
+                booking_id=graph_item.previous_booking_id
+            )
+            following = self._graph.booking_flight_lineage(
+                booking_id=graph_item.next_booking_id
+            )
+            _validate_structural_lineage(graph_item, previous, following)
             structural_items.append(
                 StructuralEmptyLeg(
-                    aircraft_id=item.aircraft_id,
-                    operator_id=item.operator_id,
-                    previous_booking_id=item.previous_booking_id,
-                    previous_mission_id=item.previous_mission_id,
-                    next_booking_id=item.next_booking_id,
-                    next_mission_id=item.next_mission_id,
+                    aircraft_id=graph_item.aircraft_id,
+                    operator_id=graph_item.operator_id,
+                    previous_booking_id=graph_item.previous_booking_id,
+                    previous_mission_id=graph_item.previous_mission_id,
+                    next_booking_id=graph_item.next_booking_id,
+                    next_mission_id=graph_item.next_mission_id,
                     previous_origin_airport_id=previous.origin_airport_id,
-                    from_airport_id=item.from_airport_id,
-                    from_icao=item.from_icao,
-                    to_airport_id=item.to_airport_id,
-                    to_icao=item.to_icao,
-                    window_start=item.window_start,
-                    window_end=item.window_end,
-                    gap_minutes=item.gap_minutes,
-                    evidence_kind=item.evidence_kind,
+                    from_airport_id=graph_item.from_airport_id,
+                    from_icao=graph_item.from_icao,
+                    to_airport_id=graph_item.to_airport_id,
+                    to_icao=graph_item.to_icao,
+                    window_start=graph_item.window_start,
+                    window_end=graph_item.window_end,
+                    gap_minutes=graph_item.gap_minutes,
+                    evidence_kind=graph_item.evidence_kind,
                 )
             )
         structural = tuple(structural_items)
@@ -182,13 +186,13 @@ class RepositioningService:
             availability_to=end,
         )
         snapshot_by_aircraft = {item.aircraft_id.value: item for item in snapshots}
-        for item in structural:
-            snapshot = snapshot_by_aircraft.get(item.aircraft_id)
+        for structural_item in structural:
+            snapshot = snapshot_by_aircraft.get(structural_item.aircraft_id)
             if snapshot is None:
                 raise EntityConflictError(
                     "Charter Graph empty-leg aircraft is missing from canonical fleet state"
                 )
-            if snapshot.operator_id.value != item.operator_id:
+            if snapshot.operator_id.value != structural_item.operator_id:
                 raise EntityConflictError(
                     "Charter Graph empty-leg operator conflicts with canonical aircraft ownership"
                 )
@@ -214,18 +218,20 @@ class RepositioningService:
 
         evaluations: list[BaselineEvaluation | InsertionEvaluation] = []
         baselines: list[tuple[StructuralEmptyLeg, BaselineEmptyLeg]] = []
-        for item in structural:
-            snapshot = snapshot_by_aircraft[item.aircraft_id]
+        for structural_item in structural:
+            snapshot = snapshot_by_aircraft[structural_item.aircraft_id]
             baseline_eval = evaluate_baseline(
-                structural=item,
+                structural=structural_item,
                 candidate=snapshot,
-                previous_origin_airport=airports[AirportId(item.previous_origin_airport_id)],
-                from_airport=airports[AirportId(item.from_airport_id)],
-                continuity_airport=airports[AirportId(item.to_airport_id)],
+                previous_origin_airport=airports[
+                    AirportId(structural_item.previous_origin_airport_id)
+                ],
+                from_airport=airports[AirportId(structural_item.from_airport_id)],
+                continuity_airport=airports[AirportId(structural_item.to_airport_id)],
             )
             evaluations.append(baseline_eval)
             if baseline_eval.baseline is not None:
-                baselines.append((item, baseline_eval.baseline))
+                baselines.append((structural_item, baseline_eval.baseline))
 
         opportunities_by_aircraft: dict[tuple[UUID, UUID], list[QuotedFutureLeg]] = defaultdict(
             list
@@ -256,8 +262,8 @@ class RepositioningService:
                     feasible.append(insertion_eval.insertion)
 
         grouped: dict[str, list[FeasibleInsertion]] = defaultdict(list)
-        for item in feasible:
-            grouped[str(item.currency)].append(item)
+        for insertion in feasible:
+            grouped[str(insertion.currency)].append(insertion)
         plans = tuple(build_currency_plan(tuple(grouped[currency])) for currency in sorted(grouped))
 
         return RepositionOptimization(
