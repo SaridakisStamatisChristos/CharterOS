@@ -534,9 +534,7 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
                 )
             )
             session.execute(delete(AircraftRow).where(AircraftRow.id == aircraft_id))
-            session.execute(
-                delete(AircraftTypeRow).where(AircraftTypeRow.id == aircraft_type_id)
-            )
+            session.execute(delete(AircraftTypeRow).where(AircraftTypeRow.id == aircraft_type_id))
             session.execute(delete(OperatorRow).where(OperatorRow.id == operator_id))
             session.execute(
                 delete(OrganizationRow).where(OrganizationRow.id.in_((operator_org, buyer_org)))
