@@ -230,9 +230,7 @@ def test_multicurrency_dataset_is_partitioned_without_global_price_comparison() 
     assert first.dataset_digest == second.dataset_digest
     assert first.dataset_digest == digest_dataset(first)
     assert first.synthetic is False
-    assert all(
-        row.features.normalized_expected_total_minor == 1_150_000 for row in first.rows
-    )
+    assert all(row.features.normalized_expected_total_minor == 1_150_000 for row in first.rows)
 
 
 def test_quote_after_departure_start_fails_closed() -> None:
