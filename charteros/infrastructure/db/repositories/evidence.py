@@ -565,12 +565,12 @@ class SqlAlchemyEvidenceRepository:
                     f"procurement approval {approval.id} quote evidence is missing"
                 )
             if approval.booking_id is not None:
-                booking = booking_by_id.get(approval.booking_id)
-                if booking is None:
+                approval_booking = booking_by_id.get(approval.booking_id)
+                if approval_booking is None:
                     raise EntityConflictError(
                         f"procurement approval {approval.id} booking evidence is missing"
                     )
-                if booking.accepted_quote_id != approval.quote_id:
+                if approval_booking.accepted_quote_id != approval.quote_id:
                     raise EntityConflictError(
                         f"procurement approval {approval.id} conflicts with booking quote"
                     )
@@ -623,12 +623,12 @@ class SqlAlchemyEvidenceRepository:
                 )
 
         for reconciliation in reconciliations:
-            booking = booking_by_id.get(reconciliation.booking_id)
-            if booking is None:
+            reconciliation_booking = booking_by_id.get(reconciliation.booking_id)
+            if reconciliation_booking is None:
                 raise EntityConflictError(
                     f"reconciliation {reconciliation.id} booking evidence is missing"
                 )
-            if booking.accepted_quote_id != reconciliation.accepted_quote_id:
+            if reconciliation_booking.accepted_quote_id != reconciliation.accepted_quote_id:
                 raise EntityConflictError(
                     f"reconciliation {reconciliation.id} accepted quote conflicts"
                 )
@@ -645,8 +645,13 @@ class SqlAlchemyEvidenceRepository:
                         f"reconciliation {reconciliation.id} current dispute conflicts"
                     )
             if reconciliation.current_variance_approval_id is not None:
-                approval = approval_by_id.get(reconciliation.current_variance_approval_id)
-                if approval is None or approval.reconciliation_id != reconciliation.id:
+                current_variance_approval = approval_by_id.get(
+                    reconciliation.current_variance_approval_id
+                )
+                if (
+                    current_variance_approval is None
+                    or current_variance_approval.reconciliation_id != reconciliation.id
+                ):
                     raise EntityConflictError(
                         f"reconciliation {reconciliation.id} variance approval conflicts"
                     )
@@ -716,34 +721,34 @@ class SqlAlchemyEvidenceRepository:
                 },
             )
         ]
-        for row in rfqs:
+        for rfq in rfqs:
             sources.append(
                 _record(
                     "rfq",
-                    row.id,
-                    row.version,
+                    rfq.id,
+                    rfq.version,
                     {
-                        "mission_id": row.mission_id,
-                        "operator_id": row.operator_id,
-                        "status": row.status,
-                        "created_at": row.created_at,
-                        "sent_at": row.sent_at,
-                        "response_deadline": row.response_deadline,
+                        "mission_id": rfq.mission_id,
+                        "operator_id": rfq.operator_id,
+                        "status": rfq.status,
+                        "created_at": rfq.created_at,
+                        "sent_at": rfq.sent_at,
+                        "response_deadline": rfq.response_deadline,
                     },
                 )
             )
-        for row in quotes:
+        for quote in quotes:
             sources.append(
                 _record(
                     "quote",
-                    row.id,
-                    row.version,
+                    quote.id,
+                    quote.version,
                     {
-                        "rfq_id": row.rfq_id,
-                        "aircraft_id": row.aircraft_id,
-                        "currency": row.currency,
-                        "base_amount_minor": row.base_amount_minor,
-                        "repositioning_amount_minor": row.repositioning_amount_minor,
+                        "rfq_id": quote.rfq_id,
+                        "aircraft_id": quote.aircraft_id,
+                        "currency": quote.currency,
+                        "base_amount_minor": quote.base_amount_minor,
+                        "repositioning_amount_minor": quote.repositioning_amount_minor,
                         "price_components": [
                             {
                                 "line_number": component.line_number,
@@ -753,184 +758,184 @@ class SqlAlchemyEvidenceRepository:
                                 "applicability": component.applicability,
                                 "condition": component.condition,
                             }
-                            for component in row.components
+                            for component in quote.components
                         ],
-                        "revision_number": row.revision_number,
-                        "supersedes_quote_id": row.supersedes_quote_id,
-                        "status": row.status,
-                        "submitted_at": row.submitted_at,
-                        "valid_until": row.valid_until,
-                        "accepted_at": row.accepted_at,
+                        "revision_number": quote.revision_number,
+                        "supersedes_quote_id": quote.supersedes_quote_id,
+                        "status": quote.status,
+                        "submitted_at": quote.submitted_at,
+                        "valid_until": quote.valid_until,
+                        "accepted_at": quote.accepted_at,
                     },
                 )
             )
-        for row in approvals:
+        for procurement_approval in approvals:
             sources.append(
                 _record(
                     "procurement_approval",
-                    row.id,
-                    row.version,
+                    procurement_approval.id,
+                    procurement_approval.version,
                     {
-                        "mission_id": row.mission_id,
-                        "buyer_id": row.buyer_id,
-                        "quote_id": row.quote_id,
-                        "status": row.status,
-                        "approved_at": row.approved_at,
-                        "supersedes_approval_id": row.supersedes_approval_id,
-                        "superseded_at": row.superseded_at,
-                        "consumed_at": row.consumed_at,
-                        "booking_id": row.booking_id,
-                        "note": row.note,
+                        "mission_id": procurement_approval.mission_id,
+                        "buyer_id": procurement_approval.buyer_id,
+                        "quote_id": procurement_approval.quote_id,
+                        "status": procurement_approval.status,
+                        "approved_at": procurement_approval.approved_at,
+                        "supersedes_approval_id": procurement_approval.supersedes_approval_id,
+                        "superseded_at": procurement_approval.superseded_at,
+                        "consumed_at": procurement_approval.consumed_at,
+                        "booking_id": procurement_approval.booking_id,
+                        "note": procurement_approval.note,
                     },
                 )
             )
-        for row in bookings:
+        for booking in bookings:
             sources.append(
                 _record(
                     "booking",
-                    row.id,
-                    row.version,
+                    booking.id,
+                    booking.version,
                     {
-                        "mission_id": row.mission_id,
-                        "accepted_quote_id": row.accepted_quote_id,
-                        "operator_id": row.operator_id,
-                        "aircraft_id": row.aircraft_id,
-                        "state": row.state,
-                        "created_at": row.created_at,
-                        "state_changed_at": row.state_changed_at,
+                        "mission_id": booking.mission_id,
+                        "accepted_quote_id": booking.accepted_quote_id,
+                        "operator_id": booking.operator_id,
+                        "aircraft_id": booking.aircraft_id,
+                        "state": booking.state,
+                        "created_at": booking.created_at,
+                        "state_changed_at": booking.state_changed_at,
                     },
                 )
             )
-        for row in contracts:
+        for contract in contracts:
             sources.append(
                 _record(
                     "contract",
-                    row.id,
-                    row.version,
+                    contract.id,
+                    contract.version,
                     {
-                        "booking_id": row.booking_id,
-                        "buyer_id": row.buyer_id,
-                        "operator_id": row.operator_id,
-                        "document_reference": row.document_reference,
-                        "document_version": row.document_version,
-                        "status": row.status,
-                        "created_at": row.created_at,
-                        "buyer_signed_at": row.buyer_signed_at,
-                        "operator_signed_at": row.operator_signed_at,
-                        "accepted_at": row.accepted_at,
+                        "booking_id": contract.booking_id,
+                        "buyer_id": contract.buyer_id,
+                        "operator_id": contract.operator_id,
+                        "document_reference": contract.document_reference,
+                        "document_version": contract.document_version,
+                        "status": contract.status,
+                        "created_at": contract.created_at,
+                        "buyer_signed_at": contract.buyer_signed_at,
+                        "operator_signed_at": contract.operator_signed_at,
+                        "accepted_at": contract.accepted_at,
                     },
                 )
             )
-        for row in tenders:
+        for tender in tenders:
             sources.append(
                 _record(
                     "tender",
-                    row.id,
-                    row.version,
+                    tender.id,
+                    tender.version,
                     {
-                        "mission_id": row.mission_id,
-                        "status": row.status,
-                        "sealed_bid": row.sealed_bid,
-                        "opens_at": row.opens_at,
-                        "deadline_at": row.deadline_at,
-                        "awarded_quote_id": row.awarded_quote_id,
-                        "booking_id": row.booking_id,
-                        "awarded_at": row.awarded_at,
+                        "mission_id": tender.mission_id,
+                        "status": tender.status,
+                        "sealed_bid": tender.sealed_bid,
+                        "opens_at": tender.opens_at,
+                        "deadline_at": tender.deadline_at,
+                        "awarded_quote_id": tender.awarded_quote_id,
+                        "booking_id": tender.booking_id,
+                        "awarded_at": tender.awarded_at,
                     },
                 )
             )
-        for row in disruptions:
+        for disruption in disruptions:
             sources.append(
                 _record(
                     "disruption",
-                    row.id,
-                    row.version,
+                    disruption.id,
+                    disruption.version,
                     {
-                        "booking_id": row.booking_id,
-                        "disruption_type": row.disruption_type,
-                        "status": row.status,
-                        "detected_at": row.detected_at,
-                        "effective_at": row.effective_at,
-                        "reason": row.reason,
-                        "current_proposal_id": row.current_proposal_id,
-                        "current_commercial_change_id": row.current_commercial_change_id,
-                        "latest_buyer_decision_id": row.latest_buyer_decision_id,
-                        "selected_proposal_id": row.selected_proposal_id,
-                        "selected_commercial_change_id": row.selected_commercial_change_id,
-                        "selected_buyer_decision_id": row.selected_buyer_decision_id,
-                        "resolved_at": row.resolved_at,
-                        "resolution_outcome": row.resolution_outcome,
+                        "booking_id": disruption.booking_id,
+                        "disruption_type": disruption.disruption_type,
+                        "status": disruption.status,
+                        "detected_at": disruption.detected_at,
+                        "effective_at": disruption.effective_at,
+                        "reason": disruption.reason,
+                        "current_proposal_id": disruption.current_proposal_id,
+                        "current_commercial_change_id": disruption.current_commercial_change_id,
+                        "latest_buyer_decision_id": disruption.latest_buyer_decision_id,
+                        "selected_proposal_id": disruption.selected_proposal_id,
+                        "selected_commercial_change_id": disruption.selected_commercial_change_id,
+                        "selected_buyer_decision_id": disruption.selected_buyer_decision_id,
+                        "resolved_at": disruption.resolved_at,
+                        "resolution_outcome": disruption.resolution_outcome,
                     },
                 )
             )
-        for row in proposals:
+        for proposal in proposals:
             sources.append(
                 _record(
                     "disruption_proposal",
-                    row.id,
+                    proposal.id,
                     None,
                     {
-                        "disruption_id": row.disruption_id,
-                        "revision_number": row.revision_number,
-                        "supersedes_proposal_id": row.supersedes_proposal_id,
-                        "status": row.status,
-                        "proposed_operator_id": row.proposed_operator_id,
-                        "proposed_aircraft_id": row.proposed_aircraft_id,
-                        "proposed_operator_version": row.proposed_operator_version,
-                        "proposed_aircraft_version": row.proposed_aircraft_version,
-                        "availability_record_id": row.availability_record_id,
-                        "availability_recorded_at": row.availability_recorded_at,
-                        "departure_start": row.departure_start,
-                        "departure_end": row.departure_end,
-                        "requires_buyer_decision": row.requires_buyer_decision,
-                        "source": row.source,
-                        "source_evidence": row.source_evidence,
-                        "proposed_at": row.proposed_at,
-                        "superseded_at": row.superseded_at,
+                        "disruption_id": proposal.disruption_id,
+                        "revision_number": proposal.revision_number,
+                        "supersedes_proposal_id": proposal.supersedes_proposal_id,
+                        "status": proposal.status,
+                        "proposed_operator_id": proposal.proposed_operator_id,
+                        "proposed_aircraft_id": proposal.proposed_aircraft_id,
+                        "proposed_operator_version": proposal.proposed_operator_version,
+                        "proposed_aircraft_version": proposal.proposed_aircraft_version,
+                        "availability_record_id": proposal.availability_record_id,
+                        "availability_recorded_at": proposal.availability_recorded_at,
+                        "departure_start": proposal.departure_start,
+                        "departure_end": proposal.departure_end,
+                        "requires_buyer_decision": proposal.requires_buyer_decision,
+                        "source": proposal.source,
+                        "source_evidence": proposal.source_evidence,
+                        "proposed_at": proposal.proposed_at,
+                        "superseded_at": proposal.superseded_at,
                     },
                 )
             )
-        for row in commercial_changes:
+        for commercial_change in commercial_changes:
             sources.append(
                 _record(
                     "disruption_commercial_change",
-                    row.id,
+                    commercial_change.id,
                     None,
                     {
-                        "disruption_id": row.disruption_id,
-                        "proposal_id": row.proposal_id,
-                        "revision_number": row.revision_number,
-                        "supersedes_change_id": row.supersedes_change_id,
-                        "status": row.status,
-                        "original_quote_id": row.original_quote_id,
-                        "currency": row.currency,
-                        "normalization_version": row.normalization_version,
-                        "original_expected_total_minor": row.original_expected_total_minor,
-                        "original_worst_case_total_minor": row.original_worst_case_total_minor,
-                        "known_adjustment_minor": row.known_adjustment_minor,
-                        "conditional_adjustment_minor": row.conditional_adjustment_minor,
-                        "resulting_expected_total_minor": row.resulting_expected_total_minor,
-                        "resulting_worst_case_total_minor": row.resulting_worst_case_total_minor,
-                        "terms_summary": row.terms_summary,
-                        "created_at": row.created_at,
-                        "superseded_at": row.superseded_at,
+                        "disruption_id": commercial_change.disruption_id,
+                        "proposal_id": commercial_change.proposal_id,
+                        "revision_number": commercial_change.revision_number,
+                        "supersedes_change_id": commercial_change.supersedes_change_id,
+                        "status": commercial_change.status,
+                        "original_quote_id": commercial_change.original_quote_id,
+                        "currency": commercial_change.currency,
+                        "normalization_version": commercial_change.normalization_version,
+                        "original_expected_total_minor": commercial_change.original_expected_total_minor,
+                        "original_worst_case_total_minor": commercial_change.original_worst_case_total_minor,
+                        "known_adjustment_minor": commercial_change.known_adjustment_minor,
+                        "conditional_adjustment_minor": commercial_change.conditional_adjustment_minor,
+                        "resulting_expected_total_minor": commercial_change.resulting_expected_total_minor,
+                        "resulting_worst_case_total_minor": commercial_change.resulting_worst_case_total_minor,
+                        "terms_summary": commercial_change.terms_summary,
+                        "created_at": commercial_change.created_at,
+                        "superseded_at": commercial_change.superseded_at,
                     },
                 )
             )
-        for row in buyer_decisions:
+        for buyer_decision in buyer_decisions:
             sources.append(
                 _record(
                     "disruption_buyer_decision",
-                    row.id,
+                    buyer_decision.id,
                     None,
                     {
-                        "disruption_id": row.disruption_id,
-                        "proposal_id": row.proposal_id,
-                        "commercial_change_id": row.commercial_change_id,
-                        "buyer_id": row.buyer_id,
-                        "decision": row.decision,
-                        "decided_at": row.decided_at,
-                        "note": row.note,
+                        "disruption_id": buyer_decision.disruption_id,
+                        "proposal_id": buyer_decision.proposal_id,
+                        "commercial_change_id": buyer_decision.commercial_change_id,
+                        "buyer_id": buyer_decision.buyer_id,
+                        "decision": buyer_decision.decision,
+                        "decided_at": buyer_decision.decided_at,
+                        "note": buyer_decision.note,
                     },
                 )
             )
@@ -938,53 +943,53 @@ class SqlAlchemyEvidenceRepository:
         lines_by_invoice: dict[UUID, list[OperatorInvoiceLineRow]] = {}
         for line in invoice_lines:
             lines_by_invoice.setdefault(line.invoice_revision_id, []).append(line)
-        for row in reconciliations:
+        for reconciliation in reconciliations:
             sources.append(
                 _record(
                     "financial_reconciliation",
-                    row.id,
-                    row.version,
+                    reconciliation.id,
+                    reconciliation.version,
                     {
-                        "booking_id": row.booking_id,
-                        "accepted_quote_id": row.accepted_quote_id,
-                        "buyer_id": row.buyer_id,
-                        "operator_id": row.operator_id,
-                        "currency": row.currency,
-                        "quote_normalization_version": row.quote_normalization_version,
-                        "quote_revision_number": row.quote_revision_number,
-                        "booked_amount_minor": row.booked_amount_minor,
-                        "booked_worst_case_amount_minor": row.booked_worst_case_amount_minor,
-                        "opened_at": row.opened_at,
-                        "status": row.status,
-                        "current_invoice_revision_id": row.current_invoice_revision_id,
-                        "current_dispute_id": row.current_dispute_id,
-                        "current_variance_approval_id": row.current_variance_approval_id,
-                        "final_invoice_revision_id": row.final_invoice_revision_id,
-                        "approved_variance_minor": row.approved_variance_minor,
-                        "final_payable_minor": row.final_payable_minor,
-                        "completed_at": row.completed_at,
+                        "booking_id": reconciliation.booking_id,
+                        "accepted_quote_id": reconciliation.accepted_quote_id,
+                        "buyer_id": reconciliation.buyer_id,
+                        "operator_id": reconciliation.operator_id,
+                        "currency": reconciliation.currency,
+                        "quote_normalization_version": reconciliation.quote_normalization_version,
+                        "quote_revision_number": reconciliation.quote_revision_number,
+                        "booked_amount_minor": reconciliation.booked_amount_minor,
+                        "booked_worst_case_amount_minor": reconciliation.booked_worst_case_amount_minor,
+                        "opened_at": reconciliation.opened_at,
+                        "status": reconciliation.status,
+                        "current_invoice_revision_id": reconciliation.current_invoice_revision_id,
+                        "current_dispute_id": reconciliation.current_dispute_id,
+                        "current_variance_approval_id": reconciliation.current_variance_approval_id,
+                        "final_invoice_revision_id": reconciliation.final_invoice_revision_id,
+                        "approved_variance_minor": reconciliation.approved_variance_minor,
+                        "final_payable_minor": reconciliation.final_payable_minor,
+                        "completed_at": reconciliation.completed_at,
                     },
                 )
             )
-        for row in invoices:
+        for invoice in invoices:
             sources.append(
                 _record(
                     "operator_invoice_revision",
-                    row.id,
+                    invoice.id,
                     None,
                     {
-                        "reconciliation_id": row.reconciliation_id,
-                        "revision_number": row.revision_number,
-                        "supersedes_invoice_revision_id": row.supersedes_invoice_revision_id,
-                        "status": row.status,
-                        "invoice_reference": row.invoice_reference,
-                        "currency": row.currency,
-                        "booked_amount_minor": row.booked_amount_minor,
-                        "total_amount_minor": row.total_amount_minor,
-                        "variance_minor": row.variance_minor,
-                        "surcharge_reason": row.surcharge_reason,
-                        "submitted_at": row.submitted_at,
-                        "superseded_at": row.superseded_at,
+                        "reconciliation_id": invoice.reconciliation_id,
+                        "revision_number": invoice.revision_number,
+                        "supersedes_invoice_revision_id": invoice.supersedes_invoice_revision_id,
+                        "status": invoice.status,
+                        "invoice_reference": invoice.invoice_reference,
+                        "currency": invoice.currency,
+                        "booked_amount_minor": invoice.booked_amount_minor,
+                        "total_amount_minor": invoice.total_amount_minor,
+                        "variance_minor": invoice.variance_minor,
+                        "surcharge_reason": invoice.surcharge_reason,
+                        "submitted_at": invoice.submitted_at,
+                        "superseded_at": invoice.superseded_at,
                         "line_items": [
                             {
                                 "line_number": line.line_number,
@@ -993,41 +998,41 @@ class SqlAlchemyEvidenceRepository:
                                 "amount_minor": line.amount_minor,
                                 "reason": line.reason,
                             }
-                            for line in lines_by_invoice.get(row.id, [])
+                            for line in lines_by_invoice.get(invoice.id, [])
                         ],
                     },
                 )
             )
-        for row in disputes:
+        for dispute in disputes:
             sources.append(
                 _record(
                     "reconciliation_dispute",
-                    row.id,
+                    dispute.id,
                     None,
                     {
-                        "reconciliation_id": row.reconciliation_id,
-                        "invoice_revision_id": row.invoice_revision_id,
-                        "buyer_id": row.buyer_id,
-                        "disputed_amount_minor": row.disputed_amount_minor,
-                        "reason": row.reason,
-                        "opened_at": row.opened_at,
+                        "reconciliation_id": dispute.reconciliation_id,
+                        "invoice_revision_id": dispute.invoice_revision_id,
+                        "buyer_id": dispute.buyer_id,
+                        "disputed_amount_minor": dispute.disputed_amount_minor,
+                        "reason": dispute.reason,
+                        "opened_at": dispute.opened_at,
                     },
                 )
             )
-        for row in variance_approvals:
+        for variance_approval in variance_approvals:
             sources.append(
                 _record(
                     "reconciliation_variance_approval",
-                    row.id,
+                    variance_approval.id,
                     None,
                     {
-                        "reconciliation_id": row.reconciliation_id,
-                        "invoice_revision_id": row.invoice_revision_id,
-                        "buyer_id": row.buyer_id,
-                        "approved_variance_minor": row.approved_variance_minor,
-                        "resolves_dispute_id": row.resolves_dispute_id,
-                        "approved_at": row.approved_at,
-                        "note": row.note,
+                        "reconciliation_id": variance_approval.reconciliation_id,
+                        "invoice_revision_id": variance_approval.invoice_revision_id,
+                        "buyer_id": variance_approval.buyer_id,
+                        "approved_variance_minor": variance_approval.approved_variance_minor,
+                        "resolves_dispute_id": variance_approval.resolves_dispute_id,
+                        "approved_at": variance_approval.approved_at,
+                        "note": variance_approval.note,
                     },
                 )
             )
