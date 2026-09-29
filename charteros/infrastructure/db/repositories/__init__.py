@@ -12,6 +12,7 @@ from charteros.infrastructure.db.repositories.catalog import (
     SqlAlchemyOrganizationRepository,
 )
 from charteros.infrastructure.db.repositories.contracts import SqlAlchemyContractRepository
+from charteros.infrastructure.db.repositories.disruptions import SqlAlchemyDisruptionRepository
 from charteros.infrastructure.db.repositories.graph import (
     GraphProjectionStatus,
     SqlAlchemyGraphProjectionStore,
@@ -49,6 +50,7 @@ __all__ = [
     "SqlAlchemyBookingRepository",
     "SqlAlchemyBuyerProcurementAuditRepository",
     "SqlAlchemyContractRepository",
+    "SqlAlchemyDisruptionRepository",
     "SqlAlchemyDomainEventRepository",
     "SqlAlchemyGraphProjectionStore",
     "SqlAlchemyGraphQueryRepository",

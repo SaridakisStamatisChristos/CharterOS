@@ -2,6 +2,7 @@ from apps.api.routes.bookings import router as booking_router
 from apps.api.routes.buyer_portal import router as buyer_portal_router
 from apps.api.routes.catalog import router as catalog_router
 from apps.api.routes.contracts import router as contract_router
+from apps.api.routes.disruptions import router as disruption_router
 from apps.api.routes.fleet import router as fleet_router
 from apps.api.routes.graph_queries import router as graph_query_router
 from apps.api.routes.matching import router as matching_router
@@ -17,6 +18,7 @@ __all__ = [
     "buyer_portal_router",
     "catalog_router",
     "contract_router",
+    "disruption_router",
     "fleet_router",
     "graph_query_router",
     "matching_router",

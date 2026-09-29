@@ -8,6 +8,7 @@ from charteros.application.ports.catalog import (
     OrganizationRepository,
 )
 from charteros.application.ports.contracts import ContractDocumentIntegration, ContractRepository
+from charteros.application.ports.disruptions import DisruptionRepository
 from charteros.application.ports.matching import MatchingSnapshotRepository
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.pricing_intelligence import PricingIntelligenceReadRepository
@@ -24,6 +25,7 @@ __all__ = [
     "BookingRepository",
     "ContractDocumentIntegration",
     "ContractRepository",
+    "DisruptionRepository",
     "DomainEventRepository",
     "MatchingSnapshotRepository",
     "MissionRepository",

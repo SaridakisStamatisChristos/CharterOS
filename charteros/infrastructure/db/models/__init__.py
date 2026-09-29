@@ -11,6 +11,12 @@ def load_models() -> None:
         OutboxEventRow,
     )
     from charteros.infrastructure.db.models.contracts import ContractRow
+    from charteros.infrastructure.db.models.disruptions import (
+        DisruptionBuyerDecisionRow,
+        DisruptionCommercialChangeRow,
+        DisruptionProposalRow,
+        DisruptionRow,
+    )
     from charteros.infrastructure.db.models.fleet import (
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
@@ -42,6 +48,10 @@ def load_models() -> None:
         AirportRow,
         BookingRow,
         ContractRow,
+        DisruptionBuyerDecisionRow,
+        DisruptionCommercialChangeRow,
+        DisruptionProposalRow,
+        DisruptionRow,
         GraphAggregateCursorRow,
         GraphEdgeRow,
         GraphNodeRow,

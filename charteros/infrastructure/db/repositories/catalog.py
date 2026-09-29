@@ -16,6 +16,7 @@ from charteros.domain.aircraft import (
 from charteros.domain.airports import Airport, AirportId
 from charteros.domain.bookings import Booking
 from charteros.domain.contracts import Contract
+from charteros.domain.disruptions import Disruption
 from charteros.domain.missions import Mission
 from charteros.domain.operators import (
     CommercialStatus,
@@ -315,6 +316,7 @@ class SqlAlchemyDomainEventRepository:
             | Quote
             | Booking
             | Contract
+            | Disruption
             | Tender
             | ProcurementApproval
         ),
