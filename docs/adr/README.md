@@ -14,3 +14,5 @@ and the versioned Charter Graph projection.
 - [ADR 0018 — Deterministic Repositioning / Deadhead Optimizer](0018-repositioning-deadhead-optimizer.md)
 
 - [ADR 0019 — Deterministic Market Simulator](0019-market-simulator.md)
+
+- [ADR 0020 — Pricing Dataset / Historical Intelligence](0020-pricing-historical-intelligence.md)
