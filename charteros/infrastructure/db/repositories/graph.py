@@ -53,28 +53,35 @@ class SqlAlchemyGraphProjectionStore:
 
     def active_version(self) -> int | None:
         with self._session_factory() as session:
-            return session.scalar(select(GraphProjectionVersionRow.projection_version).where(
-                GraphProjectionVersionRow.projection_name == PROJECTION_NAME,
-                GraphProjectionVersionRow.status == "active",
-            ))
+            return session.scalar(
+                select(GraphProjectionVersionRow.projection_version).where(
+                    GraphProjectionVersionRow.projection_name == PROJECTION_NAME,
+                    GraphProjectionVersionRow.status == "active",
+                )
+            )
 
     def statuses(self) -> tuple[GraphProjectionStatus, ...]:
         with self._session_factory() as session:
-            rows = tuple(session.scalars(
-                select(GraphProjectionVersionRow)
-                .where(GraphProjectionVersionRow.projection_name == PROJECTION_NAME)
-                .order_by(GraphProjectionVersionRow.projection_version)
-            ))
-        return tuple(GraphProjectionStatus(
-            projection_name=row.projection_name,
-            projection_version=row.projection_version,
-            status=row.status,
-            event_count=row.event_count,
-            state_digest=row.state_digest,
-            created_at=row.created_at,
-            verified_at=row.verified_at,
-            activated_at=row.activated_at,
-        ) for row in rows)
+            rows = tuple(
+                session.scalars(
+                    select(GraphProjectionVersionRow)
+                    .where(GraphProjectionVersionRow.projection_name == PROJECTION_NAME)
+                    .order_by(GraphProjectionVersionRow.projection_version)
+                )
+            )
+        return tuple(
+            GraphProjectionStatus(
+                projection_name=row.projection_name,
+                projection_version=row.projection_version,
+                status=row.status,
+                event_count=row.event_count,
+                state_digest=row.state_digest,
+                created_at=row.created_at,
+                verified_at=row.verified_at,
+                activated_at=row.activated_at,
+            )
+            for row in rows
+        )
 
     def prepare_version(
         self, projection_version: int, *, now: datetime, reset_building: bool = False
@@ -86,25 +93,29 @@ class SqlAlchemyGraphProjectionStore:
             _advisory_lock(session, f"{PROJECTION_NAME}:version:{projection_version}")
             row = session.get(GraphProjectionVersionRow, (PROJECTION_NAME, projection_version))
             if row is None:
-                session.add(GraphProjectionVersionRow(
-                    projection_name=PROJECTION_NAME,
-                    projection_version=projection_version,
-                    status="building",
-                    active_key=None,
-                    created_at=when,
-                    verified_at=None,
-                    activated_at=None,
-                    state_digest=None,
-                    event_count=0,
-                ))
-                session.add(GraphProjectionCheckpointRow(
-                    projection_name=PROJECTION_NAME,
-                    projection_version=projection_version,
-                    processed_event_count=0,
-                    max_recorded_at=None,
-                    max_recorded_event_id=None,
-                    updated_at=when,
-                ))
+                session.add(
+                    GraphProjectionVersionRow(
+                        projection_name=PROJECTION_NAME,
+                        projection_version=projection_version,
+                        status="building",
+                        active_key=None,
+                        created_at=when,
+                        verified_at=None,
+                        activated_at=None,
+                        state_digest=None,
+                        event_count=0,
+                    )
+                )
+                session.add(
+                    GraphProjectionCheckpointRow(
+                        projection_name=PROJECTION_NAME,
+                        projection_version=projection_version,
+                        processed_event_count=0,
+                        max_recorded_at=None,
+                        max_recorded_event_id=None,
+                        updated_at=when,
+                    )
+                )
                 session.flush()
                 return
             if row.status != "building":
@@ -128,9 +139,7 @@ class SqlAlchemyGraphProjectionStore:
         if report.ok:
             with self._session_factory.begin() as session:
                 _advisory_lock(session, f"{PROJECTION_NAME}:version:{projection_version}")
-                row = session.get(
-                    GraphProjectionVersionRow, (PROJECTION_NAME, projection_version)
-                )
+                row = session.get(GraphProjectionVersionRow, (PROJECTION_NAME, projection_version))
                 if row is None or row.status != "building":
                     raise GraphProjectionConsistencyError(
                         f"projection v{projection_version} changed state during rebuild"
@@ -144,9 +153,7 @@ class SqlAlchemyGraphProjectionStore:
     def verify(self, projection_version: int) -> GraphVerificationReport:
         return verify_graph_projection(self._session_factory, projection_version)
 
-    def activate(
-        self, projection_version: int, *, now: datetime, maintenance_mode: bool
-    ) -> None:
+    def activate(self, projection_version: int, *, now: datetime, maintenance_mode: bool) -> None:
         if not maintenance_mode:
             raise GraphProjectionConsistencyError(
                 "activation requires maintenance_mode=True so writes/workers are quiesced"
@@ -159,20 +166,30 @@ class SqlAlchemyGraphProjectionStore:
         when = _utc(now)
         with self._session_factory.begin() as session:
             _advisory_lock(session, f"{PROJECTION_NAME}:activation")
-            target = session.scalar(select(GraphProjectionVersionRow).where(
-                GraphProjectionVersionRow.projection_name == PROJECTION_NAME,
-                GraphProjectionVersionRow.projection_version == projection_version,
-            ).with_for_update())
+            target = session.scalar(
+                select(GraphProjectionVersionRow)
+                .where(
+                    GraphProjectionVersionRow.projection_name == PROJECTION_NAME,
+                    GraphProjectionVersionRow.projection_version == projection_version,
+                )
+                .with_for_update()
+            )
             if target is None or target.status not in {"verified", "active"}:
                 raise GraphProjectionConsistencyError(
                     f"projection v{projection_version} must be verified before activation"
                 )
             if target.status == "active":
                 return
-            active_rows = tuple(session.scalars(select(GraphProjectionVersionRow).where(
-                GraphProjectionVersionRow.projection_name == PROJECTION_NAME,
-                GraphProjectionVersionRow.status == "active",
-            ).with_for_update()))
+            active_rows = tuple(
+                session.scalars(
+                    select(GraphProjectionVersionRow)
+                    .where(
+                        GraphProjectionVersionRow.projection_name == PROJECTION_NAME,
+                        GraphProjectionVersionRow.status == "active",
+                    )
+                    .with_for_update()
+                )
+            )
             if len(active_rows) > 1:
                 raise GraphProjectionConsistencyError("multiple active Charter Graph versions")
             for active in active_rows:
@@ -220,10 +237,14 @@ class SqlAlchemyGraphProjectionStore:
         *,
         processed_at: datetime,
     ) -> None:
-        version = session.scalar(select(GraphProjectionVersionRow).where(
-            GraphProjectionVersionRow.projection_name == PROJECTION_NAME,
-            GraphProjectionVersionRow.projection_version == projection_version,
-        ).with_for_update())
+        version = session.scalar(
+            select(GraphProjectionVersionRow)
+            .where(
+                GraphProjectionVersionRow.projection_name == PROJECTION_NAME,
+                GraphProjectionVersionRow.projection_version == projection_version,
+            )
+            .with_for_update()
+        )
         if version is None or version.status not in {"building", "active"}:
             state = "missing" if version is None else version.status
             raise GraphProjectionConsistencyError(
@@ -234,12 +255,16 @@ class SqlAlchemyGraphProjectionStore:
             f"{PROJECTION_NAME}:v{projection_version}:"
             f"{envelope.aggregate_type}:{envelope.aggregate_id}",
         )
-        cursor = session.scalar(select(GraphAggregateCursorRow).where(
-            GraphAggregateCursorRow.projection_name == PROJECTION_NAME,
-            GraphAggregateCursorRow.projection_version == projection_version,
-            GraphAggregateCursorRow.aggregate_type == envelope.aggregate_type,
-            GraphAggregateCursorRow.aggregate_id == envelope.aggregate_id,
-        ).with_for_update())
+        cursor = session.scalar(
+            select(GraphAggregateCursorRow)
+            .where(
+                GraphAggregateCursorRow.projection_name == PROJECTION_NAME,
+                GraphAggregateCursorRow.projection_version == projection_version,
+                GraphAggregateCursorRow.aggregate_type == envelope.aggregate_type,
+                GraphAggregateCursorRow.aggregate_id == envelope.aggregate_id,
+            )
+            .with_for_update()
+        )
         expected = 1 if cursor is None else cursor.last_aggregate_version + 1
         if envelope.aggregate_version != expected:
             if cursor is not None and envelope.aggregate_version <= cursor.last_aggregate_version:
@@ -259,23 +284,29 @@ class SqlAlchemyGraphProjectionStore:
             self._upsert_edge(session, projection_version, envelope, item, processed_at)
 
         if cursor is None:
-            session.add(GraphAggregateCursorRow(
-                projection_name=PROJECTION_NAME,
-                projection_version=projection_version,
-                aggregate_type=envelope.aggregate_type,
-                aggregate_id=envelope.aggregate_id,
-                last_aggregate_version=envelope.aggregate_version,
-                last_event_id=envelope.event_id,
-                updated_at=processed_at,
-            ))
+            session.add(
+                GraphAggregateCursorRow(
+                    projection_name=PROJECTION_NAME,
+                    projection_version=projection_version,
+                    aggregate_type=envelope.aggregate_type,
+                    aggregate_id=envelope.aggregate_id,
+                    last_aggregate_version=envelope.aggregate_version,
+                    last_event_id=envelope.event_id,
+                    updated_at=processed_at,
+                )
+            )
         else:
             cursor.last_aggregate_version = envelope.aggregate_version
             cursor.last_event_id = envelope.event_id
             cursor.updated_at = processed_at
-        checkpoint = session.scalar(select(GraphProjectionCheckpointRow).where(
-            GraphProjectionCheckpointRow.projection_name == PROJECTION_NAME,
-            GraphProjectionCheckpointRow.projection_version == projection_version,
-        ).with_for_update())
+        checkpoint = session.scalar(
+            select(GraphProjectionCheckpointRow)
+            .where(
+                GraphProjectionCheckpointRow.projection_name == PROJECTION_NAME,
+                GraphProjectionCheckpointRow.projection_version == projection_version,
+            )
+            .with_for_update()
+        )
         if checkpoint is None:
             raise GraphProjectionConsistencyError(
                 f"projection v{projection_version} has no durable checkpoint"
@@ -288,78 +319,99 @@ class SqlAlchemyGraphProjectionStore:
         session.flush()
 
     def _upsert_node(
-        self, session: Session, version: int, envelope: OutboxEnvelope,
-        item: GraphNodeUpsert, processed_at: datetime
+        self,
+        session: Session,
+        version: int,
+        envelope: OutboxEnvelope,
+        item: GraphNodeUpsert,
+        processed_at: datetime,
     ) -> None:
-        row = session.get(
-            GraphNodeRow, (PROJECTION_NAME, version, item.node_type, item.node_id)
-        )
+        row = session.get(GraphNodeRow, (PROJECTION_NAME, version, item.node_type, item.node_id))
         values = dict(item.attributes)
         if row is None:
-            session.add(GraphNodeRow(
-                projection_name=PROJECTION_NAME,
-                projection_version=version,
-                node_type=item.node_type,
-                node_id=item.node_id,
-                attributes=values,
-                source_aggregate_type=envelope.aggregate_type,
-                source_aggregate_id=envelope.aggregate_id,
-                source_aggregate_version=envelope.aggregate_version,
-                last_event_id=envelope.event_id,
-                updated_at=processed_at,
-            ))
+            session.add(
+                GraphNodeRow(
+                    projection_name=PROJECTION_NAME,
+                    projection_version=version,
+                    node_type=item.node_type,
+                    node_id=item.node_id,
+                    attributes=values,
+                    source_aggregate_type=envelope.aggregate_type,
+                    source_aggregate_id=envelope.aggregate_id,
+                    source_aggregate_version=envelope.aggregate_version,
+                    last_event_id=envelope.event_id,
+                    updated_at=processed_at,
+                )
+            )
             return
         row.attributes = _merged(row.attributes, values)
         _stamp(row, envelope, processed_at)
 
     def _upsert_edge(
-        self, session: Session, version: int, envelope: OutboxEnvelope,
-        item: GraphEdgeUpsert, processed_at: datetime
+        self,
+        session: Session,
+        version: int,
+        envelope: OutboxEnvelope,
+        item: GraphEdgeUpsert,
+        processed_at: datetime,
     ) -> None:
         key = (
-            PROJECTION_NAME, version, item.edge_type, item.source_type,
-            item.source_id, item.target_type, item.target_id,
+            PROJECTION_NAME,
+            version,
+            item.edge_type,
+            item.source_type,
+            item.source_id,
+            item.target_type,
+            item.target_id,
         )
         row = session.get(GraphEdgeRow, key)
         values = dict(item.attributes)
         if row is None:
-            session.add(GraphEdgeRow(
-                projection_name=PROJECTION_NAME,
-                projection_version=version,
-                edge_type=item.edge_type,
-                source_type=item.source_type,
-                source_id=item.source_id,
-                target_type=item.target_type,
-                target_id=item.target_id,
-                attributes=values,
-                source_aggregate_type=envelope.aggregate_type,
-                source_aggregate_id=envelope.aggregate_id,
-                source_aggregate_version=envelope.aggregate_version,
-                last_event_id=envelope.event_id,
-                updated_at=processed_at,
-            ))
+            session.add(
+                GraphEdgeRow(
+                    projection_name=PROJECTION_NAME,
+                    projection_version=version,
+                    edge_type=item.edge_type,
+                    source_type=item.source_type,
+                    source_id=item.source_id,
+                    target_type=item.target_type,
+                    target_id=item.target_id,
+                    attributes=values,
+                    source_aggregate_type=envelope.aggregate_type,
+                    source_aggregate_id=envelope.aggregate_id,
+                    source_aggregate_version=envelope.aggregate_version,
+                    last_event_id=envelope.event_id,
+                    updated_at=processed_at,
+                )
+            )
             return
         row.attributes = _merged(row.attributes, values)
         _stamp(row, envelope, processed_at)
 
-    def _reset_building(
-        self, session: Session, projection_version: int, *, when: datetime
-    ) -> None:
-        session.execute(delete(GraphEdgeRow).where(
-            GraphEdgeRow.projection_name == PROJECTION_NAME,
-            GraphEdgeRow.projection_version == projection_version,
-        ))
-        session.execute(delete(GraphNodeRow).where(
-            GraphNodeRow.projection_name == PROJECTION_NAME,
-            GraphNodeRow.projection_version == projection_version,
-        ))
-        session.execute(delete(GraphAggregateCursorRow).where(
-            GraphAggregateCursorRow.projection_name == PROJECTION_NAME,
-            GraphAggregateCursorRow.projection_version == projection_version,
-        ))
-        session.execute(delete(OutboxConsumerReceiptRow).where(
-            OutboxConsumerReceiptRow.consumer_name == consumer_name(projection_version)
-        ))
+    def _reset_building(self, session: Session, projection_version: int, *, when: datetime) -> None:
+        session.execute(
+            delete(GraphEdgeRow).where(
+                GraphEdgeRow.projection_name == PROJECTION_NAME,
+                GraphEdgeRow.projection_version == projection_version,
+            )
+        )
+        session.execute(
+            delete(GraphNodeRow).where(
+                GraphNodeRow.projection_name == PROJECTION_NAME,
+                GraphNodeRow.projection_version == projection_version,
+            )
+        )
+        session.execute(
+            delete(GraphAggregateCursorRow).where(
+                GraphAggregateCursorRow.projection_name == PROJECTION_NAME,
+                GraphAggregateCursorRow.projection_version == projection_version,
+            )
+        )
+        session.execute(
+            delete(OutboxConsumerReceiptRow).where(
+                OutboxConsumerReceiptRow.consumer_name == consumer_name(projection_version)
+            )
+        )
         checkpoint = session.get(
             GraphProjectionCheckpointRow, (PROJECTION_NAME, projection_version)
         )
@@ -369,9 +421,7 @@ class SqlAlchemyGraphProjectionStore:
         checkpoint.max_recorded_at = None
         checkpoint.max_recorded_event_id = None
         checkpoint.updated_at = when
-        version = session.get(
-            GraphProjectionVersionRow, (PROJECTION_NAME, projection_version)
-        )
+        version = session.get(GraphProjectionVersionRow, (PROJECTION_NAME, projection_version))
         if version is None or version.status != "building":
             raise GraphProjectionConsistencyError("only a building projection can be reset")
         version.state_digest = None
