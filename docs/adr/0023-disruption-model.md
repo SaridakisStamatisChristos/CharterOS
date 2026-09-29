@@ -49,8 +49,10 @@ is current for a disruption. A replacement revision identifies the proposal it
 supersedes; historical proposals remain persisted.
 
 A proposed aircraft is validated against canonical fleet ownership and active aircraft
-state. When changing aircraft, PR23 also requires authoritative bitemporal availability
-at the proposed operational time using proposal time as the knowledge cutoff.
+state. Each proposal snapshots the canonical operator and aircraft aggregate versions.
+When changing aircraft, PR23 also requires authoritative bitemporal availability at the
+proposed operational time using proposal time as the knowledge cutoff, and persists the
+exact availability-record identity and knowledge timestamp used for the decision.
 
 PR23 deliberately refuses a proposed operator different from the Booking operator.
 CharterOS does not yet have a post-award re-procurement authority, so accepting another
