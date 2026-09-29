@@ -100,13 +100,12 @@ class ProcurementApproval(AggregateRoot[ProcurementApprovalId]):
                 or self.booking_id is not None
             ):
                 raise DomainValidationError("superseded procurement approval has invalid evidence")
-        elif self.status is ProcurementApprovalStatus.CONSUMED:
-            if (
-                self.consumed_at is None
-                or self.booking_id is None
-                or self.superseded_at is not None
-            ):
-                raise DomainValidationError("consumed procurement approval has invalid evidence")
+        elif self.status is ProcurementApprovalStatus.CONSUMED and (
+            self.consumed_at is None
+            or self.booking_id is None
+            or self.superseded_at is not None
+        ):
+            raise DomainValidationError("consumed procurement approval has invalid evidence")
 
     @classmethod
     def create(
