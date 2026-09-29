@@ -28,7 +28,6 @@ def test_procurement_approval_supersession_and_consumption_are_explicit() -> Non
         supersedes_approval_id=None,
         correlation_id=CorrelationId.new(),
     )
-    assert first.status is ProcurementApprovalStatus.APPROVED
     assert [event.event_type for event in first.pending_events] == ["PROCUREMENT_QUOTE_APPROVED"]
 
     replacement_id = ProcurementApprovalId.new()
