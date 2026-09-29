@@ -144,9 +144,7 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
 
     if event_type == "OPERATOR_REGISTERED":
         _expect_aggregate(envelope, "operator")
-        return GraphMutation(
-            node_upserts=(GraphNodeUpsert("operator", aggregate_id, payload),)
-        )
+        return GraphMutation(node_upserts=(GraphNodeUpsert("operator", aggregate_id, payload),))
 
     if event_type == "AIRPORT_REGISTERED":
         _expect_aggregate(envelope, "airport")
@@ -404,18 +402,10 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
         return GraphMutation(
             node_upserts=(GraphNodeUpsert("booking", aggregate_id, payload),),
             edge_upserts=(
-                GraphEdgeUpsert(
-                    "HAS_BOOKING", "mission", mission_id, "booking", aggregate_id
-                ),
-                GraphEdgeUpsert(
-                    "ACCEPTED_QUOTE", "booking", aggregate_id, "quote", quote_id
-                ),
-                GraphEdgeUpsert(
-                    "WITH_OPERATOR", "booking", aggregate_id, "operator", operator_id
-                ),
-                GraphEdgeUpsert(
-                    "USES_AIRCRAFT", "booking", aggregate_id, "aircraft", aircraft_id
-                ),
+                GraphEdgeUpsert("HAS_BOOKING", "mission", mission_id, "booking", aggregate_id),
+                GraphEdgeUpsert("ACCEPTED_QUOTE", "booking", aggregate_id, "quote", quote_id),
+                GraphEdgeUpsert("WITH_OPERATOR", "booking", aggregate_id, "operator", operator_id),
+                GraphEdgeUpsert("USES_AIRCRAFT", "booking", aggregate_id, "aircraft", aircraft_id),
             ),
         )
 
@@ -431,14 +421,10 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
         _expect_aggregate(envelope, "booking")
         to_state = payload.get("to_state")
         if not isinstance(to_state, str) or not to_state:
-            raise GraphProjectionConsistencyError(
-                f"{event_type} requires a non-empty to_state"
-            )
+            raise GraphProjectionConsistencyError(f"{event_type} requires a non-empty to_state")
         attributes = dict(payload)
         attributes["state"] = to_state
-        return GraphMutation(
-            node_upserts=(GraphNodeUpsert("booking", aggregate_id, attributes),)
-        )
+        return GraphMutation(node_upserts=(GraphNodeUpsert("booking", aggregate_id, attributes),))
 
     raise UnsupportedGraphEventError(
         f"no Charter Graph v{CURRENT_PROJECTION_VERSION} mapping for "
