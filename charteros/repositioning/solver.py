@@ -169,8 +169,8 @@ def to_assignment(item: FeasibleInsertion) -> RepositionAssignment:
     return RepositionAssignment(
         aircraft_id=item.opportunity.aircraft_id,
         operator_id=item.opportunity.operator_id,
-        previous_booking_id=str(structural.previous_booking_id),
-        next_booking_id=str(structural.next_booking_id),
+        previous_booking_id=structural.previous_booking_id,
+        next_booking_id=structural.next_booking_id,
         mission_id=item.opportunity.mission_id,
         quote_id=item.opportunity.quote_id,
         from_airport_id=structural.from_airport_id,
