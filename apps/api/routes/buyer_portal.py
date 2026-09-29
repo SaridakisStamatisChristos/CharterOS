@@ -684,9 +684,7 @@ def issue_rfqs(
                 source_aggregate_id=rfq.id.value,
                 decided_at=issued_at,
                 known_as_of=(
-                    matching_decision.known_as_of
-                    if matching_decision is not None
-                    else None
+                    matching_decision.known_as_of if matching_decision is not None else None
                 ),
                 actor_id=buyer_id,
                 correlation_id=correlation_id.value,
