@@ -352,20 +352,17 @@ def test_pr20_dataset_uses_quote_time_position_and_hides_active_sealed_tender() 
                 )
             )
 
-        with factory() as session:
-            with session.begin():
-                session.execute(
-                    text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-                )
-                dataset = PricingIntelligenceService(
-                    SqlAlchemyPricingIntelligenceRepository(session)
-                ).build_dataset(
-                    source_window=TimeRange(
-                        BASE - timedelta(hours=1),
-                        BASE + timedelta(hours=1),
-                    ),
-                    limit=100,
-                )
+        with factory() as session, session.begin():
+            session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+            dataset = PricingIntelligenceService(
+                SqlAlchemyPricingIntelligenceRepository(session)
+            ).build_dataset(
+                source_window=TimeRange(
+                    BASE - timedelta(hours=1),
+                    BASE + timedelta(hours=1),
+                ),
+                limit=100,
+            )
 
         assert dataset.row_count == 1
         assert dataset.truncated is False
