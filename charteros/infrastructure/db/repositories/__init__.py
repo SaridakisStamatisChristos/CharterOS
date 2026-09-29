@@ -22,6 +22,9 @@ from charteros.infrastructure.db.repositories.outbox import (
     SqlAlchemyOutboxDeliveryRepository,
 )
 from charteros.infrastructure.db.repositories.quotes import SqlAlchemyQuoteRepository
+from charteros.infrastructure.db.repositories.repositioning import (
+    SqlAlchemyRepositionOpportunityRepository,
+)
 from charteros.infrastructure.db.repositories.rfqs import SqlAlchemyRfqRepository
 from charteros.infrastructure.db.repositories.tenders import SqlAlchemyTenderRepository
 
@@ -44,6 +47,7 @@ __all__ = [
     "SqlAlchemyOrganizationRepository",
     "SqlAlchemyOutboxDeliveryRepository",
     "SqlAlchemyQuoteRepository",
+    "SqlAlchemyRepositionOpportunityRepository",
     "SqlAlchemyRfqRepository",
     "SqlAlchemyTenderRepository",
 ]
