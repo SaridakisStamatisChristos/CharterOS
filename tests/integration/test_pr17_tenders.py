@@ -527,3 +527,26 @@ def test_deadline_close_race_and_concurrent_award_preserve_single_winner() -> No
             )
     finally:
         engine.dispose()
+
+
+@pytest.mark.integration
+def test_best_and_final_requires_at_least_one_active_bid() -> None:
+    settings = _settings()
+    with TestClient(create_app(settings)) as client:
+        _, tender_id, _, suppliers = _setup_tender(client, suffix="TC")
+
+        for ordinal, supplier in enumerate(suppliers, start=1):
+            withdrawn = client.post(
+                f"/v1/tender-invitations/{supplier['invitation_id']}"
+                f"/bids/{supplier['quote_id']}/withdraw",
+                headers={"Idempotency-Key": f"pr17-withdraw-tc-{ordinal}"},
+            )
+            assert withdrawn.status_code == 200
+            assert withdrawn.json()["status"] == "withdrawn"
+
+        bafo = client.post(
+            f"/v1/tenders/{tender_id}/best-and-final",
+            headers={"Idempotency-Key": "pr17-bafo-no-active-bid-tc"},
+        )
+        assert bafo.status_code == 409
+        assert "active submitted bid" in bafo.json()["detail"]
