@@ -12,6 +12,7 @@ from apps.api.main import create_app
 from charteros.shared.config import Settings
 from tests.integration.test_pr12_contracts_api import _setup_booking
 from tests.integration.test_pr13_booking_workflow_api import _create_accepted_contract
+from tests.integration.test_pr23_disruptions import _booked_operation
 
 
 def _settings() -> Settings:
@@ -604,3 +605,129 @@ def test_pr24_competing_buyer_decisions_and_terminal_completion_serialize() -> N
         final = client.get(f"/v1/bookings/{booking_id}")
         assert final.status_code == 200
         assert final.json()["state"] == "reconciled"
+
+
+@pytest.mark.integration
+def test_pr24_booked_baseline_includes_resolved_pr23_commercial_adjustment() -> None:
+    settings = _settings()
+    with TestClient(create_app(settings)) as client:
+        setup = _booked_operation(client, suffix="DU")
+        booking_id = str(setup["booking_id"])
+        buyer_id = str(setup["buyer_id"])
+        operator_id = str(setup["operator_id"])
+
+        disruption = client.post(
+            f"/v1/bookings/{booking_id}/disruptions",
+            headers={
+                "X-Operator-Id": operator_id,
+                "Idempotency-Key": "pr24-disruption-du",
+            },
+            json={
+                "disruption_type": "other",
+                "reason": "Post-booking operating-cost change",
+            },
+        )
+        assert disruption.status_code == 201
+        disruption_id = str(disruption.json()["id"])
+
+        proposal = client.post(
+            f"/v1/disruptions/{disruption_id}/replacement-options",
+            headers={
+                "X-Operator-Id": operator_id,
+                "Idempotency-Key": "pr24-proposal-du",
+            },
+            json={
+                "source": "operations",
+                "source_evidence": "Original operation retained",
+            },
+        )
+        assert proposal.status_code == 201
+        proposal_id = str(proposal.json()["id"])
+
+        change = client.post(
+            f"/v1/disruptions/{disruption_id}/requotes",
+            headers={
+                "X-Operator-Id": operator_id,
+                "Idempotency-Key": "pr24-change-du",
+            },
+            json={
+                "proposal_id": proposal_id,
+                "currency": "EUR",
+                "known_adjustment_minor": 125_000,
+                "conditional_adjustment_minor": 25_000,
+                "terms_summary": "Buyer-approved post-booking commercial adjustment",
+            },
+        )
+        assert change.status_code == 201
+        change_id = str(change.json()["id"])
+
+        approval = client.post(
+            f"/v1/disruptions/{disruption_id}/buyer-decisions",
+            headers={
+                "X-Buyer-Id": buyer_id,
+                "Idempotency-Key": "pr24-disruption-approval-du",
+            },
+            json={
+                "proposal_id": proposal_id,
+                "commercial_change_id": change_id,
+                "decision": "approved",
+            },
+        )
+        assert approval.status_code == 201
+
+        resolved = client.post(
+            f"/v1/disruptions/{disruption_id}/resolve",
+            headers={
+                "X-Operator-Id": operator_id,
+                "Idempotency-Key": "pr24-disruption-resolve-du",
+            },
+            json={
+                "proposal_id": proposal_id,
+                "outcome": "Commercial adjustment accepted; operation retained",
+            },
+        )
+        assert resolved.status_code == 200
+
+        _create_accepted_contract(client, booking_id=booking_id, suffix="du")
+        for ordinal, command in enumerate(
+            (
+                "mark-contracted",
+                "mark-payment-pending",
+                "confirm",
+                "enter-pre-operation",
+                "start-operation",
+                "complete",
+            ),
+            start=1,
+        ):
+            response = client.post(
+                f"/v1/bookings/{booking_id}/{command}",
+                headers={
+                    "Idempotency-Key": f"pr24-disruption-baseline-{command}-{ordinal}"
+                },
+            )
+            assert response.status_code == 200
+
+        reconciliation = _open_reconciliation(
+            client,
+            booking_id=booking_id,
+            operator_id=operator_id,
+            suffix="du",
+        )
+        assert reconciliation["booked_amount_minor"] == 8_275_000
+        assert reconciliation["booked_worst_case_amount_minor"] == 8_330_000
+
+    engine = create_engine(settings.database_url)
+    try:
+        with engine.connect() as connection:
+            opening_payload = connection.execute(
+                text(
+                    "SELECT canonical_json FROM outbox_events "
+                    "WHERE aggregate_id=:id "
+                    "AND event_type='FINANCIAL_RECONCILIATION_OPENED'"
+                ),
+                {"id": UUID(str(reconciliation["id"]))},
+            ).scalar_one()
+            assert change_id in opening_payload
+    finally:
+        engine.dispose()
