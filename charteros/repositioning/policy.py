@@ -273,9 +273,7 @@ def merge_rejection_counts(
     counter: Counter[RepositionReasonCode] = Counter()
     for evaluation in evaluations:
         counter.update(
-            reason
-            for reason in evaluation.reasons
-            if reason is not RepositionReasonCode.FEASIBLE
+            reason for reason in evaluation.reasons if reason is not RepositionReasonCode.FEASIBLE
         )
     return dict(sorted(counter.items(), key=lambda item: item[0].value))
 
