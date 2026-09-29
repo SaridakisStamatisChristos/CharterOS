@@ -89,7 +89,7 @@ def test_booking_happy_path_is_monotonic_versioned_and_evented() -> None:
 def test_booking_rejects_skipped_repeated_and_backdated_transitions() -> None:
     booking = _booking()
 
-    with pytest.raises(DomainValidationError, match="pending_contract"):
+    with pytest.raises(DomainValidationError, match="payment_pending"):
         booking.confirm(transitioned_at=NOW + timedelta(minutes=1))
 
     booking.mark_contracted(transitioned_at=NOW + timedelta(minutes=2))
