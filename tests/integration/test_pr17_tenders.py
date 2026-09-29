@@ -233,7 +233,7 @@ def _force_deadline_past(settings: Settings, tender_id: str) -> None:
         opened = now - timedelta(minutes=50)
         bafo_requested = now - timedelta(minutes=10)
         with engine.begin() as connection:
-            rfq_ids = (
+            rfq_ids: list[UUID] = list(
                 connection.execute(
                     text("SELECT rfq_id FROM tender_invitations WHERE tender_id = :id"),
                     {"id": UUID(tender_id)},
@@ -467,23 +467,29 @@ def test_deadline_close_race_and_concurrent_award_preserve_single_winner() -> No
         def close_tender() -> int:
             with TestClient(create_app(settings)) as worker:
                 barrier.wait()
-                return worker.post(
-                    f"/v1/tenders/{tender_id}/close",
-                    headers={"Idempotency-Key": "pr17-race-close-tb"},
-                ).status_code
+                return int(
+                    worker.post(
+                        f"/v1/tenders/{tender_id}/close",
+                        headers={"Idempotency-Key": "pr17-race-close-tb"},
+                    ).status_code
+                )
 
         def late_revision() -> int:
             supplier = suppliers[0]
             with TestClient(create_app(settings)) as worker:
                 barrier.wait()
-                return worker.post(
-                    f"/v1/tender-invitations/{supplier['invitation_id']}"
-                    f"/bids/{supplier['quote_id']}/revise",
-                    headers={"Idempotency-Key": "pr17-race-late-revision-tb"},
-                    json=_quote_body(
-                        supplier["aircraft_id"], departure - timedelta(hours=8), 6_600_000
-                    ),
-                ).status_code
+                return int(
+                    worker.post(
+                        f"/v1/tender-invitations/{supplier['invitation_id']}"
+                        f"/bids/{supplier['quote_id']}/revise",
+                        headers={"Idempotency-Key": "pr17-race-late-revision-tb"},
+                        json=_quote_body(
+                            supplier["aircraft_id"],
+                            departure - timedelta(hours=8),
+                            6_600_000,
+                        ),
+                    ).status_code
+                )
 
         with ThreadPoolExecutor(max_workers=2) as pool:
             close_future = pool.submit(close_tender)
@@ -496,11 +502,13 @@ def test_deadline_close_race_and_concurrent_award_preserve_single_winner() -> No
         def award(ordinal: int) -> int:
             with TestClient(create_app(settings)) as worker:
                 award_barrier.wait()
-                return worker.post(
-                    f"/v1/tenders/{tender_id}/award",
-                    headers={"Idempotency-Key": f"pr17-concurrent-award-tb-{ordinal}"},
-                    json={"quote_id": suppliers[ordinal - 1]["quote_id"]},
-                ).status_code
+                return int(
+                    worker.post(
+                        f"/v1/tenders/{tender_id}/award",
+                        headers={"Idempotency-Key": f"pr17-concurrent-award-tb-{ordinal}"},
+                        json={"quote_id": suppliers[ordinal - 1]["quote_id"]},
+                    ).status_code
+                )
 
         with ThreadPoolExecutor(max_workers=2) as pool:
             first = pool.submit(award, 1)
