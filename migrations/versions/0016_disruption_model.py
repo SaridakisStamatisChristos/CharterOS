@@ -129,8 +129,9 @@ def upgrade() -> None:
             name="ck_disruption_proposals_lifecycle",
         ),
         sa.CheckConstraint(
-            "departure_start IS NULL OR "
-            "(departure_end IS NOT NULL AND departure_start < departure_end)",
+            "(departure_start IS NULL AND departure_end IS NULL) OR "
+            "(departure_start IS NOT NULL AND departure_end IS NOT NULL "
+            "AND departure_start < departure_end)",
             name="ck_disruption_proposals_departure_window",
         ),
     )
@@ -208,6 +209,10 @@ def upgrade() -> None:
             "(status = 'current' AND superseded_at IS NULL) OR "
             "(status = 'superseded' AND superseded_at IS NOT NULL)",
             name="ck_disruption_commercial_changes_lifecycle",
+        ),
+        sa.CheckConstraint(
+            "char_length(currency) = 3 AND currency = upper(currency)",
+            name="ck_disruption_commercial_currency",
         ),
         sa.CheckConstraint(
             "resulting_expected_total_minor >= 0",
