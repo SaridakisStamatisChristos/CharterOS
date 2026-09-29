@@ -536,9 +536,9 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
             portal_body = portal.json()
             assert portal_body["operator_id"] == str(operator_id)
             assert portal_body["structural_count"] == 1
-            assert {
-                item["operator_id"] for item in portal_body["structural_candidates"]
-            } == {str(operator_id)}
+            assert {item["operator_id"] for item in portal_body["structural_candidates"]} == {
+                str(operator_id)
+            }
             portal_optimization = portal_body["optimization"]
             assert portal_optimization is not None
             assert portal_optimization["structural_empty_leg_count"] == 1
