@@ -562,25 +562,31 @@ def test_pr28_runtime_role_has_restricted_evidence_privileges() -> None:
                 {"role": role},
             )
 
-            assert not connection.execute(
-                text("SELECT has_table_privilege(:role, 'fx_rates', 'UPDATE')"),
-                {"role": role},
-            ).scalar_one()
-            assert connection.execute(
-                text("SELECT has_table_privilege(:role, 'outbox_events', 'UPDATE')"),
-                {"role": role},
-            ).scalar_one()
-            assert not connection.execute(
-                text("SELECT has_table_privilege(:role, 'evidence_integrity_entries', 'INSERT')"),
-                {"role": role},
-            ).scalar_one()
+            assert not bool(
+                connection.exec_driver_sql(
+                    f"SELECT has_table_privilege('{role}', 'fx_rates', 'UPDATE')"
+                ).scalar_one()
+            )
+            assert bool(
+                connection.exec_driver_sql(
+                    f"SELECT has_table_privilege('{role}', 'outbox_events', 'UPDATE')"
+                ).scalar_one()
+            )
+            assert not bool(
+                connection.exec_driver_sql(
+                    f"SELECT has_table_privilege("
+                    f"'{role}', 'evidence_integrity_entries', 'INSERT')"
+                ).scalar_one()
+            )
 
         with engine.begin() as connection:
             connection.execute(text(f'SET LOCAL ROLE "{role}"'))
             assert (
-                connection.execute(
-                    text("SELECT count(*) FROM evidence_integrity_entries")
-                ).scalar_one()
+                int(
+                    connection.exec_driver_sql(
+                        "SELECT count(*) FROM evidence_integrity_entries"
+                    ).scalar_one()
+                )
                 >= 2
             )
             connection.execute(
@@ -588,9 +594,11 @@ def test_pr28_runtime_role_has_restricted_evidence_privileges() -> None:
                 {"id": event_id},
             )
             assert (
-                connection.execute(
-                    text("SELECT count(*) FROM charteros_verify_evidence_integrity(NULL)")
-                ).scalar_one()
+                int(
+                    connection.exec_driver_sql(
+                        "SELECT count(*) FROM charteros_verify_evidence_integrity(NULL)"
+                    ).scalar_one()
+                )
                 == 0
             )
 
