@@ -106,6 +106,8 @@ class SqlAlchemyGraphProjectionStore:
                         event_count=0,
                     )
                 )
+                # Persist the FK parent before the checkpoint so flush ordering is explicit.
+                session.flush()
                 session.add(
                     GraphProjectionCheckpointRow(
                         projection_name=PROJECTION_NAME,
