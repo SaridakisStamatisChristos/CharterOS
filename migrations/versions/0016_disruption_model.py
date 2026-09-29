@@ -80,6 +80,10 @@ def upgrade() -> None:
         sa.Column("status", sa.String(length=16), nullable=False),
         sa.Column("proposed_operator_id", sa.Uuid(), nullable=False),
         sa.Column("proposed_aircraft_id", sa.Uuid(), nullable=False),
+        sa.Column("proposed_operator_version", sa.Integer(), nullable=False),
+        sa.Column("proposed_aircraft_version", sa.Integer(), nullable=False),
+        sa.Column("availability_record_id", sa.Uuid(), nullable=True),
+        sa.Column("availability_recorded_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("departure_start", sa.DateTime(timezone=True), nullable=True),
         sa.Column("departure_end", sa.DateTime(timezone=True), nullable=True),
         sa.Column("requires_buyer_decision", sa.Boolean(), nullable=False),
@@ -111,6 +115,12 @@ def upgrade() -> None:
             ondelete="RESTRICT",
             name="fk_disruption_proposals_aircraft",
         ),
+        sa.ForeignKeyConstraint(
+            ["availability_record_id"],
+            ["aircraft_availability_records.id"],
+            ondelete="RESTRICT",
+            name="fk_disruption_proposals_availability",
+        ),
         sa.UniqueConstraint(
             "supersedes_proposal_id",
             name="uq_disruption_proposals_supersedes",
@@ -127,6 +137,15 @@ def upgrade() -> None:
             "(status = 'current' AND superseded_at IS NULL) OR "
             "(status = 'superseded' AND superseded_at IS NOT NULL)",
             name="ck_disruption_proposals_lifecycle",
+        ),
+        sa.CheckConstraint(
+            "proposed_operator_version >= 0 AND proposed_aircraft_version >= 0",
+            name="ck_disruption_proposals_reference_versions",
+        ),
+        sa.CheckConstraint(
+            "(availability_record_id IS NULL AND availability_recorded_at IS NULL) OR "
+            "(availability_record_id IS NOT NULL AND availability_recorded_at IS NOT NULL)",
+            name="ck_disruption_proposals_availability_evidence",
         ),
         sa.CheckConstraint(
             "(departure_start IS NULL AND departure_end IS NULL) OR "
