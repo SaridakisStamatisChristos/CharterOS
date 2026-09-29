@@ -332,8 +332,7 @@ def test_pr24_positive_variance_dispute_partial_approval_and_completion_are_audi
             assert (
                 connection.execute(
                     text(
-                        "SELECT count(*) FROM operator_invoice_lines "
-                        "WHERE invoice_revision_id=:id"
+                        "SELECT count(*) FROM operator_invoice_lines WHERE invoice_revision_id=:id"
                     ),
                     {"id": UUID(invoice_id)},
                 ).scalar_one()
@@ -702,9 +701,7 @@ def test_pr24_booked_baseline_includes_resolved_pr23_commercial_adjustment() -> 
         ):
             response = client.post(
                 f"/v1/bookings/{booking_id}/{command}",
-                headers={
-                    "Idempotency-Key": f"pr24-disruption-baseline-{command}-{ordinal}"
-                },
+                headers={"Idempotency-Key": f"pr24-disruption-baseline-{command}-{ordinal}"},
             )
             assert response.status_code == 200
 
