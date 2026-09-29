@@ -198,3 +198,203 @@ class TenderService:
             raise EntityConflictError("tender must be open before an invitation can be accepted")
         if when >= tender.deadline_at:
             raise EntityConflictError("tender deadline has passed")
+
+        self._rfq_service().acknowledge(
+            rfq_id=invitation.rfq_id,
+            now=when,
+            correlation_id=correlation_id,
+            tender_command=True,
+        )
+        accepted = TenderInvitation(
+            id=invitation.id,
+            tender_id=invitation.tender_id,
+            operator_id=invitation.operator_id,
+            rfq_id=invitation.rfq_id,
+            status=TenderInvitationStatus.ACCEPTED,
+            invited_at=invitation.invited_at,
+            responded_at=when,
+            last_quote_id=invitation.last_quote_id,
+            best_and_final_quote_id=invitation.best_and_final_quote_id,
+        )
+        expected_version = tender.version
+        tender.record_invitation_response(
+            invitation_id=accepted.id,
+            operator_id=accepted.operator_id,
+            accepted=True,
+            responded_at=when,
+            correlation_id=correlation_id,
+        )
+        self._tenders.save_invitation(accepted)
+        self._tenders.save(tender, expected_version=expected_version)
+        self._events.add_aggregate_events(tender)
+        return accepted
+
+    def decline_invitation(
+        self,
+        *,
+        invitation_id: TenderInvitationId,
+        reason: str | None,
+        now: datetime,
+        correlation_id: CorrelationId,
+    ) -> TenderInvitation:
+        when = _utc(now, field_name="now")
+        invitation = self._get_invitation_for_update(invitation_id)
+        if invitation.status is not TenderInvitationStatus.INVITED:
+            raise EntityConflictError("only an unanswered tender invitation can be declined")
+        tender = self._get_for_update(invitation.tender_id)
+        if tender.status not in (TenderStatus.OPEN, TenderStatus.BEST_AND_FINAL):
+            raise EntityConflictError("tender is not accepting supplier responses")
+        if when >= tender.deadline_at:
+            raise EntityConflictError("tender deadline has passed")
+
+        self._rfq_service().decline(
+            rfq_id=invitation.rfq_id,
+            reason=reason,
+            now=when,
+            correlation_id=correlation_id,
+            tender_command=True,
+        )
+        declined = TenderInvitation(
+            id=invitation.id,
+            tender_id=invitation.tender_id,
+            operator_id=invitation.operator_id,
+            rfq_id=invitation.rfq_id,
+            status=TenderInvitationStatus.DECLINED,
+            invited_at=invitation.invited_at,
+            responded_at=when,
+        )
+        expected_version = tender.version
+        tender.record_invitation_response(
+            invitation_id=declined.id,
+            operator_id=declined.operator_id,
+            accepted=False,
+            responded_at=when,
+            correlation_id=correlation_id,
+        )
+        self._tenders.save_invitation(declined)
+        self._tenders.save(tender, expected_version=expected_version)
+        self._events.add_aggregate_events(tender)
+        return declined
+
+    def submit_bid(
+        self,
+        *,
+        invitation_id: TenderInvitationId,
+        aircraft_id: AircraftId,
+        base_price: Money,
+        price_components: tuple[PriceComponent, ...],
+        repositioning_cost: Money | None,
+        inclusions: tuple[str, ...],
+        exclusions: tuple[str, ...],
+        cancellation_terms: str | None,
+        payment_terms: str | None,
+        valid_until: datetime,
+        now: datetime,
+        correlation_id: CorrelationId,
+    ) -> Quote:
+        when = _utc(now, field_name="now")
+        invitation, tender = self._lock_participation(invitation_id, now=when)
+        if tender.status is not TenderStatus.OPEN:
+            raise EntityConflictError("ordinary bids are accepted only during the open phase")
+        if invitation.last_quote_id is not None:
+            raise EntityConflictError("initial bid already exists; submit a revision instead")
+        self._validate_tender_quote_validity(tender=tender, valid_until=valid_until)
+
+        quote = self._quote_service().submit(
+            rfq_id=invitation.rfq_id,
+            aircraft_id=aircraft_id,
+            base_price=base_price,
+            price_components=price_components,
+            repositioning_cost=repositioning_cost,
+            inclusions=inclusions,
+            exclusions=exclusions,
+            cancellation_terms=cancellation_terms,
+            payment_terms=payment_terms,
+            valid_until=valid_until,
+            now=when,
+            correlation_id=correlation_id,
+            tender_command=True,
+        )
+        updated = self._invitation_with_quote(invitation, quote, best_and_final=False)
+        expected_version = tender.version
+        tender.record_bid(
+            invitation_id=invitation.id,
+            operator_id=invitation.operator_id,
+            quote_id=quote.id,
+            revision_number=quote.revision_number,
+            submitted_at=when,
+            best_and_final=False,
+            correlation_id=correlation_id,
+        )
+        self._tenders.save_invitation(updated)
+        self._tenders.save(tender, expected_version=expected_version)
+        self._events.add_aggregate_events(tender)
+        return quote
+
+    def revise_bid(
+        self,
+        *,
+        invitation_id: TenderInvitationId,
+        quote_id: QuoteId,
+        aircraft_id: AircraftId,
+        base_price: Money,
+        price_components: tuple[PriceComponent, ...],
+        repositioning_cost: Money | None,
+        inclusions: tuple[str, ...],
+        exclusions: tuple[str, ...],
+        cancellation_terms: str | None,
+        payment_terms: str | None,
+        valid_until: datetime,
+        now: datetime,
+        correlation_id: CorrelationId,
+    ) -> Quote:
+        when = _utc(now, field_name="now")
+        invitation, tender = self._lock_participation(invitation_id, now=when)
+        if tender.status is not TenderStatus.OPEN:
+            raise EntityConflictError(
+                "ordinary revisions stop when best-and-final begins; use best-and-final submission"
+            )
+        self._assert_latest_quote(invitation, quote_id)
+        self._validate_tender_quote_validity(tender=tender, valid_until=valid_until)
+
+        quote = self._quote_service().revise(
+            quote_id=quote_id,
+            aircraft_id=aircraft_id,
+            base_price=base_price,
+            price_components=price_components,
+            repositioning_cost=repositioning_cost,
+            inclusions=inclusions,
+            exclusions=exclusions,
+            cancellation_terms=cancellation_terms,
+            payment_terms=payment_terms,
+            valid_until=valid_until,
+            now=when,
+            correlation_id=correlation_id,
+            tender_command=True,
+        )
+        updated = self._invitation_with_quote(invitation, quote, best_and_final=False)
+        expected_version = tender.version
+        tender.record_bid(
+            invitation_id=invitation.id,
+            operator_id=invitation.operator_id,
+            quote_id=quote.id,
+            revision_number=quote.revision_number,
+            submitted_at=when,
+            best_and_final=False,
+            correlation_id=correlation_id,
+        )
+        self._tenders.save_invitation(updated)
+        self._tenders.save(tender, expected_version=expected_version)
+        self._events.add_aggregate_events(tender)
+        return quote
+
+    def request_best_and_final(
+        self,
+        *,
+        tender_id: TenderId,
+        now: datetime,
+        correlation_id: CorrelationId,
+    ) -> Tender:
+        when = _utc(now, field_name="now")
+        tender = self._get_for_update(tender_id)
+        if tender.status is not TenderStatus.OPEN:
