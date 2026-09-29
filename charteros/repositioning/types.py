@@ -158,6 +158,7 @@ class CurrencyOptimizationPlan:
 class RepositionOptimization:
     policy_version: str
     projection_version: int
+    graph_knowledge_cutoff: datetime
     evaluated_at: datetime
     window_start: datetime
     window_end: datetime
