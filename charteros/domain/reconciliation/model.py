@@ -261,6 +261,7 @@ class VarianceApproval:
     invoice_revision_id: OperatorInvoiceRevisionId
     buyer_id: OrganizationId
     approved_variance: Money
+    resolves_dispute_id: ReconciliationDisputeId | None
     approved_at: datetime
     note: str | None = None
 
@@ -583,6 +584,10 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
             raise DomainValidationError("variance approval buyer does not own reconciliation")
         if approval.approved_variance.currency != self.currency:
             raise DomainValidationError("approved variance currency must match reconciliation")
+        if self.current_dispute_id != approval.resolves_dispute_id:
+            raise DomainValidationError(
+                "variance approval must explicitly resolve the exact current dispute"
+            )
         if invoice.variance.amount_minor <= 0:
             raise DomainValidationError("non-positive invoice variance requires no approval")
         if approval.approved_variance > invoice.variance:
@@ -600,6 +605,11 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
                 "invoice_revision_id": str(invoice.id),
                 "invoice_variance_minor": invoice.variance.amount_minor,
                 "approved_variance_minor": approval.approved_variance.amount_minor,
+                "resolves_dispute_id": (
+                    str(approval.resolves_dispute_id)
+                    if approval.resolves_dispute_id is not None
+                    else None
+                ),
                 "approved_at": _iso(approval.approved_at),
                 "note": approval.note,
             },
