@@ -101,10 +101,42 @@ class FinancialReconciliationRow(Base):
     booked_worst_case_amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
-    current_invoice_revision_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
-    current_dispute_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
-    current_variance_approval_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
-    final_invoice_revision_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    current_invoice_revision_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey(
+            "operator_invoice_revisions.id",
+            ondelete="RESTRICT",
+            use_alter=True,
+            name="fk_financial_reconciliations_current_invoice",
+        ),
+    )
+    current_dispute_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey(
+            "reconciliation_disputes.id",
+            ondelete="RESTRICT",
+            use_alter=True,
+            name="fk_financial_reconciliations_current_dispute",
+        ),
+    )
+    current_variance_approval_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey(
+            "reconciliation_variance_approvals.id",
+            ondelete="RESTRICT",
+            use_alter=True,
+            name="fk_financial_reconciliations_current_variance_approval",
+        ),
+    )
+    final_invoice_revision_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey(
+            "operator_invoice_revisions.id",
+            ondelete="RESTRICT",
+            use_alter=True,
+            name="fk_financial_reconciliations_final_invoice",
+        ),
+    )
     approved_variance_minor: Mapped[int | None] = mapped_column(BigInteger)
     final_payable_minor: Mapped[int | None] = mapped_column(BigInteger)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
