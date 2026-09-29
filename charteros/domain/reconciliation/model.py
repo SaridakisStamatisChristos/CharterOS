@@ -119,15 +119,9 @@ class InvoiceLine:
             raise DomainValidationError("invoice line_number must be positive")
         if self.amount.amount_minor == 0:
             raise DomainValidationError("invoice line amount cannot be zero")
-        if (
-            self.category is InvoiceLineCategory.CREDIT
-            and self.amount.amount_minor >= 0
-        ):
+        if self.category is InvoiceLineCategory.CREDIT and self.amount.amount_minor >= 0:
             raise DomainValidationError("credit invoice line amount must be negative")
-        if (
-            self.category is not InvoiceLineCategory.CREDIT
-            and self.amount.amount_minor < 0
-        ):
+        if self.category is not InvoiceLineCategory.CREDIT and self.amount.amount_minor < 0:
             raise DomainValidationError("non-credit invoice line amount cannot be negative")
         object.__setattr__(
             self,
@@ -372,9 +366,7 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
         elif self.status is FinancialReconciliationStatus.DISPUTED and (
             self.current_dispute_id is None or self.current_variance_approval_id is not None
         ):
-            raise DomainValidationError(
-                "disputed reconciliation requires exact dispute evidence"
-            )
+            raise DomainValidationError("disputed reconciliation requires exact dispute evidence")
         elif self.status is FinancialReconciliationStatus.VARIANCE_APPROVED and (
             self.current_variance_approval_id is None or self.current_dispute_id is not None
         ):
