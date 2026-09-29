@@ -32,6 +32,7 @@ from charteros.domain.organizations import (
 )
 from charteros.domain.quotes import Quote
 from charteros.domain.rfqs import Rfq
+from charteros.domain.tenders import Tender
 from charteros.infrastructure.db.models.catalog import (
     AircraftRow,
     AircraftTypeRow,
@@ -313,6 +314,7 @@ class SqlAlchemyDomainEventRepository:
             | Quote
             | Booking
             | Contract
+            | Tender
         ),
     ) -> None:
         for event in aggregate.collect_events():
