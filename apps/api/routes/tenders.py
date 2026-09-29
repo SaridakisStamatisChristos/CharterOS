@@ -432,3 +432,227 @@ def invite_supplier(
                 )
             ),
         )
+
+
+@router.post(
+    "/tender-invitations/{invitation_id}/accept",
+    response_model=TenderInvitationResponse,
+)
+def accept_invitation(
+    invitation_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> TenderInvitationResponse:
+    scope = f"POST:/v1/tender-invitations/{invitation_id}/accept"
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=canonical_request_hash({}),
+            success_status=status.HTTP_200_OK,
+            response_type=TenderInvitationResponse,
+            action=lambda: _invitation_response(
+                _service(session).accept_invitation(
+                    invitation_id=TenderInvitationId(invitation_id),
+                    now=datetime.now(UTC),
+                    correlation_id=correlation_id,
+                )
+            ),
+        )
+
+
+@router.post(
+    "/tender-invitations/{invitation_id}/decline",
+    response_model=TenderInvitationResponse,
+)
+def decline_invitation(
+    invitation_id: UUID,
+    body: TenderInvitationDeclineRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> TenderInvitationResponse:
+    scope = f"POST:/v1/tender-invitations/{invitation_id}/decline"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            success_status=status.HTTP_200_OK,
+            response_type=TenderInvitationResponse,
+            action=lambda: _invitation_response(
+                _service(session).decline_invitation(
+                    invitation_id=TenderInvitationId(invitation_id),
+                    reason=body.reason,
+                    now=datetime.now(UTC),
+                    correlation_id=correlation_id,
+                )
+            ),
+        )
+
+
+def _submit_terms(
+    *,
+    session: Session,
+    invitation_id: UUID,
+    body: QuoteTermsRequest,
+    correlation_id: CorrelationId,
+    best_and_final: bool,
+    quote_id: UUID | None = None,
+) -> QuoteResponse:
+    aircraft_id, base_price, components, repositioning = quote_terms(body)
+    service = _service(session)
+    invitation = TenderInvitationId(invitation_id)
+    now = datetime.now(UTC)
+    if quote_id is None:
+        return quote_response(
+            service.submit_bid(
+                invitation_id=invitation,
+                aircraft_id=aircraft_id,
+                base_price=base_price,
+                price_components=components,
+                repositioning_cost=repositioning,
+                inclusions=tuple(body.inclusions),
+                exclusions=tuple(body.exclusions),
+                cancellation_terms=body.cancellation_terms,
+                payment_terms=body.payment_terms,
+                valid_until=body.valid_until,
+                now=now,
+                correlation_id=correlation_id,
+            )
+        )
+    current_quote_id = QuoteId(quote_id)
+    if best_and_final:
+        return quote_response(
+            service.submit_best_and_final(
+                invitation_id=invitation,
+                quote_id=current_quote_id,
+                aircraft_id=aircraft_id,
+                base_price=base_price,
+                price_components=components,
+                repositioning_cost=repositioning,
+                inclusions=tuple(body.inclusions),
+                exclusions=tuple(body.exclusions),
+                cancellation_terms=body.cancellation_terms,
+                payment_terms=body.payment_terms,
+                valid_until=body.valid_until,
+                now=now,
+                correlation_id=correlation_id,
+            )
+        )
+    return quote_response(
+        service.revise_bid(
+            invitation_id=invitation,
+            quote_id=current_quote_id,
+            aircraft_id=aircraft_id,
+            base_price=base_price,
+            price_components=components,
+            repositioning_cost=repositioning,
+            inclusions=tuple(body.inclusions),
+            exclusions=tuple(body.exclusions),
+            cancellation_terms=body.cancellation_terms,
+            payment_terms=body.payment_terms,
+            valid_until=body.valid_until,
+            now=now,
+            correlation_id=correlation_id,
+        )
+    )
+
+
+@router.post(
+    "/tender-invitations/{invitation_id}/bids",
+    response_model=QuoteResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def submit_bid(
+    invitation_id: UUID,
+    body: QuoteTermsRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> QuoteResponse:
+    scope = f"POST:/v1/tender-invitations/{invitation_id}/bids"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            success_status=status.HTTP_201_CREATED,
+            response_type=QuoteResponse,
+            action=lambda: _submit_terms(
+                session=session,
+                invitation_id=invitation_id,
+                body=body,
+                correlation_id=correlation_id,
+                best_and_final=False,
+            ),
+        )
+
+
+@router.post(
+    "/tender-invitations/{invitation_id}/bids/{quote_id}/revise",
+    response_model=QuoteResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def revise_bid(
+    invitation_id: UUID,
+    quote_id: UUID,
+    body: QuoteTermsRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> QuoteResponse:
+    scope = f"POST:/v1/tender-invitations/{invitation_id}/bids/{quote_id}/revise"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            success_status=status.HTTP_201_CREATED,
+            response_type=QuoteResponse,
+            action=lambda: _submit_terms(
+                session=session,
+                invitation_id=invitation_id,
+                quote_id=quote_id,
+                body=body,
+                correlation_id=correlation_id,
+                best_and_final=False,
+            ),
+        )
+
+
+@router.post(
+    "/tenders/{tender_id}/best-and-final",
+    response_model=TenderResponse,
+)
+def request_best_and_final(
+    tender_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+) -> TenderResponse:
+    scope = f"POST:/v1/tenders/{tender_id}/best-and-final"
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=canonical_request_hash({}),
+            success_status=status.HTTP_200_OK,
+            response_type=TenderResponse,
+            action=lambda: _tender_response(
+                _service(session).request_best_and_final(
+                    tender_id=TenderId(tender_id),
+                    now=datetime.now(UTC),
+                    correlation_id=correlation_id,
+                )
+            ),
+        )
