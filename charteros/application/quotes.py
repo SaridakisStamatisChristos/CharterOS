@@ -221,9 +221,14 @@ class QuoteService:
         quote_id: QuoteId,
         now: datetime,
         correlation_id: CorrelationId,
+        tender_command: bool = False,
     ) -> Quote:
         when = _utc(now, field_name="now")
         quote = self._get_for_update(quote_id)
+        rfq = self._rfqs.get(quote.rfq_id)
+        if rfq is None:
+            raise EntityNotFoundError("quote RFQ does not exist")
+        self._assert_tender_command(rfq.id, tender_command=tender_command)
         if quote.status is not QuoteStatus.SUBMITTED or not quote.is_current:
             raise EntityConflictError("only the current submitted quote can expire")
         if when < quote.valid_until:
