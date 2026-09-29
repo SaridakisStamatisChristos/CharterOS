@@ -24,6 +24,7 @@ from charteros.application.quote_comparison import (
 )
 from charteros.application.quote_normalization import QuoteNormalizationService
 from charteros.application.quotes import QuoteService
+from charteros.application.tender_visibility import TenderVisibilityPolicy
 from charteros.domain.aircraft import AircraftId
 from charteros.domain.missions import MissionId
 from charteros.domain.quotes import (
@@ -275,6 +276,13 @@ def _comparison_service(session: Session) -> QuoteComparisonService:
         quotes=SqlAlchemyQuoteRepository(session),
         airports=SqlAlchemyAirportRepository(session),
         snapshots=SqlAlchemyMatchingSnapshotRepository(session),
+    )
+
+
+def _visibility_policy(session: Session) -> TenderVisibilityPolicy:
+    return TenderVisibilityPolicy(
+        tenders=SqlAlchemyTenderRepository(session),
+        quotes=SqlAlchemyQuoteRepository(session),
     )
 
 
@@ -563,7 +571,9 @@ def submit_quote(
 
 @router.get("/rfqs/{rfq_id}/quotes", response_model=QuoteListResponse)
 def list_quotes(rfq_id: UUID, session: SessionDep) -> QuoteListResponse:
-    items = _service(session).list_for_rfq(RfqId(rfq_id))
+    typed_rfq_id = RfqId(rfq_id)
+    _visibility_policy(session).assert_rfq_quotes_visible(typed_rfq_id)
+    items = _service(session).list_for_rfq(typed_rfq_id)
     return QuoteListResponse(rfq_id=rfq_id, quotes=[_response(item) for item in items])
 
 
@@ -577,8 +587,10 @@ def compare_mission_quotes(
 ) -> MissionQuoteComparisonResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        typed_mission_id = MissionId(mission_id)
+        _visibility_policy(session).assert_mission_comparison_visible(typed_mission_id)
         comparison = _comparison_service(session).compare(
-            mission_id=MissionId(mission_id),
+            mission_id=typed_mission_id,
             evaluated_at=datetime.now(UTC),
         )
     return _comparison_response(comparison)
@@ -586,7 +598,8 @@ def compare_mission_quotes(
 
 @router.get("/quotes/{quote_id}", response_model=QuoteResponse)
 def get_quote(quote_id: UUID, session: SessionDep) -> QuoteResponse:
-    return _response(_service(session).get(QuoteId(quote_id)))
+    quote = _visibility_policy(session).get_visible_quote(QuoteId(quote_id))
+    return _response(quote)
 
 
 @router.get(
@@ -597,7 +610,9 @@ def get_quote_normalization(
     quote_id: UUID,
     session: SessionDep,
 ) -> QuoteNormalizationResponse:
-    normalized = _normalization_service(session).normalize(QuoteId(quote_id))
+    typed_quote_id = QuoteId(quote_id)
+    _visibility_policy(session).get_visible_quote(typed_quote_id)
+    normalized = _normalization_service(session).normalize(typed_quote_id)
     return _normalization_response(normalized)
 
 
