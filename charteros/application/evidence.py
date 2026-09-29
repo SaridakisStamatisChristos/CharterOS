@@ -776,6 +776,9 @@ class EvidenceService:
 
     @staticmethod
     def _verify_decisions(material: EvidenceMaterial) -> None:
+        source_ids = {
+            (source.source_type, source.source_id) for source in material.sources
+        }
         for decision in material.decisions:
             if decision.schema_version != SNAPSHOT_SCHEMA_VERSION:
                 raise EntityConflictError(
@@ -802,3 +805,56 @@ class EvidenceService:
                 raise EntityConflictError(
                     f"decision evidence digest mismatch for {decision.snapshot_id}"
                 )
+
+            if decision.decision_type != "quote_comparison":
+                continue
+            fx_lock = decision.content.get("fx_lock")
+            if fx_lock is None:
+                continue
+            if not isinstance(fx_lock, Mapping):
+                raise EntityConflictError(
+                    f"decision evidence {decision.snapshot_id} has invalid FX lock evidence"
+                )
+            raw_lock_id = fx_lock.get("lock_id")
+            if not isinstance(raw_lock_id, str):
+                raise EntityConflictError(
+                    f"decision evidence {decision.snapshot_id} is missing FX lock identity"
+                )
+            try:
+                lock_id = UUID(raw_lock_id)
+            except ValueError as exc:
+                raise EntityConflictError(
+                    f"decision evidence {decision.snapshot_id} has invalid FX lock identity"
+                ) from exc
+            if ("fx_lock", lock_id) not in source_ids:
+                raise EntityConflictError(
+                    f"decision evidence {decision.snapshot_id} references missing FX lock"
+                )
+
+            locked_quotes = fx_lock.get("quotes")
+            if not isinstance(locked_quotes, list):
+                raise EntityConflictError(
+                    f"decision evidence {decision.snapshot_id} has invalid FX quote evidence"
+                )
+            for locked_quote in locked_quotes:
+                if not isinstance(locked_quote, Mapping):
+                    raise EntityConflictError(
+                        f"decision evidence {decision.snapshot_id} has malformed FX quote"
+                    )
+                raw_rate_id = locked_quote.get("fx_rate_id")
+                if raw_rate_id is None:
+                    continue
+                if not isinstance(raw_rate_id, str):
+                    raise EntityConflictError(
+                        f"decision evidence {decision.snapshot_id} has invalid FX rate identity"
+                    )
+                try:
+                    rate_id = UUID(raw_rate_id)
+                except ValueError as exc:
+                    raise EntityConflictError(
+                        f"decision evidence {decision.snapshot_id} has invalid FX rate identity"
+                    ) from exc
+                if ("fx_rate", rate_id) not in source_ids:
+                    raise EntityConflictError(
+                        f"decision evidence {decision.snapshot_id} references missing FX rate"
+                    )
