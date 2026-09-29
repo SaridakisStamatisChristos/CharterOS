@@ -152,7 +152,7 @@ def _fake_envelope(
     canonical_json: str | None = None,
 ) -> OutboxEnvelope:
     recorded_at = BASE + timedelta(days=1)
-    payload = {
+    payload: dict[str, object] = {
         "operator_id": str(uuid4()),
         "registration": "SX-FAKE",
         "aircraft_type_id": str(uuid4()),
