@@ -402,25 +402,17 @@ def test_pr20_dataset_uses_quote_time_position_and_hides_active_sealed_tender() 
                     )
                 )
             )
+            session.execute(delete(RfqRow).where(RfqRow.id.in_((direct_rfq_id, sealed_rfq_id))))
             session.execute(
-                delete(RfqRow).where(RfqRow.id.in_((direct_rfq_id, sealed_rfq_id)))
-            )
-            session.execute(
-                delete(MissionRow).where(
-                    MissionRow.id.in_((direct_mission_id, sealed_mission_id))
-                )
+                delete(MissionRow).where(MissionRow.id.in_((direct_mission_id, sealed_mission_id)))
             )
             session.execute(delete(AircraftRow).where(AircraftRow.id == aircraft_id))
             session.execute(delete(AircraftTypeRow).where(AircraftTypeRow.id == aircraft_type_id))
             session.execute(delete(OperatorRow).where(OperatorRow.id == operator_id))
             session.execute(
-                delete(OrganizationRow).where(
-                    OrganizationRow.id.in_((buyer_id, operator_org_id))
-                )
+                delete(OrganizationRow).where(OrganizationRow.id.in_((buyer_id, operator_org_id)))
             )
             session.execute(
-                delete(AirportRow).where(
-                    AirportRow.id.in_((origin_id, destination_id, other_id))
-                )
+                delete(AirportRow).where(AirportRow.id.in_((origin_id, destination_id, other_id)))
             )
         engine.dispose()
