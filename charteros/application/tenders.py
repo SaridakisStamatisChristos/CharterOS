@@ -734,5 +734,7 @@ class TenderService:
             invited_at=invitation.invited_at,
             responded_at=invitation.responded_at,
             last_quote_id=quote.id,
-            best_and_final_quote_id=quote.id if best_and_final else invitation.best_and_final_quote_id,
+            best_and_final_quote_id=(
+                quote.id if best_and_final else invitation.best_and_final_quote_id
+            ),
         )
