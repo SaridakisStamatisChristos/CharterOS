@@ -85,6 +85,7 @@ class BaselineEmptyLeg:
     baseline_distance_tenths_nm: int
     baseline_minutes: int
     baseline_reposition_cost: Money
+    baseline_reposition_feasible: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +136,7 @@ class RepositionAssignment:
     revenue_distance_tenths_nm: int
     post_reposition_distance_tenths_nm: int
     baseline_reposition_cost: Money
+    baseline_reposition_feasible: bool
     reposition_cost: Money
     revenue_leg_operating_cost: Money
     revenue: Money
@@ -163,7 +165,8 @@ class RepositionOptimization:
     window_start: datetime
     window_end: datetime
     structural_empty_leg_count: int
-    feasible_empty_leg_count: int
+    evaluable_empty_leg_count: int
+    direct_reposition_feasible_count: int
     quoted_future_leg_count: int
     feasible_candidate_count: int
     rejection_summary: dict[RepositionReasonCode, int]
