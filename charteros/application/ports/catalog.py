@@ -11,6 +11,7 @@ from charteros.domain.operators import Operator, OperatorId
 from charteros.domain.organizations import Organization, OrganizationId
 from charteros.domain.quotes import Quote
 from charteros.domain.rfqs import Rfq
+from charteros.domain.tenders import Tender
 
 
 class OrganizationRepository(Protocol):
@@ -52,5 +53,6 @@ class DomainEventRepository(Protocol):
             | Quote
             | Booking
             | Contract
+            | Tender
         ),
     ) -> None: ...
