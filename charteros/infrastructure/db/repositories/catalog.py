@@ -33,6 +33,7 @@ from charteros.domain.organizations import (
 )
 from charteros.domain.procurement_approvals import ProcurementApproval
 from charteros.domain.quotes import Quote
+from charteros.domain.reconciliation import FinancialReconciliation
 from charteros.domain.rfqs import Rfq
 from charteros.domain.tenders import Tender
 from charteros.infrastructure.db.models.catalog import (
@@ -317,6 +318,7 @@ class SqlAlchemyDomainEventRepository:
             | Booking
             | Contract
             | Disruption
+            | FinancialReconciliation
             | Tender
             | ProcurementApproval
         ),
