@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import UTC, datetime
+from uuid import UUID
 
 from charteros.application.exceptions import EntityConflictError
-from charteros.application.graph_queries import GraphQueryService, MAX_EMPTY_LEG_WINDOW
+from charteros.application.graph_queries import MAX_EMPTY_LEG_WINDOW, GraphQueryService
 from charteros.application.ports.catalog import AirportRepository
 from charteros.application.ports.matching import MatchingSnapshotRepository
 from charteros.application.ports.repositioning import RepositionOpportunityRepository
@@ -115,11 +116,17 @@ class RepositioningService:
 
         aircraft_ids = tuple(
             AircraftId(value)
-            for value in sorted({item.aircraft_id for item in structural}, key=lambda value: value.hex)
+            for value in sorted(
+                {item.aircraft_id for item in structural},
+                key=lambda value: value.hex,
+            )
         )
         operator_ids = tuple(
             OperatorId(value)
-            for value in sorted({item.operator_id for item in structural}, key=lambda value: value.hex)
+            for value in sorted(
+                {item.operator_id for item in structural},
+                key=lambda value: value.hex,
+            )
         )
         snapshots = self._snapshots.load_candidates_by_aircraft_ids(
             aircraft_ids=aircraft_ids,
@@ -171,7 +178,9 @@ class RepositioningService:
             if baseline_eval.baseline is not None:
                 baselines.append((item, baseline_eval.baseline))
 
-        opportunities_by_aircraft: dict[tuple[object, object], list[QuotedFutureLeg]] = defaultdict(list)
+        opportunities_by_aircraft: dict[tuple[UUID, UUID], list[QuotedFutureLeg]] = (
+            defaultdict(list)
+        )
         for opportunity in opportunities:
             opportunities_by_aircraft[
                 (opportunity.aircraft_id.value, opportunity.operator_id.value)
