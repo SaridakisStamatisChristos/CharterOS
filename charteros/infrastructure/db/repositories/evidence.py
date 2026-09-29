@@ -909,12 +909,22 @@ class SqlAlchemyEvidenceRepository:
                         "original_quote_id": commercial_change.original_quote_id,
                         "currency": commercial_change.currency,
                         "normalization_version": commercial_change.normalization_version,
-                        "original_expected_total_minor": commercial_change.original_expected_total_minor,
-                        "original_worst_case_total_minor": commercial_change.original_worst_case_total_minor,
+                        "original_expected_total_minor": (
+                            commercial_change.original_expected_total_minor
+                        ),
+                        "original_worst_case_total_minor": (
+                            commercial_change.original_worst_case_total_minor
+                        ),
                         "known_adjustment_minor": commercial_change.known_adjustment_minor,
-                        "conditional_adjustment_minor": commercial_change.conditional_adjustment_minor,
-                        "resulting_expected_total_minor": commercial_change.resulting_expected_total_minor,
-                        "resulting_worst_case_total_minor": commercial_change.resulting_worst_case_total_minor,
+                        "conditional_adjustment_minor": (
+                            commercial_change.conditional_adjustment_minor
+                        ),
+                        "resulting_expected_total_minor": (
+                            commercial_change.resulting_expected_total_minor
+                        ),
+                        "resulting_worst_case_total_minor": (
+                            commercial_change.resulting_worst_case_total_minor
+                        ),
                         "terms_summary": commercial_change.terms_summary,
                         "created_at": commercial_change.created_at,
                         "superseded_at": commercial_change.superseded_at,
@@ -957,7 +967,9 @@ class SqlAlchemyEvidenceRepository:
                         "quote_normalization_version": reconciliation.quote_normalization_version,
                         "quote_revision_number": reconciliation.quote_revision_number,
                         "booked_amount_minor": reconciliation.booked_amount_minor,
-                        "booked_worst_case_amount_minor": reconciliation.booked_worst_case_amount_minor,
+                        "booked_worst_case_amount_minor": (
+                            reconciliation.booked_worst_case_amount_minor
+                        ),
                         "opened_at": reconciliation.opened_at,
                         "status": reconciliation.status,
                         "current_invoice_revision_id": reconciliation.current_invoice_revision_id,
