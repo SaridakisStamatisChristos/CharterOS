@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_correlation_id, get_session
-from charteros.application.exceptions import EntityConflictError
+from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.application.fx import FxService
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -137,8 +137,8 @@ def create_rate(
             return FxRateResponse.model_validate(stored.response_body)
 
         rate = _service(session).record_rate(
-            source_currency=Currency(body.source_currency),
-            target_currency=Currency(body.target_currency),
+            source_currency=Currency(body.source_currency.strip().upper()),
+            target_currency=Currency(body.target_currency.strip().upper()),
             rate_text=body.rate,
             source_minor_exponent=body.source_minor_exponent,
             target_minor_exponent=body.target_minor_exponent,
@@ -207,7 +207,5 @@ def correct_rate(
 def get_rate(rate_id: UUID, session: SessionDep) -> FxRateResponse:
     rate = SqlAlchemyFxRateRepository(session).get(FxRateId(rate_id))
     if rate is None:
-        from charteros.application.exceptions import EntityNotFoundError
-
         raise EntityNotFoundError("FX rate observation does not exist")
     return _response(rate)
