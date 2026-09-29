@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     )
     api_host: str = Field(default="0.0.0.0", min_length=1)
     api_port: int = Field(default=8000, ge=1, le=65535)
+    auth_issuer: str | None = None
+    auth_audience: str | None = None
+    auth_jwks_url: str | None = None
+    auth_allowed_algorithms: str = "RS256,ES256"
+    auth_jwks_cache_ttl_seconds: int = Field(default=300, ge=1, le=86_400)
+    auth_jwks_max_keys: int = Field(default=64, ge=1, le=512)
+    auth_http_timeout_seconds: float = Field(default=2.0, gt=0, le=30.0)
+    auth_jwt_leeway_seconds: float = Field(default=0.0, ge=0, le=300.0)
     outbox_batch_size: int = Field(default=32, ge=1, le=500)
     outbox_poll_interval_seconds: float = Field(default=1.0, ge=0.05, le=60.0)
     outbox_lease_seconds: int = Field(default=30, ge=1, le=3600)

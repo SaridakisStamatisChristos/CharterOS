@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.api.routes import (
@@ -25,10 +25,12 @@ from apps.api.routes import (
     rfq_router,
     tender_router,
 )
+from apps.api.security import authorize_request, build_auth_backend
 from charteros import __version__
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.infrastructure.db.engine import build_engine, build_session_factory
+from charteros.security.auth import AuthenticationBackend
 from charteros.shared.config import Settings, get_settings
 from charteros.shared.logging import configure_logging, get_logger
 from charteros.shared.middleware import CorrelationIdMiddleware
@@ -47,7 +49,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("application_stopped", extra={"event": "application_stopped"})
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    auth_backend: AuthenticationBackend | None = None,
+) -> FastAPI:
     resolved_settings = settings or get_settings()
     configure_logging(resolved_settings)
     engine = build_engine(resolved_settings)
@@ -58,28 +64,38 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=_lifespan,
         docs_url="/docs" if resolved_settings.environment != "production" else None,
         redoc_url=None,
+        openapi_url=("/openapi.json" if resolved_settings.environment != "production" else None),
+        swagger_ui_oauth2_redirect_url=None,
     )
     app.state.settings = resolved_settings
     app.state.engine = engine
     app.state.session_factory = build_session_factory(engine)
+    app.state.auth_backend = (
+        auth_backend if auth_backend is not None else build_auth_backend(resolved_settings)
+    )
     app.add_middleware(CorrelationIdMiddleware)
-    app.include_router(catalog_router)
-    app.include_router(buyer_portal_router)
-    app.include_router(fleet_router)
-    app.include_router(fx_router)
-    app.include_router(graph_query_router)
-    app.include_router(mission_router)
-    app.include_router(matching_router)
-    app.include_router(operator_portal_router)
-    app.include_router(rfq_router)
-    app.include_router(tender_router)
-    app.include_router(quote_router)
-    app.include_router(reconciliation_router)
-    app.include_router(repositioning_router)
-    app.include_router(booking_router)
-    app.include_router(contract_router)
-    app.include_router(disruption_router)
-    app.include_router(evidence_router)
+
+    secured_routers = (
+        catalog_router,
+        buyer_portal_router,
+        fleet_router,
+        fx_router,
+        graph_query_router,
+        mission_router,
+        matching_router,
+        operator_portal_router,
+        rfq_router,
+        tender_router,
+        quote_router,
+        reconciliation_router,
+        repositioning_router,
+        booking_router,
+        contract_router,
+        disruption_router,
+        evidence_router,
+    )
+    for router in secured_routers:
+        app.include_router(router, dependencies=[Depends(authorize_request)])
 
     @app.exception_handler(DomainValidationError)
     async def domain_validation_handler(
