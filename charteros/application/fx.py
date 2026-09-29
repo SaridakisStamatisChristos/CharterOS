@@ -4,16 +4,15 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import cast
-
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.application.ports.catalog import DomainEventRepository
 from charteros.application.ports.fx import FxLockRepository, FxRateRepository
-from charteros.application.quote_comparison import MissionQuoteComparison
+from charteros.application.quote_comparison import MissionQuoteComparison, QuoteComparisonEntry
 from charteros.domain.fx import (
     CONVERSION_POLICY_VERSION,
     LOCK_POLICY_VERSION,
     ROUNDING_POLICY_VERSION,
+    FxConversion,
     FxLock,
     FxLockedQuote,
     FxRateId,
@@ -21,6 +20,7 @@ from charteros.domain.fx import (
     convert_money,
     identity_conversion,
 )
+from charteros.domain.missions import MissionId
 from charteros.domain.organizations import OrganizationId
 from charteros.domain.quotes import QuoteId
 from charteros.domain.quotes.comparison import ComparisonDraft, score_comparison_drafts
@@ -57,7 +57,7 @@ def _format_datetime(value: datetime) -> str:
 def _lock_digest(
     *,
     buyer_id: OrganizationId,
-    mission_id: object,
+    mission_id: MissionId,
     base_currency: Currency,
     fx_source: str,
     locked_at: datetime,
@@ -207,7 +207,7 @@ class FxService:
                 )
             rates_by_currency[currency] = rate
 
-        converted: dict[QuoteId, tuple[object, object, object]] = {}
+        converted: dict[QuoteId, tuple[FxConversion, FxConversion, QuoteComparisonEntry]] = {}
         global_drafts: list[ComparisonDraft] = []
         for entry in eligible:
             normalization = entry.normalization
@@ -263,10 +263,7 @@ class FxService:
 
         lock_entries: list[FxLockedQuote] = []
         for quote_id, item in converted.items():
-            expected_conversion, worst_conversion, raw_entry = item
-            expected = cast("FxConversion", expected_conversion)
-            worst = cast("FxConversion", worst_conversion)
-            entry = cast("QuoteComparisonEntry", raw_entry)
+            expected, worst, entry = item
             score = scored_by_id.get(quote_id)
             if score is None or score.currency_rank is None or score.score.total_basis_points is None:
                 raise EntityConflictError("global FX ranking did not produce a complete rank")
