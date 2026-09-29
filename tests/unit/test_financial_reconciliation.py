@@ -58,7 +58,7 @@ def _invoice(
     surcharge_reason: str | None = None,
     submitted_at: datetime | None = None,
 ) -> OperatorInvoiceRevision:
-    lines = (
+    lines: tuple[InvoiceLine, ...] = (
         InvoiceLine(
             line_number=1,
             category=InvoiceLineCategory.CHARTER_BASE,
@@ -172,7 +172,10 @@ def test_dispute_must_be_explicitly_resolved_before_variance_approval_and_comple
         note="Buyer accepts half the claimed variance",
     )
     reconciliation.record_variance_approval(approval, invoice=invoice)
-    assert reconciliation.status is FinancialReconciliationStatus.VARIANCE_APPROVED
+    assert (
+        reconciliation.status.value
+        == FinancialReconciliationStatus.VARIANCE_APPROVED.value
+    )
     assert reconciliation.current_dispute_id is None
 
     payable = reconciliation.complete(
