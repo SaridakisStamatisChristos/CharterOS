@@ -94,6 +94,7 @@ def _structural(seed: int = 1) -> StructuralEmptyLeg:
         previous_mission_id=_id(2000 + seed),
         next_booking_id=_id(3000 + seed),
         next_mission_id=_id(4000 + seed),
+        previous_origin_airport_id=_id(13),
         from_airport_id=_id(10),
         from_icao="AAAA",
         to_airport_id=_id(11),
@@ -133,6 +134,7 @@ def _opportunity(
 
 def test_reposition_policy_preserves_continuity_and_computes_incremental_margin() -> None:
     snapshot = _snapshot()
+    previous_origin = _airport(13, lat="39.50000", lon="19.50000", icao="DDDD")
     from_airport = _airport(10, lat="40.00000", lon="20.00000", icao="AAAA")
     continuity = _airport(11, lat="41.00000", lon="21.00000", icao="BBBB")
     destination = _airport(12, lat="40.50000", lon="20.50000", icao="CCCC")
@@ -140,6 +142,7 @@ def test_reposition_policy_preserves_continuity_and_computes_incremental_margin(
     baseline_eval = evaluate_baseline(
         structural=_structural(),
         candidate=snapshot,
+        previous_origin_airport=previous_origin,
         from_airport=from_airport,
         continuity_airport=continuity,
     )
@@ -172,12 +175,14 @@ def test_reposition_policy_preserves_continuity_and_computes_incremental_margin(
 
 def test_reposition_policy_fails_closed_on_currency_mismatch() -> None:
     snapshot = _snapshot()
+    previous_origin = _airport(13, lat="39.50000", lon="19.50000", icao="DDDD")
     from_airport = _airport(10, lat="40.00000", lon="20.00000", icao="AAAA")
     continuity = _airport(11, lat="41.00000", lon="21.00000", icao="BBBB")
     destination = _airport(12, lat="40.50000", lon="20.50000", icao="CCCC")
     baseline = evaluate_baseline(
         structural=_structural(),
         candidate=snapshot,
+        previous_origin_airport=previous_origin,
         from_airport=from_airport,
         continuity_airport=continuity,
     ).baseline
@@ -211,6 +216,9 @@ def _solver_candidate(
     margin = Money(margin_minor, EUR)
     baseline = BaselineEmptyLeg(
         structural=structural,
+        aircraft_available_at=structural.window_start + timedelta(hours=1),
+        previous_revenue_distance_tenths_nm=200,
+        previous_revenue_minutes=30,
         baseline_distance_tenths_nm=100,
         baseline_minutes=10,
         baseline_reposition_cost=Money(10_000, EUR),
