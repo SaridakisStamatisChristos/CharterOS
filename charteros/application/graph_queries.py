@@ -150,6 +150,7 @@ class GraphQueryReadRepository(Protocol):
         window_start: datetime,
         window_end: datetime,
         limit: int,
+        operator_id: UUID | None = None,
     ) -> tuple[EmptyLegCandidate, ...]: ...
 
     def booking_flight_lineage(
@@ -249,6 +250,7 @@ class GraphQueryService:
         window_start: datetime,
         window_end: datetime,
         limit: int,
+        operator_id: UUID | None = None,
     ) -> tuple[EmptyLegCandidate, ...]:
         start = _utc(window_start, field_name="window_start")
         end = _utc(window_end, field_name="window_end")
@@ -260,6 +262,7 @@ class GraphQueryService:
             window_start=start,
             window_end=end,
             limit=_limit(limit),
+            operator_id=operator_id,
         )
 
     def booking_flight_lineage(self, *, booking_id: UUID) -> BookingFlightLineage:
