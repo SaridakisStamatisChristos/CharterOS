@@ -211,10 +211,12 @@ def test_charter_graph_testbench_preserves_no_hindsight_position_history() -> No
     }
 
     assert set(positions) == {item["id"] for item in fixture["positions"]}
-    assert positions[fixture["positions"][0]["id"]]["knowledge_time"] == (
-        fixture["positions"][0]["recorded_at"]
+    assert (
+        positions[fixture["positions"][0]["id"]]["knowledge_time"]
+        == (fixture["positions"][0]["recorded_at"])
     )
-    assert positions[fixture["positions"][1]["id"]]["knowledge_time"] == (
-        fixture["positions"][1]["recorded_at"]
+    assert (
+        positions[fixture["positions"][1]["id"]]["knowledge_time"]
+        == (fixture["positions"][1]["recorded_at"])
     )
     assert GraphReferenceState().digest() != state.digest()
