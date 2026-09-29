@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -174,6 +175,33 @@ class OutboxEventRow(Base):
             "aggregate_version",
             name="uq_outbox_aggregate_version",
         ),
+        CheckConstraint("publish_attempts >= 0", name="ck_outbox_publish_attempts"),
+        CheckConstraint("delivery_attempts >= 0", name="ck_outbox_delivery_attempts"),
+        CheckConstraint(
+            "delivery_status IN ('pending','in_flight','retry','delivered','poisoned')",
+            name="ck_outbox_delivery_status",
+        ),
+        CheckConstraint(
+            "(delivery_status IN ('pending','retry') AND published_at IS NULL "
+            "AND poisoned_at IS NULL AND lease_owner IS NULL AND lease_token IS NULL "
+            "AND lease_expires_at IS NULL) OR "
+            "(delivery_status = 'in_flight' AND published_at IS NULL "
+            "AND poisoned_at IS NULL AND lease_owner IS NOT NULL "
+            "AND lease_token IS NOT NULL AND lease_expires_at IS NOT NULL) OR "
+            "(delivery_status = 'delivered' AND published_at IS NOT NULL "
+            "AND poisoned_at IS NULL AND lease_owner IS NULL AND lease_token IS NULL "
+            "AND lease_expires_at IS NULL) OR "
+            "(delivery_status = 'poisoned' AND published_at IS NULL "
+            "AND poisoned_at IS NOT NULL AND lease_owner IS NULL AND lease_token IS NULL "
+            "AND lease_expires_at IS NULL)",
+            name="ck_outbox_delivery_state",
+        ),
+        Index(
+            "ix_outbox_delivery_due",
+            "delivery_status",
+            "available_at",
+            "recorded_at",
+        ),
     )
 
     event_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -188,5 +216,14 @@ class OutboxEventRow(Base):
     correlation_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), index=True)
     causation_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
     canonical_json: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    lease_owner: Mapped[str | None] = mapped_column(String(128))
+    lease_token: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    poisoned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     publish_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    delivery_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
