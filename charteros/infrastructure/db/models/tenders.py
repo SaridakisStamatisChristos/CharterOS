@@ -82,9 +82,7 @@ class TenderRow(Base):
     deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    best_and_final_requested_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
-    )
+    best_and_final_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     awarded_quote_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
