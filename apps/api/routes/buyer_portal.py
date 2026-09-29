@@ -504,6 +504,8 @@ def _comparison_response(
         locked = locked_by_quote.get(entry.quote.id.value)
         fx_response = None
         if locked is not None:
+            if fx_lock is None:
+                raise EntityConflictError("FX comparison entry exists without its lock")
             fx_response = FxQuoteConversionResponse(
                 base_currency=str(fx_lock.base_currency),
                 converted_expected_total=_money_response(locked.converted_expected),
