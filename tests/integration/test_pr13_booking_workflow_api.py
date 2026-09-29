@@ -1,6 +1,7 @@
 import os
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from threading import Barrier
 from uuid import UUID
 
@@ -269,7 +270,7 @@ def test_competing_next_step_commands_serialize_without_skipping_state() -> None
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            rows = (
+            rows: Sequence[str] = (
                 connection.execute(
                     text(
                         "SELECT event_type FROM outbox_events WHERE aggregate_id=:id "
@@ -358,11 +359,11 @@ def test_contract_acceptance_and_contracting_race_cannot_bypass_acceptance_guard
                 {"id": UUID(booking_id)},
             ).scalar_one()
             assert transition_events == 1
-            contract_accepted_at = connection.execute(
+            contract_accepted_at: datetime = connection.execute(
                 text("SELECT accepted_at FROM contracts WHERE id=:id"),
                 {"id": UUID(contract_id)},
             ).scalar_one()
-            booking_contracted_at = connection.execute(
+            booking_contracted_at: datetime = connection.execute(
                 text(
                     "SELECT occurred_at FROM outbox_events WHERE aggregate_id=:id "
                     "AND event_type='BOOKING_CONTRACTED'"
