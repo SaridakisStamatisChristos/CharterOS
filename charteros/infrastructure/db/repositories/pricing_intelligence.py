@@ -93,18 +93,17 @@ class SqlAlchemyPricingIntelligenceRepository:
         truncated = len(records) > limit
 
         evidence: list[HistoricalPricingEvidence] = []
-        for (
-            quote_row,
-            rfq_row,
-            mission_row,
-            aircraft_row,
-            aircraft_type_row,
-            origin_row,
-            destination_row,
-            booking_row,
-            position_row,
-            tender_row,
-        ) in records[:limit]:
+        for record in records[:limit]:
+            quote_row = record[0]
+            rfq_row = record[1]
+            mission_row = record[2]
+            aircraft_row = record[3]
+            aircraft_type_row = record[4]
+            origin_row = record[5]
+            destination_row = record[6]
+            booking_row = record[7]
+            position_row = record[8]
+            tender_row = record[9]
             evidence.append(
                 HistoricalPricingEvidence(
                     quote=quote_from_row(quote_row),
