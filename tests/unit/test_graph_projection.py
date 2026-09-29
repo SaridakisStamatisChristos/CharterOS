@@ -246,14 +246,20 @@ def test_charter_graph_testbench_preserves_no_hindsight_position_history() -> No
         positions[fixture["positions"][1]["id"]]["knowledge_time"]
         == (fixture["positions"][1]["recorded_at"])
     )
-    assert _testbench_position_at(
-        positions,
-        event_time=fixture["decision_event_time"],
-        known_as_of=fixture["historical_known_as_of"],
-    ) == fixture["expected_historical_airport_id"]
-    assert _testbench_position_at(
-        positions,
-        event_time=fixture["decision_event_time"],
-        known_as_of=fixture["later_known_as_of"],
-    ) == fixture["expected_later_airport_id"]
+    assert (
+        _testbench_position_at(
+            positions,
+            event_time=fixture["decision_event_time"],
+            known_as_of=fixture["historical_known_as_of"],
+        )
+        == fixture["expected_historical_airport_id"]
+    )
+    assert (
+        _testbench_position_at(
+            positions,
+            event_time=fixture["decision_event_time"],
+            known_as_of=fixture["later_known_as_of"],
+        )
+        == fixture["expected_later_airport_id"]
+    )
     assert GraphReferenceState().digest() != state.digest()
