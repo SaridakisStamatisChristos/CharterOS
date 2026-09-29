@@ -9,6 +9,7 @@ from charteros.domain.contracts import Contract
 from charteros.domain.missions import Mission
 from charteros.domain.operators import Operator, OperatorId
 from charteros.domain.organizations import Organization, OrganizationId
+from charteros.domain.procurement_approvals import ProcurementApproval
 from charteros.domain.quotes import Quote
 from charteros.domain.rfqs import Rfq
 from charteros.domain.tenders import Tender
@@ -54,5 +55,6 @@ class DomainEventRepository(Protocol):
             | Booking
             | Contract
             | Tender
+            | ProcurementApproval
         ),
     ) -> None: ...
