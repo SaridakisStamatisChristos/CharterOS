@@ -122,6 +122,7 @@ def test_feature_row_separates_quote_time_features_from_later_outcomes() -> None
     assert row.features.season is Season.AUTUMN
     assert row.features.position_state is PositionState.AT_ORIGIN
     assert row.features.position_age_minutes == 120
+    assert row.features.normalization_version == "v1"
     assert row.features.normalized_expected_total_minor == 1_150_000
     assert row.features.normalized_worst_case_total_minor == 1_175_000
     assert row.features.totals_complete is True
