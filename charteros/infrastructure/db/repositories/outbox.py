@@ -143,11 +143,7 @@ class SqlAlchemyOutboxDeliveryRepository:
         if retry_when < failed_when:
             raise ValueError("retry_at cannot precede failed_at")
         error_text = error.strip()[:4000] or "unknown delivery failure"
-        status = (
-            OutboxDeliveryStatus.POISONED.value
-            if poison
-            else OutboxDeliveryStatus.RETRY.value
-        )
+        status = OutboxDeliveryStatus.POISONED.value if poison else OutboxDeliveryStatus.RETRY.value
         with self._session_factory.begin() as session:
             result = session.execute(
                 update(OutboxEventRow)
@@ -250,11 +246,7 @@ class SqlAlchemyIdempotentConsumerRunner:
                         "SELECT pg_advisory_xact_lock("
                         "hashtextextended(:outbox_consumer_lock_key, 0))"
                     ),
-                    {
-                        "outbox_consumer_lock_key": (
-                            f"{name}:{envelope.event_id}"
-                        )
-                    },
+                    {"outbox_consumer_lock_key": (f"{name}:{envelope.event_id}")},
                 )
             receipt = session.get(
                 OutboxConsumerReceiptRow,
