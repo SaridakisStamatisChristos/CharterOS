@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from apps.api.routes import (
     booking_router,
+    buyer_portal_router,
     catalog_router,
     contract_router,
     fleet_router,
@@ -59,6 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.session_factory = build_session_factory(engine)
     app.add_middleware(CorrelationIdMiddleware)
     app.include_router(catalog_router)
+    app.include_router(buyer_portal_router)
     app.include_router(fleet_router)
     app.include_router(graph_query_router)
     app.include_router(mission_router)

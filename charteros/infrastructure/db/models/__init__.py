@@ -25,6 +25,7 @@ def load_models() -> None:
     from charteros.infrastructure.db.models.matching import MatchingReferenceProfileRow
     from charteros.infrastructure.db.models.missions import MissionRow
     from charteros.infrastructure.db.models.outbox import OutboxConsumerReceiptRow
+    from charteros.infrastructure.db.models.procurement_approvals import ProcurementApprovalRow
     from charteros.infrastructure.db.models.quotes import QuotePriceComponentRow, QuoteRow
     from charteros.infrastructure.db.models.rfqs import RfqRow
     from charteros.infrastructure.db.models.tenders import (
@@ -53,6 +54,7 @@ def load_models() -> None:
         OrganizationRow,
         OutboxConsumerReceiptRow,
         OutboxEventRow,
+        ProcurementApprovalRow,
         QuotePriceComponentRow,
         QuoteRow,
         RfqRow,

@@ -1,4 +1,7 @@
 from charteros.infrastructure.db.repositories.bookings import SqlAlchemyBookingRepository
+from charteros.infrastructure.db.repositories.buyer_portal import (
+    SqlAlchemyBuyerProcurementAuditRepository,
+)
 from charteros.infrastructure.db.repositories.catalog import (
     SqlAlchemyAircraftRepository,
     SqlAlchemyAircraftTypeRepository,
@@ -27,6 +30,9 @@ from charteros.infrastructure.db.repositories.outbox import (
 from charteros.infrastructure.db.repositories.pricing_intelligence import (
     SqlAlchemyPricingIntelligenceRepository,
 )
+from charteros.infrastructure.db.repositories.procurement_approvals import (
+    SqlAlchemyProcurementApprovalRepository,
+)
 from charteros.infrastructure.db.repositories.quotes import SqlAlchemyQuoteRepository
 from charteros.infrastructure.db.repositories.repositioning import (
     SqlAlchemyRepositionOpportunityRepository,
@@ -41,6 +47,7 @@ __all__ = [
     "SqlAlchemyAircraftTypeRepository",
     "SqlAlchemyAirportRepository",
     "SqlAlchemyBookingRepository",
+    "SqlAlchemyBuyerProcurementAuditRepository",
     "SqlAlchemyContractRepository",
     "SqlAlchemyDomainEventRepository",
     "SqlAlchemyGraphProjectionStore",
@@ -54,6 +61,7 @@ __all__ = [
     "SqlAlchemyOrganizationRepository",
     "SqlAlchemyOutboxDeliveryRepository",
     "SqlAlchemyPricingIntelligenceRepository",
+    "SqlAlchemyProcurementApprovalRepository",
     "SqlAlchemyQuoteRepository",
     "SqlAlchemyRepositionOpportunityRepository",
     "SqlAlchemyRfqRepository",
