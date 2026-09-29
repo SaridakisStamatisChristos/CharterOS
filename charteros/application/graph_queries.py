@@ -113,6 +113,8 @@ class BookingFlightLineage:
 class GraphQueryReadRepository(Protocol):
     def active_version(self) -> int: ...
 
+    def active_knowledge_cutoff(self) -> datetime: ...
+
     def has_node(self, *, node_type: str, node_id: UUID) -> bool: ...
 
     def historical_position(
@@ -169,6 +171,10 @@ class GraphQueryService:
     @property
     def projection_version(self) -> int:
         return self._repository.active_version()
+
+    @property
+    def knowledge_cutoff(self) -> datetime:
+        return self._repository.active_knowledge_cutoff()
 
     def assert_projected_mission(self, mission_id: UUID) -> int:
         version = self._repository.active_version()
