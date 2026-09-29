@@ -123,6 +123,8 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
     next_mission = uuid4()
     previous_booking = uuid4()
     next_booking = uuid4()
+    previous_quote = uuid4()
+    next_quote = uuid4()
 
     opportunity_mission = uuid4()
     rfq_id = uuid4()
@@ -355,6 +357,26 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
                         node_id=next_booking,
                         attributes={"state": "confirmed"},
                     ),
+                    _node(
+                        node_type="quote",
+                        node_id=previous_quote,
+                        attributes={
+                            "rfq_id": str(uuid4()),
+                            "revision_number": 1,
+                            "status": "accepted",
+                            "supersedes_quote_id": None,
+                        },
+                    ),
+                    _node(
+                        node_type="quote",
+                        node_id=next_quote,
+                        attributes={
+                            "rfq_id": str(uuid4()),
+                            "revision_number": 1,
+                            "status": "accepted",
+                            "supersedes_quote_id": None,
+                        },
+                    ),
                 ]
             )
             session.add_all(
@@ -429,6 +451,20 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
                         target_type="aircraft",
                         target_id=aircraft_id,
                     ),
+                    _edge(
+                        edge_type="ACCEPTED_QUOTE",
+                        source_type="booking",
+                        source_id=previous_booking,
+                        target_type="quote",
+                        target_id=previous_quote,
+                    ),
+                    _edge(
+                        edge_type="ACCEPTED_QUOTE",
+                        source_type="booking",
+                        source_id=next_booking,
+                        target_type="quote",
+                        target_id=next_quote,
+                    ),
                 ]
             )
 
@@ -465,6 +501,9 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
             assert assignment["next_booking_id"] == str(next_booking)
             assert assignment["margin_minor"] > 0
             assert assignment["opportunity_cost_minor"] >= 0
+            assert assignment["previous_revenue_distance_nm"] > 0
+            assert assignment["previous_revenue_minutes"] > 0
+            assert datetime.fromisoformat(assignment["aircraft_available_at"]) > previous_to
             assert datetime.fromisoformat(assignment["continuity_ready_at"]) <= next_from
     finally:
         with factory.begin() as session:
