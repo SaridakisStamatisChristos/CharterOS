@@ -798,3 +798,342 @@ def _submit_quote_for_context(
             now=datetime.now(UTC),
             correlation_id=correlation_id,
         )
+
+    else:
+        quote = _quote_service(session).submit(
+            rfq_id=RfqId(rfq_id),
+            aircraft_id=aircraft_id,
+            base_price=base_price,
+            price_components=components,
+            repositioning_cost=repositioning,
+            inclusions=tuple(body.inclusions),
+            exclusions=tuple(body.exclusions),
+            cancellation_terms=body.cancellation_terms,
+            payment_terms=body.payment_terms,
+            valid_until=body.valid_until,
+            now=datetime.now(UTC),
+            correlation_id=correlation_id,
+        )
+    return quote_response(quote)
+
+
+@router.post(
+    "/rfqs/{rfq_id}/quotes",
+    response_model=QuoteResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def submit_quote(
+    rfq_id: UUID,
+    body: QuoteTermsRequest,
+    session: SessionDep,
+    operator_id: OperatorContext,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+    invitation_id: TenderCapability = None,
+) -> QuoteResponse:
+    scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/quotes"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            success_status=status.HTTP_201_CREATED,
+            response_type=QuoteResponse,
+            action=lambda: _submit_quote_for_context(
+                session=session,
+                operator_id=operator_id,
+                rfq_id=rfq_id,
+                invitation_id=invitation_id,
+                body=body,
+                correlation_id=correlation_id,
+            ),
+        )
+
+
+@router.get("/quotes/{quote_id}", response_model=QuoteResponse)
+def get_quote(
+    quote_id: UUID,
+    session: SessionDep,
+    operator_id: OperatorContext,
+    invitation_id: TenderCapability = None,
+) -> QuoteResponse:
+    with session.begin():
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        _portal(session).quote_context(
+            operator_id=OperatorId(operator_id),
+            quote_id=quote_id,
+            invitation_id=invitation_id,
+        )
+        quote = _quote_service(session).get(QuoteId(quote_id))
+    return quote_response(quote)
+
+
+def _revise_quote_for_context(
+    *,
+    session: Session,
+    operator_id: UUID,
+    quote_id: UUID,
+    invitation_id: UUID | None,
+    body: QuoteTermsRequest,
+    correlation_id: CorrelationId,
+) -> QuoteResponse:
+    context = _portal(session).quote_context(
+        operator_id=OperatorId(operator_id),
+        quote_id=quote_id,
+        invitation_id=invitation_id,
+    )
+    aircraft_id, base_price, components, repositioning = quote_terms(body)
+    if context.rfq.tender_invitation_id is not None:
+        tender_service = _tender_service(session)
+        typed_invitation = TenderInvitationId(context.rfq.tender_invitation_id)
+        if context.rfq.tender_status == "best_and_final":
+            quote = tender_service.submit_best_and_final(
+                invitation_id=typed_invitation,
+                quote_id=QuoteId(quote_id),
+                aircraft_id=aircraft_id,
+                base_price=base_price,
+                price_components=components,
+                repositioning_cost=repositioning,
+                inclusions=tuple(body.inclusions),
+                exclusions=tuple(body.exclusions),
+                cancellation_terms=body.cancellation_terms,
+                payment_terms=body.payment_terms,
+                valid_until=body.valid_until,
+                now=datetime.now(UTC),
+                correlation_id=correlation_id,
+            )
+        else:
+            quote = tender_service.revise_bid(
+                invitation_id=typed_invitation,
+                quote_id=QuoteId(quote_id),
+                aircraft_id=aircraft_id,
+                base_price=base_price,
+                price_components=components,
+                repositioning_cost=repositioning,
+                inclusions=tuple(body.inclusions),
+                exclusions=tuple(body.exclusions),
+                cancellation_terms=body.cancellation_terms,
+                payment_terms=body.payment_terms,
+                valid_until=body.valid_until,
+                now=datetime.now(UTC),
+                correlation_id=correlation_id,
+            )
+    else:
+        quote = _quote_service(session).revise(
+            quote_id=QuoteId(quote_id),
+            aircraft_id=aircraft_id,
+            base_price=base_price,
+            price_components=components,
+            repositioning_cost=repositioning,
+            inclusions=tuple(body.inclusions),
+            exclusions=tuple(body.exclusions),
+            cancellation_terms=body.cancellation_terms,
+            payment_terms=body.payment_terms,
+            valid_until=body.valid_until,
+            now=datetime.now(UTC),
+            correlation_id=correlation_id,
+        )
+    return quote_response(quote)
+
+
+@router.post(
+    "/quotes/{quote_id}/revise",
+    response_model=QuoteResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def revise_quote(
+    quote_id: UUID,
+    body: QuoteTermsRequest,
+    session: SessionDep,
+    operator_id: OperatorContext,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+    invitation_id: TenderCapability = None,
+) -> QuoteResponse:
+    scope = f"POST:/v1/operator-portal/{operator_id}/quotes/{quote_id}/revise"
+    request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+            success_status=status.HTTP_201_CREATED,
+            response_type=QuoteResponse,
+            action=lambda: _revise_quote_for_context(
+                session=session,
+                operator_id=operator_id,
+                quote_id=quote_id,
+                invitation_id=invitation_id,
+                body=body,
+                correlation_id=correlation_id,
+            ),
+        )
+
+
+@router.post("/quotes/{quote_id}/withdraw", response_model=QuoteResponse)
+def withdraw_quote(
+    quote_id: UUID,
+    session: SessionDep,
+    operator_id: OperatorContext,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+    invitation_id: TenderCapability = None,
+) -> QuoteResponse:
+    scope = f"POST:/v1/operator-portal/{operator_id}/quotes/{quote_id}/withdraw"
+
+    def action() -> QuoteResponse:
+        context = _portal(session).quote_context(
+            operator_id=OperatorId(operator_id),
+            quote_id=quote_id,
+            invitation_id=invitation_id,
+        )
+        if context.rfq.tender_invitation_id is not None:
+            quote = _tender_service(session).withdraw_bid(
+                invitation_id=TenderInvitationId(context.rfq.tender_invitation_id),
+                quote_id=QuoteId(quote_id),
+                now=datetime.now(UTC),
+                correlation_id=correlation_id,
+            )
+        else:
+            quote = _quote_service(session).withdraw(
+                quote_id=QuoteId(quote_id),
+                now=datetime.now(UTC),
+                correlation_id=correlation_id,
+            )
+        return quote_response(quote)
+
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=canonical_request_hash({}),
+            success_status=status.HTTP_200_OK,
+            response_type=QuoteResponse,
+            action=action,
+        )
+
+
+@router.get("/calendar", response_model=PortalCalendarResponse)
+def mission_calendar(
+    session: SessionDep,
+    operator_id: OperatorContext,
+    window_start: datetime,
+    window_end: datetime,
+    booking_state: Annotated[list[BookingState] | None, Query(alias="state")] = None,
+    limit: PageLimit = 100,
+    cursor: UUID | None = None,
+) -> PortalCalendarResponse:
+    with session.begin():
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        page = _portal(session).mission_calendar(
+            operator_id=OperatorId(operator_id),
+            window_start=window_start,
+            window_end=window_end,
+            states=tuple(booking_state or ()),
+            limit=limit,
+            cursor=cursor,
+        )
+    return PortalCalendarResponse(
+        operator_id=operator_id,
+        window_start=window_start,
+        window_end=window_end,
+        returned_count=len(page.items),
+        next_cursor=page.next_cursor,
+        entries=[_booking_response(item) for item in page.items],
+    )
+
+
+@router.get("/empty-legs", response_model=PortalEmptyLegVisibilityResponse)
+def empty_leg_visibility(
+    session: SessionDep,
+    operator_id: OperatorContext,
+    window_start: datetime,
+    window_end: datetime,
+    evaluated_at: datetime,
+    mode: Literal["structural", "optimized", "both"] = "both",
+    empty_leg_limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    opportunity_limit: Annotated[int, Query(ge=1, le=2000)] = 2000,
+) -> PortalEmptyLegVisibilityResponse:
+    with session.begin():
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        _portal(session).assert_operator(OperatorId(operator_id))
+        graph = GraphQueryService(SqlAlchemyGraphQueryRepository(session))
+        structural = graph.empty_leg_candidates(
+            window_start=window_start,
+            window_end=window_end,
+            limit=empty_leg_limit,
+            operator_id=operator_id,
+        )
+        projection_version = graph.projection_version
+        graph_knowledge_cutoff = graph.knowledge_cutoff
+        optimized: RepositionOptimizationResponse | None = None
+        if mode in ("optimized", "both"):
+            optimized = repositioning_response(
+                _repositioning_service(session).optimize(
+                    window_start=window_start,
+                    window_end=window_end,
+                    evaluated_at=evaluated_at,
+                    empty_leg_limit=empty_leg_limit,
+                    opportunity_limit=opportunity_limit,
+                    operator_id=OperatorId(operator_id),
+                )
+            )
+    return PortalEmptyLegVisibilityResponse(
+        operator_id=operator_id,
+        evidence_boundary=(
+            "PR16 structural candidates are not profitability claims; "
+            "PR18 optimization is deterministic, currency-scoped recommendation evidence"
+        ),
+        projection_version=projection_version,
+        graph_knowledge_cutoff=graph_knowledge_cutoff,
+        structural_count=len(structural),
+        structural_candidates=(
+            [_empty_leg_response(item) for item in structural]
+            if mode in ("structural", "both")
+            else []
+        ),
+        optimization=optimized,
+    )
+
+
+@router.get("/bookings", response_model=PortalBookingPageResponse)
+def list_bookings(
+    session: SessionDep,
+    operator_id: OperatorContext,
+    booking_state: Annotated[list[BookingState] | None, Query(alias="state")] = None,
+    limit: PageLimit = 50,
+    cursor: UUID | None = None,
+) -> PortalBookingPageResponse:
+    with session.begin():
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        page = _portal(session).bookings(
+            operator_id=OperatorId(operator_id),
+            states=tuple(booking_state or ()),
+            limit=limit,
+            cursor=cursor,
+        )
+    return PortalBookingPageResponse(
+        operator_id=operator_id,
+        returned_count=len(page.items),
+        next_cursor=page.next_cursor,
+        bookings=[_booking_response(item) for item in page.items],
+    )
+
+
+@router.get("/bookings/{booking_id}", response_model=PortalBookingResponse)
+def get_booking(
+    booking_id: UUID,
+    session: SessionDep,
+    operator_id: OperatorContext,
+) -> PortalBookingResponse:
+    with session.begin():
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        item = _portal(session).booking(
+            operator_id=OperatorId(operator_id),
+            booking_id=booking_id,
+        )
+    return _booking_response(item)
