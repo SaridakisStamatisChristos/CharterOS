@@ -254,9 +254,7 @@ class SqlAlchemyEvidenceRepository:
                         )
                     ).all()
                 )
-                fx_rate_ids = {
-                    row.rate_id for row in fx_conversions if row.rate_id is not None
-                }
+                fx_rate_ids = {row.rate_id for row in fx_conversions if row.rate_id is not None}
                 if fx_rate_ids:
                     fx_rates = list(
                         self._session.scalars(
@@ -619,9 +617,7 @@ class SqlAlchemyEvidenceRepository:
                 raise EntityConflictError(
                     f"FX lock {fx_lock.id} is missing committed consumption evidence"
                 )
-            procurement_approval = procurement_approval_by_id.get(
-                fx_lock.consumed_approval_id
-            )
+            procurement_approval = procurement_approval_by_id.get(fx_lock.consumed_approval_id)
             if procurement_approval is None:
                 raise EntityConflictError(
                     f"FX lock {fx_lock.id} references missing procurement approval"
@@ -706,8 +702,7 @@ class SqlAlchemyEvidenceRepository:
                     rate = fx_rate_by_id.get(conversion.rate_id)
                     if rate is None:
                         raise EntityConflictError(
-                            f"FX lock {fx_lock.id} references missing FX rate "
-                            f"{conversion.rate_id}"
+                            f"FX lock {fx_lock.id} references missing FX rate {conversion.rate_id}"
                         )
                     if (
                         rate.source_currency != conversion.original_currency
