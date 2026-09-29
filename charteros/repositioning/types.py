@@ -146,6 +146,10 @@ class RepositionAssignment:
     pricing_confidence: PricingConfidence
     totals_complete: bool
 
+    @property
+    def currency(self) -> Currency:
+        return self.margin.currency
+
 
 @dataclass(frozen=True, slots=True)
 class CurrencyOptimizationPlan:
