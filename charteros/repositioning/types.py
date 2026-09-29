@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from uuid import UUID
 
-from charteros.application.graph_queries import EmptyLegCandidate
 from charteros.domain.aircraft import AircraftId
 from charteros.domain.airports import AirportId
 from charteros.domain.missions import MissionId
@@ -41,6 +41,24 @@ class RepositionReasonCode(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class StructuralEmptyLeg:
+    aircraft_id: UUID
+    operator_id: UUID
+    previous_booking_id: UUID
+    previous_mission_id: UUID
+    next_booking_id: UUID
+    next_mission_id: UUID
+    from_airport_id: UUID
+    from_icao: str
+    to_airport_id: UUID
+    to_icao: str
+    window_start: datetime
+    window_end: datetime
+    gap_minutes: int
+    evidence_kind: str
+
+
+@dataclass(frozen=True, slots=True)
 class QuotedFutureLeg:
     mission_id: MissionId
     rfq_id: RfqId
@@ -59,7 +77,7 @@ class QuotedFutureLeg:
 
 @dataclass(frozen=True, slots=True)
 class BaselineEmptyLeg:
-    structural: EmptyLegCandidate
+    structural: StructuralEmptyLeg
     baseline_distance_tenths_nm: int
     baseline_minutes: int
     baseline_reposition_cost: Money
@@ -93,8 +111,8 @@ class FeasibleInsertion:
 class RepositionAssignment:
     aircraft_id: AircraftId
     operator_id: OperatorId
-    previous_booking_id: str
-    next_booking_id: str
+    previous_booking_id: UUID
+    next_booking_id: UUID
     mission_id: MissionId
     quote_id: QuoteId
     from_airport_id: AirportId
