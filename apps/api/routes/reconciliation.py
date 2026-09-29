@@ -316,9 +316,7 @@ def _approval_response(approval: VarianceApproval) -> VarianceApprovalResponse:
         approved_variance_minor=approval.approved_variance.amount_minor,
         currency=str(approval.approved_variance.currency),
         resolves_dispute_id=(
-            approval.resolves_dispute_id.value
-            if approval.resolves_dispute_id is not None
-            else None
+            approval.resolves_dispute_id.value if approval.resolves_dispute_id is not None else None
         ),
         approved_at=approval.approved_at,
         note=approval.note,
@@ -547,9 +545,7 @@ def approve_variance(
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
 ) -> VarianceApprovalResponse:
-    scope = (
-        f"POST:/v1/reconciliations/{reconciliation_id}/variance-approvals:buyer:{buyer_id}"
-    )
+    scope = f"POST:/v1/reconciliations/{reconciliation_id}/variance-approvals:buyer:{buyer_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
         idempotency = SqlAlchemyIdempotencyRepository(session)
