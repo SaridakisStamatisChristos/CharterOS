@@ -21,6 +21,9 @@ from charteros.infrastructure.db.repositories.outbox import (
     SqlAlchemyIdempotentConsumerRunner,
     SqlAlchemyOutboxDeliveryRepository,
 )
+from charteros.infrastructure.db.repositories.pricing_intelligence import (
+    SqlAlchemyPricingIntelligenceRepository,
+)
 from charteros.infrastructure.db.repositories.quotes import SqlAlchemyQuoteRepository
 from charteros.infrastructure.db.repositories.repositioning import (
     SqlAlchemyRepositionOpportunityRepository,
@@ -46,6 +49,7 @@ __all__ = [
     "SqlAlchemyOperatorRepository",
     "SqlAlchemyOrganizationRepository",
     "SqlAlchemyOutboxDeliveryRepository",
+    "SqlAlchemyPricingIntelligenceRepository",
     "SqlAlchemyQuoteRepository",
     "SqlAlchemyRepositionOpportunityRepository",
     "SqlAlchemyRfqRepository",
