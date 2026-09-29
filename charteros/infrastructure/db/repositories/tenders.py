@@ -273,9 +273,7 @@ class SqlAlchemyTenderRepository:
         rfq_ids = [row.rfq_id for row in invitation_rows]
         quote_ids = (
             list(
-                self._session.scalars(
-                    select(QuoteRow.id).where(QuoteRow.rfq_id.in_(rfq_ids))
-                ).all()
+                self._session.scalars(select(QuoteRow.id).where(QuoteRow.rfq_id.in_(rfq_ids))).all()
             )
             if rfq_ids
             else []
