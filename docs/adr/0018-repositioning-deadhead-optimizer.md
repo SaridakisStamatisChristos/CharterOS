@@ -132,20 +132,34 @@ economic interpretation is auditable.
 
 Candidates with non-positive continuity-adjusted margin are not assignable.
 
-### Min-cost flow / matching
+### Exact matching and tie semantics
 
-PR18 v1 is a deterministic maximum-margin bipartite assignment implemented as min-cost flow over a
-residual network.
+The optimizer is an exact maximum-margin bipartite assignment. PR18 originally used residual
+min-cost flow; PR32 replaced the hot path with an exact shortest-augmenting-path Hungarian
+implementation while preserving the same scalar economics.
 
 Constraints:
 
 - each structural empty-leg window receives at most one future Mission;
 - each Mission is assigned at most once;
-- residual reverse edges allow reassignment, so the result is globally optimal for the bounded
-  single-insertion model rather than greedy;
-- deterministic tie costs are strictly smaller than one minor currency unit of objective value.
+- reassignment remains globally optimal for the bounded single-insertion model rather than greedy;
+- one minor unit of margin dominates the aggregate candidate-index tie penalty.
 
-The v1 optimizer deliberately supports one inserted revenue Mission per structural empty-leg window.
+The scalar objective alone does not totally order every feasible plan: different assignment sets can
+have identical margin and identical aggregate candidate-index penalty. `reposition-v2` therefore
+defines a third, canonical tie-break independent of solver traversal:
+
+- sort structural empty-leg keys using the solver's existing left-key order;
+- sort Mission UUIDs using the solver's existing right-key order;
+- represent a plan as the Mission-rank vector for those sorted left keys, with unmatched after every
+  real Mission; and
+- choose the lexicographically smallest vector after the first two objectives tie.
+
+The mixed-radix implementation is strictly subordinate to the scalar objective, so it cannot alter
+documented economics. This is an observable plan-selection rule and therefore bumps
+`POLICY_VERSION` from `reposition-v1` to `reposition-v2`.
+
+The optimizer deliberately supports one inserted revenue Mission per structural empty-leg window.
 Multi-stop chaining is a later extension and is not silently approximated.
 
 ### Currency boundary
