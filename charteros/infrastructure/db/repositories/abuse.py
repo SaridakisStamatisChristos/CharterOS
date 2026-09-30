@@ -111,16 +111,31 @@ class SqlAlchemyRateBudgetRepository:
             retry_after_seconds=int(row["retry_after_seconds"]),
         )
 
-    def delete_windows_older_than(self, *, retention_seconds: int) -> int:
+    def delete_windows_older_than(self, *, retention_seconds: int, limit: int) -> int:
         if retention_seconds < 1:
             raise ValueError("retention_seconds must be positive")
-        result = self._session.execute(
+        if limit < 1:
+            raise ValueError("cleanup limit must be positive")
+        rows = self._session.execute(
             text(
                 """
-                DELETE FROM api_rate_limit_windows
-                WHERE window_started_at < clock_timestamp() - make_interval(secs => :retention)
+                WITH victims AS (
+                    SELECT budget, identity_digest, window_started_at
+                    FROM api_rate_limit_windows
+                    WHERE window_started_at
+                        < clock_timestamp() - make_interval(secs => :retention)
+                    ORDER BY window_started_at, budget, identity_digest
+                    LIMIT :limit
+                    FOR UPDATE SKIP LOCKED
+                )
+                DELETE FROM api_rate_limit_windows AS target
+                USING victims
+                WHERE target.budget = victims.budget
+                  AND target.identity_digest = victims.identity_digest
+                  AND target.window_started_at = victims.window_started_at
+                RETURNING target.budget
                 """
             ),
-            {"retention": retention_seconds},
-        )
-        return int(result.rowcount or 0)
+            {"retention": retention_seconds, "limit": limit},
+        ).all()
+        return len(rows)
