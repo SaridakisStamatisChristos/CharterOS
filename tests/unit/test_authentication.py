@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
+import time
 from typing import Any
 from uuid import UUID
 
@@ -100,7 +101,7 @@ def _backend(
         ttl_seconds=ttl_seconds,
         refresh_min_interval_seconds=refresh_min_interval_seconds,
         unknown_key_ttl_seconds=unknown_key_ttl_seconds,
-        monotonic=monotonic or __import__("time").monotonic,
+        monotonic=monotonic or time.monotonic,
     )
     return OidcJwtAuthenticationBackend(
         issuer=ISSUER,
