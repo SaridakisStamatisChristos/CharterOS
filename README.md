@@ -16,8 +16,8 @@ This repository is intentionally starting as a **modular monolith**. The first m
 cp .env.example .env
 python -m venv .venv
 source .venv/bin/activate  # Windows PowerShell: .venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
+python -m pip install "uv==0.12.21"
+uv sync --frozen --extra dev
 docker compose up -d postgres
 alembic upgrade head
 uvicorn apps.api.main:app --reload
@@ -28,19 +28,23 @@ Then open `http://127.0.0.1:8000/health`.
 ## Quality gate
 
 ```bash
-ruff check .
-ruff format --check .
-mypy apps charteros tests tools
-pytest
-python tools/app_boot_smoke.py
+uv lock --check
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy apps charteros tests tools
+uv run bandit -q -r apps charteros tools
+uv run pip-audit --strict --skip-editable
+uv run pytest
+uv run python tools/app_boot_smoke.py
 docker compose config
+uv run alembic check
 ```
 
 The integration test suite expects PostgreSQL to be reachable through `CHARTEROS_DATABASE_URL`. The provided Compose configuration exposes a local development instance on port `5432`.
 
 ## Configuration
 
-Runtime settings are environment-driven and use the `CHARTEROS_` prefix. See `.env.example`. Secrets must not be committed.
+Runtime settings are environment-driven and use the `CHARTEROS_` prefix. See `.env.example`. The database URL is required explicitly. Staging/production also require a complete OIDC issuer/audience/JWKS configuration and reject known development database passwords. The API defaults to loopback; container deployments explicitly bind `0.0.0.0` inside the container namespace. Secrets must not be committed.
 
 ## Architecture
 
