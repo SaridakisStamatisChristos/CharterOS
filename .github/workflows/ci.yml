@@ -15,14 +15,14 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:17-alpine
         env:
           POSTGRES_DB: charteros
           POSTGRES_USER: charteros
-          POSTGRES_PASSWORD: charteros
+          POSTGRES_PASSWORD: charteros-ci
         ports:
           - 5432:5432
         options: >-
@@ -35,41 +35,138 @@ jobs:
       CHARTEROS_ENVIRONMENT: test
       CHARTEROS_SERVICE_NAME: charteros-api
       CHARTEROS_LOG_LEVEL: INFO
-      CHARTEROS_DATABASE_URL: postgresql+psycopg://charteros:charteros@localhost:5432/charteros
+      CHARTEROS_DATABASE_URL: postgresql+psycopg://charteros:charteros-ci@localhost:5432/charteros
+      UV_VERSION: "0.12.21"
+      TRIVY_VERSION: "0.74.0"
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: "3.13"
-          cache: pip
+          python-version: "3.13.15"
 
-      - name: Install
+      - name: Install pinned uv
+        shell: bash
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e '.[dev]'
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
+            --output /tmp/uv.tar.gz
+          echo "23f02075b652bb1df64178cfae41b5caf160822e720e2663568f3f5d63bc52c0  /tmp/uv.tar.gz" | sha256sum --check -
+          tar -xzf /tmp/uv.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv
+          uv --version
+
+      - name: Resolve dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv lock
+          echo "UV_LOCK_BASE64_BEGIN"
+          base64 -w 0 uv.lock
+          echo
+          echo "UV_LOCK_BASE64_END"
+
+      - name: Sync frozen environment
+        run: uv sync --frozen --extra dev
 
       - name: Ruff lint
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Ruff format
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
       - name: Mypy
-        run: mypy apps charteros tests tools
+        run: uv run mypy apps charteros tests tools
+
+      - name: Bandit
+        run: uv run bandit -q -r apps charteros tools
+
+      - name: Dependency vulnerability audit
+        run: uv run pip-audit --strict --skip-editable
 
       - name: Compose config
         run: docker compose config
 
       - name: Migration smoke
-        run: alembic upgrade head
+        run: uv run alembic upgrade head
 
       - name: Alembic schema drift
-        run: alembic check
+        run: uv run alembic check
 
       - name: Tests
-        run: pytest
+        run: uv run pytest
 
       - name: App boot smoke
-        run: python tools/app_boot_smoke.py
+        run: uv run python tools/app_boot_smoke.py
+
+      - name: Install pinned Trivy
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            --output /tmp/trivy.tar.gz
+          echo "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a  /tmp/trivy.tar.gz" | sha256sum --check -
+          tar -xzf /tmp/trivy.tar.gz -C /tmp trivy
+          sudo install -m 0755 /tmp/trivy /usr/local/bin/trivy
+          trivy --version
+
+      - name: Secret scan
+        run: trivy fs --scanners secret --exit-code 1 --no-progress .
+
+      - name: Build hardened image
+        run: docker build --tag charteros:ci .
+
+      - name: Download vulnerability database
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if trivy image --download-db-only --timeout 2m; then
+              exit 0
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
+
+      - name: Container vulnerability scan
+        run: >-
+          trivy image
+          --skip-db-update
+          --scanners vuln
+          --severity HIGH,CRITICAL
+          --ignore-unfixed
+          --exit-code 1
+          --no-progress
+          charteros:ci
+
+      - name: Generate CycloneDX SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          trivy image --skip-db-update --format cyclonedx --output sbom.cdx.json charteros:ci
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("sbom.cdx.json")
+          document = json.loads(path.read_text(encoding="utf-8"))
+          if document.get("bomFormat") != "CycloneDX" or not document.get("components"):
+              raise SystemExit("invalid or empty CycloneDX SBOM")
+          print(f"SBOM components: {len(document['components'])}")
+          PY
+
+      - name: Verify dependency lock is committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain -- uv.lock)" ]; then
+            echo "uv.lock is missing or stale; commit the resolver output."
+            exit 1
+          fi
