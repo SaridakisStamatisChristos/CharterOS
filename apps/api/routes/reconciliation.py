@@ -9,7 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
+from charteros.shared.clock import Clock
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -334,7 +335,8 @@ def open_reconciliation(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> FinancialReconciliationResponse:
+
+    clock: Clock = Depends(get_clock),) -> FinancialReconciliationResponse:
     scope = f"POST:/v1/bookings/{booking_id}/reconciliation:operator:{operator_id}"
     request_hash = canonical_request_hash({})
     with session.begin():
@@ -352,7 +354,7 @@ def open_reconciliation(
         reconciliation = _service(session).open_reconciliation(
             booking_id=BookingId(booking_id),
             operator_id=OperatorId(operator_id),
-            opened_at=datetime.now(UTC),
+            opened_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _reconciliation_response(reconciliation)
@@ -416,7 +418,8 @@ def submit_invoice(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> OperatorInvoiceResponse:
+
+    clock: Clock = Depends(get_clock),) -> OperatorInvoiceResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/invoices:operator:{operator_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -447,7 +450,7 @@ def submit_invoice(
                 for line in body.line_items
             ),
             surcharge_reason=body.surcharge_reason,
-            submitted_at=datetime.now(UTC),
+            submitted_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _invoice_response(invoice)
@@ -498,7 +501,8 @@ def dispute_invoice(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> DisputeResponse:
+
+    clock: Clock = Depends(get_clock),) -> DisputeResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/disputes:buyer:{buyer_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -518,7 +522,7 @@ def dispute_invoice(
             buyer_id=OrganizationId(buyer_id),
             disputed_amount_minor=body.disputed_amount_minor,
             reason=body.reason,
-            opened_at=datetime.now(UTC),
+            opened_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _dispute_response(dispute)
@@ -544,7 +548,8 @@ def approve_variance(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> VarianceApprovalResponse:
+
+    clock: Clock = Depends(get_clock),) -> VarianceApprovalResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/variance-approvals:buyer:{buyer_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -568,7 +573,7 @@ def approve_variance(
                 if body.resolves_dispute_id is not None
                 else None
             ),
-            approved_at=datetime.now(UTC),
+            approved_at=clock.now(),
             note=body.note,
             correlation_id=correlation_id,
         )
@@ -593,7 +598,8 @@ def complete_reconciliation(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> FinancialReconciliationResponse:
+
+    clock: Clock = Depends(get_clock),) -> FinancialReconciliationResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/complete:operator:{operator_id}"
     request_hash = canonical_request_hash({})
     with session.begin():
@@ -611,7 +617,7 @@ def complete_reconciliation(
         reconciliation = _service(session).complete_reconciliation(
             reconciliation_id=FinancialReconciliationId(reconciliation_id),
             operator_id=OperatorId(operator_id),
-            completed_at=datetime.now(UTC),
+            completed_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _reconciliation_response(reconciliation)
