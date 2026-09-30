@@ -25,6 +25,7 @@ from charteros.matching.types import (
     ensure_utc,
 )
 
+
 def _ceil_div(numerator: int, denominator: int) -> int:
     if denominator <= 0:
         raise DomainValidationError("denominator must be positive")
