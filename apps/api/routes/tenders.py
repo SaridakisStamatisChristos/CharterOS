@@ -357,7 +357,6 @@ def create_tender(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> TenderResponse:
     scope = f"POST:/v1/missions/{mission_id}/tenders"
@@ -389,7 +388,6 @@ def open_tender(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> TenderResponse:
     scope = f"POST:/v1/tenders/{tender_id}/open"
@@ -422,7 +420,6 @@ def invite_supplier(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> TenderInvitationResponse:
     scope = f"POST:/v1/tenders/{tender_id}/invitations"
@@ -455,7 +452,6 @@ def accept_invitation(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> TenderInvitationResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/accept"
@@ -487,7 +483,6 @@ def decline_invitation(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> TenderInvitationResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/decline"
@@ -592,7 +587,6 @@ def submit_bid(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/bids"
@@ -628,7 +622,6 @@ def revise_bid(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/bids/{quote_id}/revise"
@@ -662,7 +655,6 @@ def request_best_and_final(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> TenderResponse:
     scope = f"POST:/v1/tenders/{tender_id}/best-and-final"
@@ -696,7 +688,6 @@ def submit_best_and_final(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/best-and-final/{quote_id}"
@@ -731,7 +722,6 @@ def withdraw_bid(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/bids/{quote_id}/withdraw"
@@ -760,7 +750,6 @@ def close_tender(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> TenderResponse:
     scope = f"POST:/v1/tenders/{tender_id}/close"
@@ -789,7 +778,6 @@ def award_tender(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> TenderAwardResponse:
     scope = f"POST:/v1/tenders/{tender_id}/award"
@@ -830,7 +818,6 @@ def admin_correct(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> TenderAdminCorrectionResponse:
     scope = f"POST:/v1/tenders/{tender_id}/admin-corrections"
