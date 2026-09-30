@@ -141,9 +141,7 @@ class Mission(AggregateRoot[MissionId]):
         )
         return mission
 
-    def open(
-        self, *, recorded_at: datetime, correlation_id: CorrelationId | None = None
-    ) -> None:
+    def open(self, *, recorded_at: datetime, correlation_id: CorrelationId | None = None) -> None:
         if self.status is not MissionStatus.DRAFT:
             raise DomainValidationError("only draft missions can be opened")
         self.status = MissionStatus.OPEN
