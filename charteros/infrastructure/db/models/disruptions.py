@@ -94,6 +94,43 @@ class DisruptionProposalRow(Base):
             name="ck_disruption_proposals_availability_evidence",
         ),
         CheckConstraint(
+            "("
+            "feasibility_policy_version IS NULL AND feasibility_known_as_of IS NULL "
+            "AND position_observation_id IS NULL AND position_event_time IS NULL "
+            "AND position_recorded_at IS NULL AND reference_profile_id IS NULL "
+            "AND reference_profile_recorded_at IS NULL "
+            "AND route_distance_tenths_nm IS NULL AND required_range_nm IS NULL "
+            "AND reposition_distance_tenths_nm IS NULL AND route_minutes IS NULL "
+            "AND reposition_minutes IS NULL AND timing_buffer_minutes IS NULL"
+            ") OR ("
+            "feasibility_policy_version IS NOT NULL AND feasibility_known_as_of IS NOT NULL "
+            "AND position_observation_id IS NOT NULL AND position_event_time IS NOT NULL "
+            "AND position_recorded_at IS NOT NULL AND reference_profile_id IS NOT NULL "
+            "AND reference_profile_recorded_at IS NOT NULL "
+            "AND route_distance_tenths_nm IS NOT NULL AND required_range_nm IS NOT NULL "
+            "AND reposition_distance_tenths_nm IS NOT NULL AND route_minutes IS NOT NULL "
+            "AND reposition_minutes IS NOT NULL AND timing_buffer_minutes IS NOT NULL"
+            ")",
+            name="ck_disruption_proposals_feasibility_evidence_complete",
+        ),
+        CheckConstraint(
+            "(route_distance_tenths_nm IS NULL OR route_distance_tenths_nm >= 0) AND "
+            "(required_range_nm IS NULL OR required_range_nm >= 0) AND "
+            "(reposition_distance_tenths_nm IS NULL OR reposition_distance_tenths_nm >= 0) AND "
+            "(route_minutes IS NULL OR route_minutes >= 0) AND "
+            "(reposition_minutes IS NULL OR reposition_minutes >= 0) AND "
+            "(timing_buffer_minutes IS NULL OR timing_buffer_minutes >= 0)",
+            name="ck_disruption_proposals_feasibility_nonnegative",
+        ),
+        CheckConstraint(
+            "feasibility_known_as_of IS NULL OR "
+            "(feasibility_known_as_of <= proposed_at "
+            "AND position_event_time <= feasibility_known_as_of "
+            "AND position_recorded_at <= feasibility_known_as_of "
+            "AND reference_profile_recorded_at <= feasibility_known_as_of)",
+            name="ck_disruption_proposals_feasibility_temporal",
+        ),
+        CheckConstraint(
             "(departure_start IS NULL AND departure_end IS NULL) OR "
             "(departure_start IS NOT NULL AND departure_end IS NOT NULL "
             "AND departure_start < departure_end)",
