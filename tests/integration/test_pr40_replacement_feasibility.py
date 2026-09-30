@@ -4,6 +4,7 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy import create_engine, text
 
 from apps.api.main import create_app
@@ -130,7 +131,7 @@ def _propose(
     aircraft_id: str,
     suffix: str,
     departure_window: tuple[datetime, datetime] | None = None,
-):
+) -> Response:
     body: dict[str, object] = {
         "proposed_aircraft_id": aircraft_id,
         "source": "dispatch",
@@ -205,20 +206,34 @@ def test_pr40_feasible_same_operator_replacement_captures_reproducible_evidence_
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("suffix", "overrides", "expected_reason"),
+    (
+        "suffix",
+        "seat_capacity",
+        "range_nm",
+        "status",
+        "add_position",
+        "availability_status",
+        "seed_profile",
+        "expected_reason",
+    ),
     [
-        ("S1", {"seat_capacity": 20}, "insufficient_capacity"),
-        ("S2", {"range_nm": 100}, "insufficient_range"),
-        ("S3", {"status": "maintenance"}, "aircraft_inactive"),
-        ("S4", {"add_position": False}, "no_position"),
-        ("S5", {"availability_status": None}, "no_availability"),
-        ("S6", {"availability_status": "reserved"}, "not_available"),
-        ("S7", {"seed_profile": False}, "no_reference_profile"),
+        ("S1", 20, 2800, "active", True, "available", True, "insufficient_capacity"),
+        ("S2", 72, 100, "active", True, "available", True, "insufficient_range"),
+        ("S3", 72, 2800, "maintenance", True, "available", True, "aircraft_inactive"),
+        ("S4", 72, 2800, "active", False, "available", True, "no_position"),
+        ("S5", 72, 2800, "active", True, None, True, "no_availability"),
+        ("S6", 72, 2800, "active", True, "reserved", True, "not_available"),
+        ("S7", 72, 2800, "active", True, "available", False, "no_reference_profile"),
     ],
 )
 def test_pr40_replacement_rejects_canonical_matching_failures(
     suffix: str,
-    overrides: dict[str, object],
+    seat_capacity: int,
+    range_nm: int,
+    status: str,
+    add_position: bool,
+    availability_status: str | None,
+    seed_profile: bool,
     expected_reason: str,
 ) -> None:
     settings = _settings()
@@ -232,7 +247,12 @@ def test_pr40_replacement_rejects_canonical_matching_failures(
             origin_id=str(setup["origin_id"]),
             departure=departure,
             suffix=f"X{suffix}",
-            **overrides,
+            seat_capacity=seat_capacity,
+            range_nm=range_nm,
+            status=status,
+            add_position=add_position,
+            availability_status=availability_status,
+            seed_profile=seed_profile,
         )
         disruption_id = _open_disruption(
             client,
@@ -504,6 +524,7 @@ def test_pr40_replacement_capacity_check_rejects_another_bookings_reserved_overl
                 "aircraft_id": str(setup["replacement_aircraft_id"]),
                 "currency": "EUR",
                 "base_amount_minor": 7_500_000,
+                "repositioning_amount_minor": 100_000,
                 "price_components": [],
                 "inclusions": [],
                 "exclusions": [],
