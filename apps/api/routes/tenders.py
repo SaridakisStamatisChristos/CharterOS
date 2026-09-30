@@ -23,7 +23,6 @@ from apps.api.routes.quotes import (
 from apps.api.routes.quotes import (
     _terms as quote_terms,
 )
-from charteros.shared.clock import Clock
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -56,9 +55,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["tenders"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -357,7 +358,8 @@ def create_tender(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> TenderResponse:
+    clock: ClockDep,
+) -> TenderResponse:
     scope = f"POST:/v1/missions/{mission_id}/tenders"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -388,7 +390,8 @@ def open_tender(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> TenderResponse:
+    clock: ClockDep,
+) -> TenderResponse:
     scope = f"POST:/v1/tenders/{tender_id}/open"
     with session.begin():
         return _run_idempotent(
@@ -420,7 +423,8 @@ def invite_supplier(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> TenderInvitationResponse:
+    clock: ClockDep,
+) -> TenderInvitationResponse:
     scope = f"POST:/v1/tenders/{tender_id}/invitations"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -452,7 +456,8 @@ def accept_invitation(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> TenderInvitationResponse:
+    clock: ClockDep,
+) -> TenderInvitationResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/accept"
     with session.begin():
         return _run_idempotent(
@@ -483,7 +488,8 @@ def decline_invitation(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> TenderInvitationResponse:
+    clock: ClockDep,
+) -> TenderInvitationResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/decline"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -514,7 +520,8 @@ def _submit_terms(
     best_and_final: bool,
     quote_id: UUID | None = None,
 
-    clock: Clock,) -> QuoteResponse:
+    clock: Clock,
+) -> QuoteResponse:
     aircraft_id, base_price, components, repositioning = quote_terms(body)
     service = _service(session)
     invitation = TenderInvitationId(invitation_id)
@@ -586,7 +593,8 @@ def submit_bid(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/bids"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -621,7 +629,8 @@ def revise_bid(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/bids/{quote_id}/revise"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -654,7 +663,8 @@ def request_best_and_final(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> TenderResponse:
+    clock: ClockDep,
+) -> TenderResponse:
     scope = f"POST:/v1/tenders/{tender_id}/best-and-final"
     with session.begin():
         return _run_idempotent(
@@ -687,7 +697,8 @@ def submit_best_and_final(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/best-and-final/{quote_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -721,7 +732,8 @@ def withdraw_bid(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/bids/{quote_id}/withdraw"
     with session.begin():
         return _run_idempotent(
@@ -749,7 +761,8 @@ def close_tender(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> TenderResponse:
+    clock: ClockDep,
+) -> TenderResponse:
     scope = f"POST:/v1/tenders/{tender_id}/close"
     with session.begin():
         return _run_idempotent(
@@ -777,7 +790,8 @@ def award_tender(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> TenderAwardResponse:
+    clock: ClockDep,
+) -> TenderAwardResponse:
     scope = f"POST:/v1/tenders/{tender_id}/award"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
 
@@ -817,7 +831,8 @@ def admin_correct(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> TenderAdminCorrectionResponse:
+    clock: ClockDep,
+) -> TenderAdminCorrectionResponse:
     scope = f"POST:/v1/tenders/{tender_id}/admin-corrections"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
