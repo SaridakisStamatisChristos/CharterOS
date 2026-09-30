@@ -226,8 +226,7 @@ def _actor_scope(buyer_id: UUID | None, operator_id: UUID | None) -> str:
     party = _party(buyer_id, operator_id)
     if party.buyer_id is not None:
         return f"buyer:{party.buyer_id}"
-    assert party.operator_id is not None
-    return f"operator:{party.operator_id}"
+    return f"operator:{party.actor_id}"
 
 
 def _stored_response(
