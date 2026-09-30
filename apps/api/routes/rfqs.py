@@ -158,7 +158,6 @@ def create_rfq(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> RfqResponse:
     scope = f"POST:/v1/missions/{mission_id}/rfqs"
@@ -209,7 +208,6 @@ def acknowledge_rfq(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> RfqResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/acknowledge"
@@ -235,7 +233,6 @@ def decline_rfq(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> RfqResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/decline"
@@ -261,7 +258,6 @@ def expire_rfq(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> RfqResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/expire"
