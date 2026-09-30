@@ -853,16 +853,17 @@ The repository's GitHub Actions pipeline executes the following gate on pull req
 10. Docker Compose configuration validation;
 11. Alembic migration smoke;
 12. Alembic schema-drift check;
-13. full pytest suite against PostgreSQL 17;
-14. PostgreSQL restart / stale-connection recovery smoke;
-15. reposition solver benchmark;
-16. API boot smoke;
-17. pinned Trivy installation with checksum verification;
-18. repository secret scan;
-19. hardened container image build;
-20. read-only/capability-dropped runtime smoke;
-21. HIGH/CRITICAL container vulnerability scan;
-22. CycloneDX SBOM generation and validation.
+13. bounded resource-cleanup CLI smoke;
+14. full pytest suite against PostgreSQL 17;
+15. PostgreSQL restart / stale-connection recovery smoke;
+16. reposition solver benchmark;
+17. API boot smoke;
+18. pinned Trivy installation with checksum verification;
+19. repository secret scan;
+20. hardened container image build;
+21. read-only/capability-dropped runtime smoke;
+22. HIGH/CRITICAL container vulnerability scan;
+23. CycloneDX SBOM generation and validation.
 
 Run the primary developer gate locally:
 
