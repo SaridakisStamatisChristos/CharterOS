@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from apps.api.capacity import build_capacity_policy, build_capacity_reservations
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.buyer_portal import BuyerPortalService
 from charteros.application.evidence import (
@@ -391,6 +392,8 @@ def _approval_service(session: Session) -> ProcurementApprovalService:
         rfqs=SqlAlchemyRfqRepository(session),
         quotes=SqlAlchemyQuoteRepository(session),
         bookings=SqlAlchemyBookingRepository(session),
+        capacity_policy=build_capacity_policy(session),
+        capacity_reservations=build_capacity_reservations(session),
         contracts=SqlAlchemyContractRepository(session),
         tenders=SqlAlchemyTenderRepository(session),
         fx_locks=SqlAlchemyFxLockRepository(session),

@@ -5,6 +5,7 @@ from typing import Protocol
 from charteros.domain.aircraft import Aircraft, AircraftId, AircraftType, AircraftTypeId
 from charteros.domain.airports import Airport, AirportId
 from charteros.domain.bookings import Booking
+from charteros.domain.capacity_reservations import AircraftCapacityReservation
 from charteros.domain.contracts import Contract
 from charteros.domain.disruptions import Disruption
 from charteros.domain.fx import FxLock, FxRateObservation
@@ -56,6 +57,7 @@ class DomainEventRepository(Protocol):
             | Rfq
             | Quote
             | Booking
+            | AircraftCapacityReservation
             | Contract
             | Disruption
             | FinancialReconciliation

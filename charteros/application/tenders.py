@@ -4,8 +4,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from charteros.application.bookings import BookingService
+from charteros.application.capacity import AircraftCapacityPolicy
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.application.ports.bookings import BookingRepository
+from charteros.application.ports.capacity import AircraftCapacityReservationRepository
 from charteros.application.ports.catalog import (
     AircraftRepository,
     DomainEventRepository,
@@ -70,6 +72,8 @@ class TenderService:
         quotes: QuoteRepository,
         aircraft: AircraftRepository,
         bookings: BookingRepository,
+        capacity_policy: AircraftCapacityPolicy,
+        capacity_reservations: AircraftCapacityReservationRepository,
         events: DomainEventRepository,
     ) -> None:
         self._tenders = tenders
@@ -79,6 +83,8 @@ class TenderService:
         self._quotes = quotes
         self._aircraft = aircraft
         self._bookings = bookings
+        self._capacity_policy = capacity_policy
+        self._capacity_reservations = capacity_reservations
         self._events = events
 
     def create(
@@ -699,6 +705,8 @@ class TenderService:
     def _booking_service(self) -> BookingService:
         return BookingService(
             bookings=self._bookings,
+            capacity_policy=self._capacity_policy,
+            capacity_reservations=self._capacity_reservations,
             quotes=self._quotes,
             rfqs=self._rfqs,
             missions=self._missions,

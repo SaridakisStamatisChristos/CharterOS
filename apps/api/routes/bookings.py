@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from apps.api.capacity import build_capacity_policy, build_capacity_reservations
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.bookings import BookingService
 from charteros.application.exceptions import EntityConflictError
@@ -57,6 +58,8 @@ class BookingResponse(BaseModel):
 def _service(session: Session) -> BookingService:
     return BookingService(
         bookings=SqlAlchemyBookingRepository(session),
+        capacity_policy=build_capacity_policy(session),
+        capacity_reservations=build_capacity_reservations(session),
         quotes=SqlAlchemyQuoteRepository(session),
         rfqs=SqlAlchemyRfqRepository(session),
         missions=SqlAlchemyMissionRepository(session),

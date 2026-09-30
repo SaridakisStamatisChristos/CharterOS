@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from apps.api.capacity import build_capacity_policy, build_capacity_reservations
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from apps.api.routes.bookings import BookingResponse
 from apps.api.routes.bookings import _response as booking_response
@@ -200,6 +201,8 @@ def _service(session: Session) -> TenderService:
         quotes=SqlAlchemyQuoteRepository(session),
         aircraft=SqlAlchemyAircraftRepository(session),
         bookings=SqlAlchemyBookingRepository(session),
+        capacity_policy=build_capacity_policy(session),
+        capacity_reservations=build_capacity_reservations(session),
         events=SqlAlchemyDomainEventRepository(session),
     )
 

@@ -15,6 +15,7 @@ from charteros.domain.aircraft import (
 )
 from charteros.domain.airports import Airport, AirportId
 from charteros.domain.bookings import Booking
+from charteros.domain.capacity_reservations import AircraftCapacityReservation
 from charteros.domain.contracts import Contract
 from charteros.domain.disruptions import Disruption
 from charteros.domain.fx import FxLock, FxRateObservation
@@ -317,6 +318,7 @@ class SqlAlchemyDomainEventRepository:
             | Rfq
             | Quote
             | Booking
+            | AircraftCapacityReservation
             | Contract
             | Disruption
             | FinancialReconciliation

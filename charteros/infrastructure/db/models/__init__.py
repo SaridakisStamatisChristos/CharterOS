@@ -1,8 +1,10 @@
 def load_models() -> None:
     """Import all ORM models so SQLAlchemy metadata is complete."""
     from charteros.infrastructure.db.models.bookings import BookingRow
+    from charteros.infrastructure.db.models.capacity import AircraftCapacityReservationRow
     from charteros.infrastructure.db.models.catalog import (
         AircraftRow,
+        AircraftCapacityReservationRow,
         AircraftTypeRow,
         AirportRow,
         IdempotencyRecordRow,
