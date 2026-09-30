@@ -54,7 +54,7 @@ def _redact(key: str, value: Any) -> Any:
     if any(fragment in normalized for fragment in _SENSITIVE_KEY_FRAGMENTS):
         return _REDACTED
     if isinstance(value, Mapping):
-        return {str(child_key): _redact(str(child_key), child) for child_key, child in value.items()}
+        return {\n            str(child_key): _redact(str(child_key), child)\n            for child_key, child in value.items()\n        }
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return [_redact(key, item) for item in value]
     return value
