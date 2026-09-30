@@ -79,9 +79,7 @@ def _purge_synthetic_quote_outbox_stream(session: Session, *, quote_id: UUID) ->
             )
         )
     finally:
-        session.execute(
-            text("ALTER TABLE outbox_events ENABLE ALWAYS TRIGGER trg_ei_outbox_guard")
-        )
+        session.execute(text("ALTER TABLE outbox_events ENABLE ALWAYS TRIGGER trg_ei_outbox_guard"))
 
 
 def _node(
