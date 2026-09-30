@@ -25,9 +25,10 @@ class SqlAlchemyRateBudgetRepository:
         if len(identity_digest) != 64:
             raise ValueError("identity digest must be a SHA-256 hex digest")
 
-        row = self._session.execute(
-            text(
-                """
+        row = (
+            self._session.execute(
+                text(
+                    """
                 WITH params AS (
                     SELECT to_timestamp(
                         floor(extract(epoch FROM clock_timestamp()) / :window_seconds)
@@ -95,14 +96,17 @@ class SqlAlchemyRateBudgetRepository:
                   AND NOT EXISTS (SELECT 1 FROM attempted)
                 LIMIT 1
                 """
-            ),
-            {
-                "budget": budget.value,
-                "identity_digest": identity_digest,
-                "request_limit": limit,
-                "window_seconds": window_seconds,
-            },
-        ).mappings().one()
+                ),
+                {
+                    "budget": budget.value,
+                    "identity_digest": identity_digest,
+                    "request_limit": limit,
+                    "window_seconds": window_seconds,
+                },
+            )
+            .mappings()
+            .one()
+        )
 
         return RateBudgetDecision(
             allowed=bool(row["allowed"]),
