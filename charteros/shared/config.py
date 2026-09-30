@@ -45,6 +45,11 @@ class Settings(BaseSettings):
         default=None,
         pattern=r"^[A-Za-z_][A-Za-z0-9_]{0,62}$",
     )
+    database_pool_size: int = Field(default=10, ge=1, le=100)
+    database_max_overflow: int = Field(default=10, ge=0, le=100)
+    database_pool_timeout_seconds: float = Field(default=5.0, gt=0, le=60.0)
+    database_pool_recycle_seconds: int = Field(default=1800, ge=60, le=86_400)
+    database_connect_timeout_seconds: int = Field(default=5, ge=1, le=60)
     api_host: str = Field(default="127.0.0.1", min_length=1)
     api_port: int = Field(default=8000, ge=1, le=65535)
     auth_issuer: str | None = None
