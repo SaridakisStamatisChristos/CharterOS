@@ -43,7 +43,10 @@ IdempotencyKeyDep = Annotated[
 class CreateContractRequest(BaseModel):
     document_reference: str = Field(min_length=1, max_length=1000)
     document_version: int = Field(ge=1)
-    metadata: dict[str, str] = Field(default_factory=dict)
+    metadata: dict[
+        Annotated[str, Field(min_length=1, max_length=128)],
+        Annotated[str, Field(max_length=2000)],
+    ] = Field(default_factory=dict, max_length=128)
 
 
 class ContractResponse(BaseModel):
