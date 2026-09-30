@@ -63,7 +63,8 @@ class DisruptionPartyContext:
     def actor_id(self) -> TypedId:
         if self.buyer_id is not None:
             return self.buyer_id
-        assert self.operator_id is not None
+        if self.operator_id is None:
+            raise DomainValidationError("disruption context has no actor")
         return self.operator_id
 
 
@@ -520,7 +521,8 @@ class DisruptionService:
         if party.buyer_id is not None:
             self._assert_buyer(context, party.buyer_id)
             return
-        assert party.operator_id is not None
+        if party.operator_id is None:
+            raise DomainValidationError("disruption context has no actor")
         self._assert_operator(context, party.operator_id)
 
     def _assert_buyer(
