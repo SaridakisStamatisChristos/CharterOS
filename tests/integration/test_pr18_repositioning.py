@@ -26,6 +26,7 @@ from charteros.infrastructure.db.models.matching import MatchingReferenceProfile
 from charteros.infrastructure.db.models.missions import MissionRow
 from charteros.infrastructure.db.models.quotes import QuoteRow
 from charteros.infrastructure.db.models.rfqs import RfqRow
+from charteros.repositioning import POLICY_VERSION
 from charteros.shared.config import Settings
 
 BASE = datetime(2026, 9, 28, 0, 0, tzinfo=UTC)
@@ -493,7 +494,7 @@ def test_pr18_optimizer_fills_synthetic_graph_empty_leg_with_profitable_future_m
             assert response.status_code == 200, response.text
             body = response.json()
             assert body["projection_version"] == VERSION
-            assert body["policy_version"] == "reposition-v1"
+            assert body["policy_version"] == POLICY_VERSION
             assert datetime.fromisoformat(body["graph_knowledge_cutoff"]) <= evaluated_at
             assert body["structural_empty_leg_count"] == 1
             assert body["evaluable_empty_leg_count"] == 1
