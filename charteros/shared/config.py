@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     outbox_max_attempts: int = Field(default=8, ge=1, le=100)
     outbox_backoff_base_seconds: int = Field(default=1, ge=1, le=3600)
     outbox_backoff_max_seconds: int = Field(default=300, ge=1, le=86400)
-    idempotency_retention_days: int = Field(default=30, ge=1, le=365)
+    idempotency_retention_days: int = Field(default=90, ge=1, le=365)
     idempotency_cleanup_batch_size: int = Field(default=1000, ge=1, le=10_000)
 
     @model_validator(mode="after")
