@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -67,9 +67,11 @@ from charteros.infrastructure.db.repositories.catalog import (
     SqlAlchemyIdempotencyRepository,
 )
 from charteros.infrastructure.db.repositories.matching import SqlAlchemyMatchingSnapshotRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["quotes"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -541,6 +543,7 @@ def submit_quote(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/quotes"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -563,7 +566,7 @@ def submit_quote(
                 cancellation_terms=body.cancellation_terms,
                 payment_terms=body.payment_terms,
                 valid_until=body.valid_until,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )
@@ -584,6 +587,7 @@ def list_quotes(rfq_id: UUID, session: SessionDep) -> QuoteListResponse:
 def compare_mission_quotes(
     mission_id: UUID,
     session: SessionDep,
+    clock: ClockDep,
 ) -> MissionQuoteComparisonResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
@@ -591,7 +595,7 @@ def compare_mission_quotes(
         _visibility_policy(session).assert_mission_comparison_visible(typed_mission_id)
         comparison = _comparison_service(session).compare(
             mission_id=typed_mission_id,
-            evaluated_at=datetime.now(UTC),
+            evaluated_at=clock.now(),
         )
     return _comparison_response(comparison)
 
@@ -627,6 +631,7 @@ def revise_quote(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/quotes/{quote_id}/revise"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -649,7 +654,7 @@ def revise_quote(
                 cancellation_terms=body.cancellation_terms,
                 payment_terms=body.payment_terms,
                 valid_until=body.valid_until,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )
@@ -661,6 +666,7 @@ def withdraw_quote(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/quotes/{quote_id}/withdraw"
     request_hash = canonical_request_hash({})
@@ -673,7 +679,7 @@ def withdraw_quote(
             success_status=status.HTTP_200_OK,
             action=lambda: _service(session).withdraw(
                 quote_id=QuoteId(quote_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )
@@ -685,6 +691,7 @@ def expire_quote(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/quotes/{quote_id}/expire"
     request_hash = canonical_request_hash({})
@@ -697,7 +704,7 @@ def expire_quote(
             success_status=status.HTTP_200_OK,
             action=lambda: _service(session).expire(
                 quote_id=QuoteId(quote_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )

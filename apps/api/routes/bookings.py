@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.bookings import BookingService
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
@@ -30,9 +30,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["bookings"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -153,6 +155,7 @@ def accept_quote(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> BookingResponse:
     scope = f"POST:/v1/quotes/{quote_id}/accept"
     request_hash = canonical_request_hash({})
@@ -165,7 +168,7 @@ def accept_quote(
             success_status=status.HTTP_201_CREATED,
             action=lambda: _service(session).accept_quote(
                 quote_id=QuoteId(quote_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )
@@ -177,6 +180,7 @@ def mark_contracted(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
         session=session,
@@ -185,7 +189,7 @@ def mark_contracted(
         idempotency_key=idempotency_key,
         action=lambda service: service.mark_contracted(
             booking_id=BookingId(booking_id),
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         ),
     )
@@ -197,6 +201,7 @@ def mark_payment_pending(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
         session=session,
@@ -205,7 +210,7 @@ def mark_payment_pending(
         idempotency_key=idempotency_key,
         action=lambda service: service.mark_payment_pending(
             booking_id=BookingId(booking_id),
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         ),
     )
@@ -217,6 +222,7 @@ def confirm_booking(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
         session=session,
@@ -225,7 +231,7 @@ def confirm_booking(
         idempotency_key=idempotency_key,
         action=lambda service: service.confirm(
             booking_id=BookingId(booking_id),
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         ),
     )
@@ -237,6 +243,7 @@ def enter_pre_operation(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
         session=session,
@@ -245,7 +252,7 @@ def enter_pre_operation(
         idempotency_key=idempotency_key,
         action=lambda service: service.enter_pre_operation(
             booking_id=BookingId(booking_id),
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         ),
     )
@@ -257,6 +264,7 @@ def start_operation(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
         session=session,
@@ -265,7 +273,7 @@ def start_operation(
         idempotency_key=idempotency_key,
         action=lambda service: service.start_operation(
             booking_id=BookingId(booking_id),
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         ),
     )
@@ -277,6 +285,7 @@ def complete_booking(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
         session=session,
@@ -285,7 +294,7 @@ def complete_booking(
         idempotency_key=idempotency_key,
         action=lambda service: service.complete(
             booking_id=BookingId(booking_id),
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         ),
     )

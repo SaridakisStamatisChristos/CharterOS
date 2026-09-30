@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.disruptions import DisruptionPartyContext, DisruptionService
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
@@ -49,9 +49,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyRfqRepository,
 )
 from charteros.infrastructure.db.repositories.fleet import SqlAlchemyFleetTimelineRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["disruptions"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 BuyerIdOptional = Annotated[UUID | None, Header(alias="X-Buyer-Id")]
@@ -379,6 +381,7 @@ def create_disruption(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
     buyer_id: BuyerIdOptional = None,
     operator_id: OperatorIdOptional = None,
 ) -> DisruptionResponse:
@@ -400,7 +403,7 @@ def create_disruption(
         disruption = _service(session).create(
             booking_id=BookingId(booking_id),
             disruption_type=body.disruption_type,
-            detected_at=datetime.now(UTC),
+            detected_at=clock.now(),
             effective_at=body.effective_at,
             reason=body.reason,
             party=_party(buyer_id, operator_id),
@@ -469,6 +472,7 @@ def propose_replacement(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> ReplacementProposalResponse:
     scope = f"POST:/v1/disruptions/{disruption_id}/replacement-options:operator:{operator_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -503,7 +507,7 @@ def propose_replacement(
             departure_window=window,
             source=body.source,
             source_evidence=body.source_evidence,
-            proposed_at=datetime.now(UTC),
+            proposed_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _proposal_response(proposal)
@@ -554,6 +558,7 @@ def create_requote(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> CommercialChangeResponse:
     scope = f"POST:/v1/disruptions/{disruption_id}/requotes:operator:{operator_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -577,7 +582,7 @@ def create_requote(
             known_adjustment_minor=body.known_adjustment_minor,
             conditional_adjustment_minor=body.conditional_adjustment_minor,
             terms_summary=body.terms_summary,
-            created_at=datetime.now(UTC),
+            created_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _commercial_response(change)
@@ -603,6 +608,7 @@ def buyer_decision(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> BuyerDecisionResponse:
     scope = f"POST:/v1/disruptions/{disruption_id}/buyer-decisions:buyer:{buyer_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -628,7 +634,7 @@ def buyer_decision(
             ),
             buyer_id=OrganizationId(buyer_id),
             decision=body.decision,
-            decided_at=datetime.now(UTC),
+            decided_at=clock.now(),
             note=body.note,
             correlation_id=correlation_id,
         )
@@ -654,6 +660,7 @@ def resolve_disruption(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> DisruptionResponse:
     scope = f"POST:/v1/disruptions/{disruption_id}/resolve:operator:{operator_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -673,7 +680,7 @@ def resolve_disruption(
             disruption_id=DisruptionId(disruption_id),
             proposal_id=DisruptionProposalId(body.proposal_id),
             operator_id=OperatorId(operator_id),
-            resolved_at=datetime.now(UTC),
+            resolved_at=clock.now(),
             outcome=body.outcome,
             correlation_id=correlation_id,
         )

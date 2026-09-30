@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.application.fx import FxService
 from charteros.application.idempotency import (
@@ -25,9 +25,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyFxRateRepository,
     SqlAlchemyIdempotencyRepository,
 )
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1/fx", tags=["fx"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -121,6 +123,7 @@ def create_rate(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> FxRateResponse:
     scope = "POST:/v1/fx/rates"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -145,7 +148,7 @@ def create_rate(
             fx_source=body.fx_source,
             fx_source_version=body.fx_source_version,
             fx_timestamp=body.fx_timestamp,
-            recorded_at=datetime.now(UTC),
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _response(rate)
@@ -170,6 +173,7 @@ def correct_rate(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> FxRateResponse:
     scope = f"POST:/v1/fx/rates/{rate_id}/corrections"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -189,7 +193,7 @@ def correct_rate(
             rate_id=FxRateId(rate_id),
             rate_text=body.rate,
             fx_source_version=body.fx_source_version,
-            recorded_at=datetime.now(UTC),
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _response(rate)

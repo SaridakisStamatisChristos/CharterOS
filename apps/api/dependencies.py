@@ -4,7 +4,13 @@ from fastapi import Request
 from sqlalchemy.orm import Session, sessionmaker
 
 from charteros.domain.shared.ids import CorrelationId
+from charteros.shared.clock import Clock
 from charteros.shared.context import correlation_id_context
+
+
+def get_clock(request: Request) -> Clock:
+    clock: Clock = request.app.state.clock
+    return clock
 
 
 def get_session(request: Request) -> Iterator[Session]:

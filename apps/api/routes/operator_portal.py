@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from apps.api.routes.catalog import AircraftTypeCreate
 from apps.api.routes.fleet import (
     AvailabilityCreate,
@@ -76,9 +76,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1/operator-portal", tags=["operator-portal"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 OperatorContext = Annotated[UUID, Header(alias="X-Operator-Id")]
@@ -534,6 +536,7 @@ def get_aircraft_availability(
     operator_id: OperatorContext,
     from_time: Annotated[datetime, Query(alias="from")],
     to_time: Annotated[datetime, Query(alias="to")],
+    clock: ClockDep,
     known_as_of: datetime | None = None,
     at: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
@@ -548,7 +551,7 @@ def get_aircraft_availability(
             aircraft_id=AircraftId(aircraft_id),
             from_time=from_time,
             to_time=to_time,
-            known_as_of=known_as_of or datetime.now(UTC),
+            known_as_of=known_as_of or clock.now(),
             state_at=at,
             limit=limit,
         )
@@ -670,6 +673,7 @@ def acknowledge_rfq(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
     invitation_id: TenderCapability = None,
 ) -> PortalRfqResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/acknowledge"
@@ -684,13 +688,13 @@ def acknowledge_rfq(
         if item.tender_invitation_id is not None:
             _tender_service(session).accept_invitation(
                 invitation_id=TenderInvitationId(item.tender_invitation_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         else:
             _rfq_service(session).acknowledge(
                 rfq_id=RfqId(rfq_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         return _refresh_rfq(
@@ -720,6 +724,7 @@ def decline_rfq(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
     invitation_id: TenderCapability = None,
 ) -> PortalRfqResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/decline"
@@ -736,14 +741,14 @@ def decline_rfq(
             _tender_service(session).decline_invitation(
                 invitation_id=TenderInvitationId(item.tender_invitation_id),
                 reason=body.reason,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         else:
             _rfq_service(session).decline(
                 rfq_id=RfqId(rfq_id),
                 reason=body.reason,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         return _refresh_rfq(
@@ -773,6 +778,7 @@ def _submit_quote_for_context(
     invitation_id: UUID | None,
     body: QuoteTermsRequest,
     correlation_id: CorrelationId,
+    clock: Clock,
 ) -> QuoteResponse:
     item = _portal(session).rfq(
         operator_id=OperatorId(operator_id),
@@ -793,7 +799,7 @@ def _submit_quote_for_context(
             cancellation_terms=body.cancellation_terms,
             payment_terms=body.payment_terms,
             valid_until=body.valid_until,
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         )
 
@@ -809,7 +815,7 @@ def _submit_quote_for_context(
             cancellation_terms=body.cancellation_terms,
             payment_terms=body.payment_terms,
             valid_until=body.valid_until,
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         )
     return quote_response(quote)
@@ -827,6 +833,7 @@ def submit_quote(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
     invitation_id: TenderCapability = None,
 ) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/quotes"
@@ -846,6 +853,7 @@ def submit_quote(
                 invitation_id=invitation_id,
                 body=body,
                 correlation_id=correlation_id,
+                clock=clock,
             ),
         )
 
@@ -876,6 +884,7 @@ def _revise_quote_for_context(
     invitation_id: UUID | None,
     body: QuoteTermsRequest,
     correlation_id: CorrelationId,
+    clock: Clock,
 ) -> QuoteResponse:
     context = _portal(session).quote_context(
         operator_id=OperatorId(operator_id),
@@ -899,7 +908,7 @@ def _revise_quote_for_context(
                 cancellation_terms=body.cancellation_terms,
                 payment_terms=body.payment_terms,
                 valid_until=body.valid_until,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         else:
@@ -915,7 +924,7 @@ def _revise_quote_for_context(
                 cancellation_terms=body.cancellation_terms,
                 payment_terms=body.payment_terms,
                 valid_until=body.valid_until,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
     else:
@@ -930,7 +939,7 @@ def _revise_quote_for_context(
             cancellation_terms=body.cancellation_terms,
             payment_terms=body.payment_terms,
             valid_until=body.valid_until,
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         )
     return quote_response(quote)
@@ -948,6 +957,7 @@ def revise_quote(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
     invitation_id: TenderCapability = None,
 ) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/quotes/{quote_id}/revise"
@@ -967,6 +977,7 @@ def revise_quote(
                 invitation_id=invitation_id,
                 body=body,
                 correlation_id=correlation_id,
+                clock=clock,
             ),
         )
 
@@ -978,6 +989,7 @@ def withdraw_quote(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
     invitation_id: TenderCapability = None,
 ) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/quotes/{quote_id}/withdraw"
@@ -992,13 +1004,13 @@ def withdraw_quote(
             quote = _tender_service(session).withdraw_bid(
                 invitation_id=TenderInvitationId(context.rfq.tender_invitation_id),
                 quote_id=QuoteId(quote_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         else:
             quote = _quote_service(session).withdraw(
                 quote_id=QuoteId(quote_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         return quote_response(quote)

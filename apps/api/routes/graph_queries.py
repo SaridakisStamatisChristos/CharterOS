@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_session
+from apps.api.dependencies import get_clock, get_session
 from charteros.application.graph_queries import GraphQueryService, HistoricalPosition
 from charteros.application.matching import MatchingService
 from charteros.application.tender_visibility import TenderVisibilityPolicy
@@ -25,8 +25,10 @@ from charteros.infrastructure.db.repositories.missions import SqlAlchemyMissionR
 from charteros.infrastructure.db.repositories.quotes import SqlAlchemyQuoteRepository
 from charteros.infrastructure.db.repositories.tenders import SqlAlchemyTenderRepository
 from charteros.matching import MatchReasonCode
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1/graph", tags=["graph-queries"])
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 KnownAsOf = Annotated[
     datetime | None,
@@ -208,11 +210,12 @@ def aircraft_near_airport(
     session: SessionDep,
     airport_id: UUID,
     at: Annotated[datetime, Query(description="UTC event-time cutoff")],
+    clock: ClockDep,
     known_as_of: KnownAsOf = None,
     radius_nm: Annotated[Decimal, Query(gt=0, le=5000)] = Decimal("100"),
     limit: ResultLimit = 20,
 ) -> NearbyAircraftResponse:
-    knowledge_cutoff = known_as_of or datetime.now(UTC)
+    knowledge_cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         service = _service(session)
@@ -250,9 +253,10 @@ def historical_aircraft_position(
     aircraft_id: UUID,
     session: SessionDep,
     at: Annotated[datetime, Query(description="UTC event-time cutoff")],
+    clock: ClockDep,
     known_as_of: KnownAsOf = None,
 ) -> HistoricalPositionResponse:
-    knowledge_cutoff = known_as_of or datetime.now(UTC)
+    knowledge_cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         item = _service(session).historical_position(
@@ -270,10 +274,11 @@ def historical_aircraft_position(
 def feasible_aircraft_for_mission(
     mission_id: UUID,
     session: SessionDep,
+    clock: ClockDep,
     known_as_of: KnownAsOf = None,
     limit: ResultLimit = 20,
 ) -> FeasibleAircraftResponse:
-    cutoff = known_as_of or datetime.now(UTC)
+    cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         graph = _service(session)

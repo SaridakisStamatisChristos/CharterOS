@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -29,9 +29,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["rfqs"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -156,6 +158,7 @@ def create_rfq(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> RfqResponse:
     scope = f"POST:/v1/missions/{mission_id}/rfqs"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -176,7 +179,7 @@ def create_rfq(
                 mission_id=MissionId(mission_id),
                 operator_id=OperatorId(body.operator_id),
                 response_deadline=body.response_deadline,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         )
@@ -205,6 +208,7 @@ def acknowledge_rfq(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> RfqResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/acknowledge"
     request_hash = canonical_request_hash({})
@@ -216,7 +220,7 @@ def acknowledge_rfq(
             request_hash=request_hash,
             action=lambda: _service(session).acknowledge(
                 rfq_id=RfqId(rfq_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )
@@ -229,6 +233,7 @@ def decline_rfq(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> RfqResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/decline"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -241,7 +246,7 @@ def decline_rfq(
             action=lambda: _service(session).decline(
                 rfq_id=RfqId(rfq_id),
                 reason=body.reason,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )
@@ -253,6 +258,7 @@ def expire_rfq(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> RfqResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/expire"
     request_hash = canonical_request_hash({})
@@ -264,7 +270,7 @@ def expire_rfq(
             request_hash=request_hash,
             action=lambda: _service(session).expire(
                 rfq_id=RfqId(rfq_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
@@ -10,15 +10,17 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_session
+from apps.api.dependencies import get_clock, get_session
 from charteros.application.matching import MatchingService
 from charteros.domain.missions import MissionId
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyAirportRepository
 from charteros.infrastructure.db.repositories.matching import SqlAlchemyMatchingSnapshotRepository
 from charteros.infrastructure.db.repositories.missions import SqlAlchemyMissionRepository
 from charteros.matching import BudgetComparison, MatchingDecision, MatchReasonCode, RankedMatch
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["matching"])
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 KnownAsOf = Annotated[datetime | None, Query(description="UTC knowledge-time cutoff for replay")]
 ResultLimit = Annotated[int, Query(ge=1, le=100)]
@@ -204,10 +206,11 @@ def _response(mission_id: UUID, decision: MatchingDecision, limit: int) -> Match
 def get_mission_matches(
     mission_id: UUID,
     session: SessionDep,
+    clock: ClockDep,
     known_as_of: KnownAsOf = None,
     limit: ResultLimit = 20,
 ) -> MatchingResponse:
-    cutoff = known_as_of or datetime.now(UTC)
+    cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         decision = MatchingService(

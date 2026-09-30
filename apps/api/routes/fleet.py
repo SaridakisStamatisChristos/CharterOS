@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.fleet import AircraftTimeline, FleetTimelineService
 from charteros.application.idempotency import (
@@ -35,9 +35,11 @@ from charteros.infrastructure.db.repositories.fleet import (
     SqlAlchemyFleetAircraftRepository,
     SqlAlchemyFleetTimelineRepository,
 )
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["fleet-timeline"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -320,6 +322,7 @@ def get_timeline(
     session: SessionDep,
     from_time: Annotated[datetime, Query(alias="from")],
     to_time: Annotated[datetime, Query(alias="to")],
+    clock: ClockDep,
     known_as_of: Annotated[datetime | None, Query()] = None,
     at: Annotated[datetime | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
@@ -328,7 +331,7 @@ def get_timeline(
         aircraft_id=AircraftId(aircraft_id),
         from_time=from_time,
         to_time=to_time,
-        known_as_of=known_as_of or datetime.now(UTC),
+        known_as_of=known_as_of or clock.now(),
         state_at=at,
         limit=limit,
     )
