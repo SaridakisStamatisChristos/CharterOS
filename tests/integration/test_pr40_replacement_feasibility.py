@@ -156,12 +156,12 @@ def _propose(
 def test_pr40_feasible_replacement_captures_evidence_without_hold() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        setup = _booked_operation(client, suffix="F1")
+        setup = _booked_operation(client, suffix="FA")
         disruption_id = _open_disruption(
             client,
             booking_id=str(setup["booking_id"]),
             operator_id=str(setup["operator_id"]),
-            suffix="F1",
+            suffix="FA",
         )
         replacement_aircraft_id = str(setup["replacement_aircraft_id"])
         response = _propose(
@@ -169,7 +169,7 @@ def test_pr40_feasible_replacement_captures_evidence_without_hold() -> None:
             disruption_id=disruption_id,
             operator_id=str(setup["operator_id"]),
             aircraft_id=replacement_aircraft_id,
-            suffix="F1",
+            suffix="FA",
         )
         assert response.status_code == 201
         body = response.json()
@@ -217,13 +217,13 @@ def test_pr40_feasible_replacement_captures_evidence_without_hold() -> None:
         "expected_reason",
     ),
     [
-        ("S1", 20, 2800, "active", True, "available", True, "insufficient_capacity"),
-        ("S2", 72, 100, "active", True, "available", True, "insufficient_range"),
-        ("S3", 72, 2800, "maintenance", True, "available", True, "aircraft_inactive"),
-        ("S4", 72, 2800, "active", False, "available", True, "no_position"),
-        ("S5", 72, 2800, "active", True, None, True, "no_availability"),
-        ("S6", 72, 2800, "active", True, "reserved", True, "not_available"),
-        ("S7", 72, 2800, "active", True, "available", False, "no_reference_profile"),
+        ("SA", 20, 2800, "active", True, "available", True, "insufficient_capacity"),
+        ("SB", 72, 100, "active", True, "available", True, "insufficient_range"),
+        ("SC", 72, 2800, "maintenance", True, "available", True, "aircraft_inactive"),
+        ("SD", 72, 2800, "active", False, "available", True, "no_position"),
+        ("SE", 72, 2800, "active", True, None, True, "no_availability"),
+        ("SF", 72, 2800, "active", True, "reserved", True, "not_available"),
+        ("SG", 72, 2800, "active", True, "available", False, "no_reference_profile"),
     ],
 )
 def test_pr40_replacement_rejects_canonical_matching_failures(
@@ -275,9 +275,9 @@ def test_pr40_replacement_rejects_canonical_matching_failures(
 @pytest.mark.parametrize(
     ("suffix", "column", "value", "expected_reason"),
     [
-        ("O1", "verification_status", "pending", "operator_unverified"),
-        ("O2", "insurance_status", "expired", "operator_insurance_invalid"),
-        ("O3", "commercial_status", "suspended", "operator_commercial_inactive"),
+        ("OA", "verification_status", "pending", "operator_unverified"),
+        ("OB", "insurance_status", "expired", "operator_insurance_invalid"),
+        ("OC", "commercial_status", "suspended", "operator_commercial_inactive"),
     ],
 )
 def test_pr40_replacement_revalidates_operator_eligibility(
@@ -326,7 +326,7 @@ def test_pr40_replacement_revalidates_operator_eligibility(
 def test_pr40_replacement_rejects_reposition_too_far_and_too_late() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        far_setup = _booked_operation(client, suffix="R1")
+        far_setup = _booked_operation(client, suffix="RA")
         far_departure = far_setup["departure"]
         assert isinstance(far_departure, datetime)
         far_airport = client.post(
@@ -353,19 +353,19 @@ def test_pr40_replacement_rejects_reposition_too_far_and_too_late() -> None:
             client,
             booking_id=str(far_setup["booking_id"]),
             operator_id=str(far_setup["operator_id"]),
-            suffix="R1",
+            suffix="RA",
         )
         far_response = _propose(
             client,
             disruption_id=far_disruption,
             operator_id=str(far_setup["operator_id"]),
             aircraft_id=far_tail,
-            suffix="R1",
+            suffix="RA",
         )
         assert far_response.status_code == 409
         assert "reposition_too_far" in far_response.text
 
-        late_setup = _booked_operation(client, suffix="R2")
+        late_setup = _booked_operation(client, suffix="RB")
         late_departure = late_setup["departure"]
         assert isinstance(late_departure, datetime)
         now = datetime.now(UTC)
@@ -384,14 +384,14 @@ def test_pr40_replacement_rejects_reposition_too_far_and_too_late() -> None:
             client,
             booking_id=str(late_setup["booking_id"]),
             operator_id=str(late_setup["operator_id"]),
-            suffix="R2",
+            suffix="RB",
         )
         late_response = _propose(
             client,
             disruption_id=late_disruption,
             operator_id=str(late_setup["operator_id"]),
             aircraft_id=late_tail,
-            suffix="R2",
+            suffix="RB",
             departure_window=window,
         )
         assert late_response.status_code == 409
@@ -402,21 +402,21 @@ def test_pr40_replacement_rejects_reposition_too_far_and_too_late() -> None:
 def test_pr40_late_availability_correction_blocks_resolution_without_rewriting_evidence() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        setup = _booked_operation(client, suffix="H1")
+        setup = _booked_operation(client, suffix="HA")
         departure = setup["departure"]
         assert isinstance(departure, datetime)
         disruption_id = _open_disruption(
             client,
             booking_id=str(setup["booking_id"]),
             operator_id=str(setup["operator_id"]),
-            suffix="H1",
+            suffix="HA",
         )
         proposal = _propose(
             client,
             disruption_id=disruption_id,
             operator_id=str(setup["operator_id"]),
             aircraft_id=str(setup["replacement_aircraft_id"]),
-            suffix="H1",
+            suffix="HA",
         )
         assert proposal.status_code == 201
         proposal_body = proposal.json()
@@ -479,7 +479,7 @@ def test_pr40_late_availability_correction_blocks_resolution_without_rewriting_e
 def test_pr40_replacement_capacity_check_rejects_another_bookings_reserved_overlap() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        setup = _booked_operation(client, suffix="C1")
+        setup = _booked_operation(client, suffix="CA")
         departure = setup["departure"]
         assert isinstance(departure, datetime)
 
@@ -548,14 +548,14 @@ def test_pr40_replacement_capacity_check_rejects_another_bookings_reserved_overl
             client,
             booking_id=str(setup["booking_id"]),
             operator_id=str(setup["operator_id"]),
-            suffix="C1",
+            suffix="CA",
         )
         proposal = _propose(
             client,
             disruption_id=disruption_id,
             operator_id=str(setup["operator_id"]),
             aircraft_id=str(setup["replacement_aircraft_id"]),
-            suffix="C1",
+            suffix="CA",
         )
         assert proposal.status_code == 409
         assert "overlapping committed CharterOS capacity" in proposal.text
