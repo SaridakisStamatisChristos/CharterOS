@@ -7,6 +7,7 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy import create_engine, text
 
 from apps.api.main import create_app
@@ -24,7 +25,7 @@ def _settings() -> Settings:
     return Settings(environment="test", database_url=database_url, _env_file=None)
 
 
-def _award(client: TestClient, quote_id: str, suffix: str):
+def _award(client: TestClient, quote_id: str, suffix: str) -> Response:
     return client.post(
         f"/v1/quotes/{quote_id}/accept",
         headers={"Idempotency-Key": f"pr42-award-{suffix}"},
