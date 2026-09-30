@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -18,6 +19,7 @@ from charteros.domain.aircraft import AircraftId
 from charteros.domain.airports import Airport, AirportId
 from charteros.domain.operators import OperatorId
 from charteros.domain.shared.exceptions import DomainValidationError
+from charteros.matching import MatchingCandidateSnapshot
 from charteros.repositioning import (
     POLICY_VERSION,
     BaselineEmptyLeg,
@@ -35,6 +37,21 @@ from charteros.repositioning import (
 
 MAX_STRUCTURAL_EMPTY_LEGS = 100
 MAX_QUOTED_FUTURE_LEGS = 2_000
+
+
+@dataclass(frozen=True, slots=True)
+class RepositionOptimizationSnapshot:
+    """Canonical read snapshot consumed by the CPU-only reposition optimizer."""
+
+    projection_version: int
+    graph_knowledge_cutoff: datetime
+    evaluated_at: datetime
+    window_start: datetime
+    window_end: datetime
+    structural: tuple[StructuralEmptyLeg, ...]
+    candidates: tuple[MatchingCandidateSnapshot, ...]
+    opportunities: tuple[QuotedFutureLeg, ...]
+    airports: tuple[Airport, ...]
 
 
 def _utc(value: datetime, *, field_name: str) -> datetime:
@@ -84,7 +101,7 @@ class RepositioningService:
         self._snapshots = snapshots
         self._opportunities = opportunities
 
-    def optimize(
+    def materialize_snapshot(
         self,
         *,
         window_start: datetime,
@@ -93,7 +110,14 @@ class RepositioningService:
         empty_leg_limit: int = MAX_STRUCTURAL_EMPTY_LEGS,
         opportunity_limit: int = MAX_QUOTED_FUTURE_LEGS,
         operator_id: OperatorId | None = None,
-    ) -> RepositionOptimization:
+    ) -> RepositionOptimizationSnapshot:
+        """Read and validate every canonical input required by the optimizer.
+
+        Callers that need a bounded database snapshot should execute only this method inside their
+        read transaction. The returned value contains no repository/session handles and can be
+        solved after that transaction is closed.
+        """
+
         start = _utc(window_start, field_name="window_start")
         end = _utc(window_end, field_name="window_end")
         evaluated = _utc(evaluated_at, field_name="evaluated_at")
@@ -119,6 +143,7 @@ class RepositioningService:
                 "evaluated_at predates the active Charter Graph knowledge cutoff; "
                 "historical PR18 replay requires an as-of graph projection"
             )
+
         structural_items: list[StructuralEmptyLeg] = []
         for graph_item in graph_items:
             previous = self._graph.booking_flight_lineage(booking_id=graph_item.previous_booking_id)
@@ -145,21 +170,16 @@ class RepositioningService:
             )
         structural = tuple(structural_items)
         if not structural:
-            return RepositionOptimization(
-                policy_version=POLICY_VERSION,
+            return RepositionOptimizationSnapshot(
                 projection_version=projection_version,
                 graph_knowledge_cutoff=graph_knowledge_cutoff,
                 evaluated_at=evaluated,
                 window_start=start,
                 window_end=end,
-                structural_empty_leg_count=0,
-                evaluable_empty_leg_count=0,
-                direct_reposition_feasible_count=0,
-                quoted_future_leg_count=0,
-                feasible_candidate_count=0,
-                rejection_summary={},
-                global_plan_available=True,
-                currency_plans=(),
+                structural=(),
+                candidates=(),
+                opportunities=(),
+                airports=(),
             )
 
         aircraft_ids = tuple(
@@ -176,21 +196,21 @@ class RepositioningService:
                 key=lambda value: value.hex,
             )
         )
-        snapshots = self._snapshots.load_candidates_by_aircraft_ids(
+        candidates = self._snapshots.load_candidates_by_aircraft_ids(
             aircraft_ids=aircraft_ids,
             known_as_of=evaluated,
             position_event_cutoff=evaluated,
             availability_from=start,
             availability_to=end,
         )
-        snapshot_by_aircraft = {item.aircraft_id.value: item for item in snapshots}
+        candidate_by_aircraft = {item.aircraft_id.value: item for item in candidates}
         for structural_item in structural:
-            snapshot = snapshot_by_aircraft.get(structural_item.aircraft_id)
-            if snapshot is None:
+            candidate = candidate_by_aircraft.get(structural_item.aircraft_id)
+            if candidate is None:
                 raise EntityConflictError(
                     "Charter Graph empty-leg aircraft is missing from canonical fleet state"
                 )
-            if snapshot.operator_id.value != structural_item.operator_id:
+            if candidate.operator_id.value != structural_item.operator_id:
                 raise EntityConflictError(
                     "Charter Graph empty-leg operator conflicts with canonical aircraft ownership"
                 )
@@ -212,75 +232,47 @@ class RepositioningService:
         for item in opportunities:
             airport_ids.add(item.origin_airport_id)
             airport_ids.add(item.destination_airport_id)
+
         airports = self._load_airports(airport_ids)
-
-        evaluations: list[BaselineEvaluation | InsertionEvaluation] = []
-        baselines: list[tuple[StructuralEmptyLeg, BaselineEmptyLeg]] = []
-        for structural_item in structural:
-            snapshot = snapshot_by_aircraft[structural_item.aircraft_id]
-            baseline_eval = evaluate_baseline(
-                structural=structural_item,
-                candidate=snapshot,
-                previous_origin_airport=airports[
-                    AirportId(structural_item.previous_origin_airport_id)
-                ],
-                from_airport=airports[AirportId(structural_item.from_airport_id)],
-                continuity_airport=airports[AirportId(structural_item.to_airport_id)],
-            )
-            evaluations.append(baseline_eval)
-            if baseline_eval.baseline is not None:
-                baselines.append((structural_item, baseline_eval.baseline))
-
-        opportunities_by_aircraft: dict[tuple[UUID, UUID], list[QuotedFutureLeg]] = defaultdict(
-            list
-        )
-        for opportunity in opportunities:
-            opportunities_by_aircraft[
-                (opportunity.aircraft_id.value, opportunity.operator_id.value)
-            ].append(opportunity)
-
-        feasible: list[FeasibleInsertion] = []
-        for structural_item, baseline in baselines:
-            snapshot = snapshot_by_aircraft[structural_item.aircraft_id]
-            for opportunity in opportunities_by_aircraft.get(
-                (structural_item.aircraft_id, structural_item.operator_id),
-                [],
-            ):
-                insertion_eval = evaluate_insertion(
-                    baseline=baseline,
-                    candidate=snapshot,
-                    opportunity=opportunity,
-                    from_airport=airports[AirportId(structural_item.from_airport_id)],
-                    mission_origin=airports[opportunity.origin_airport_id],
-                    mission_destination=airports[opportunity.destination_airport_id],
-                    continuity_airport=airports[AirportId(structural_item.to_airport_id)],
-                )
-                evaluations.append(insertion_eval)
-                if insertion_eval.insertion is not None:
-                    feasible.append(insertion_eval.insertion)
-
-        grouped: dict[str, list[FeasibleInsertion]] = defaultdict(list)
-        for insertion in feasible:
-            grouped[str(insertion.currency)].append(insertion)
-        plans = tuple(build_currency_plan(tuple(grouped[currency])) for currency in sorted(grouped))
-
-        return RepositionOptimization(
-            policy_version=POLICY_VERSION,
+        return RepositionOptimizationSnapshot(
             projection_version=projection_version,
             graph_knowledge_cutoff=graph_knowledge_cutoff,
             evaluated_at=evaluated,
             window_start=start,
             window_end=end,
-            structural_empty_leg_count=len(structural),
-            evaluable_empty_leg_count=len(baselines),
-            direct_reposition_feasible_count=sum(
-                1 for _, baseline in baselines if baseline.baseline_reposition_feasible
+            structural=structural,
+            candidates=candidates,
+            opportunities=opportunities,
+            airports=tuple(
+                airports[key] for key in sorted(airports, key=lambda value: value.value.hex)
             ),
-            quoted_future_leg_count=len(opportunities),
-            feasible_candidate_count=len(feasible),
-            rejection_summary=merge_rejection_counts(tuple(evaluations)),
-            global_plan_available=len(plans) <= 1,
-            currency_plans=plans,
+        )
+
+    def optimize(
+        self,
+        *,
+        window_start: datetime,
+        window_end: datetime,
+        evaluated_at: datetime,
+        empty_leg_limit: int = MAX_STRUCTURAL_EMPTY_LEGS,
+        opportunity_limit: int = MAX_QUOTED_FUTURE_LEGS,
+        operator_id: OperatorId | None = None,
+    ) -> RepositionOptimization:
+        """Compatibility entry point for non-HTTP callers.
+
+        HTTP callers use materialize_snapshot() inside the read transaction and solve the immutable
+        snapshot after the transaction closes.
+        """
+
+        return optimize_reposition_snapshot(
+            self.materialize_snapshot(
+                window_start=window_start,
+                window_end=window_end,
+                evaluated_at=evaluated_at,
+                empty_leg_limit=empty_leg_limit,
+                opportunity_limit=opportunity_limit,
+                operator_id=operator_id,
+            )
         )
 
     def _load_airports(self, airport_ids: set[AirportId]) -> dict[AirportId, Airport]:
@@ -293,3 +285,96 @@ class RepositioningService:
                 )
             result[airport_id] = airport
         return result
+
+
+def optimize_reposition_snapshot(
+    snapshot: RepositionOptimizationSnapshot,
+) -> RepositionOptimization:
+    """Run deterministic optimization using only materialized in-memory state."""
+
+    structural = snapshot.structural
+    if not structural:
+        return RepositionOptimization(
+            policy_version=POLICY_VERSION,
+            projection_version=snapshot.projection_version,
+            graph_knowledge_cutoff=snapshot.graph_knowledge_cutoff,
+            evaluated_at=snapshot.evaluated_at,
+            window_start=snapshot.window_start,
+            window_end=snapshot.window_end,
+            structural_empty_leg_count=0,
+            evaluable_empty_leg_count=0,
+            direct_reposition_feasible_count=0,
+            quoted_future_leg_count=0,
+            feasible_candidate_count=0,
+            rejection_summary={},
+            global_plan_available=True,
+            currency_plans=(),
+        )
+
+    candidate_by_aircraft = {item.aircraft_id.value: item for item in snapshot.candidates}
+    airports = {item.id: item for item in snapshot.airports}
+
+    evaluations: list[BaselineEvaluation | InsertionEvaluation] = []
+    baselines: list[tuple[StructuralEmptyLeg, BaselineEmptyLeg]] = []
+    for structural_item in structural:
+        candidate = candidate_by_aircraft[structural_item.aircraft_id]
+        baseline_eval = evaluate_baseline(
+            structural=structural_item,
+            candidate=candidate,
+            previous_origin_airport=airports[AirportId(structural_item.previous_origin_airport_id)],
+            from_airport=airports[AirportId(structural_item.from_airport_id)],
+            continuity_airport=airports[AirportId(structural_item.to_airport_id)],
+        )
+        evaluations.append(baseline_eval)
+        if baseline_eval.baseline is not None:
+            baselines.append((structural_item, baseline_eval.baseline))
+
+    opportunities_by_aircraft: dict[tuple[UUID, UUID], list[QuotedFutureLeg]] = defaultdict(list)
+    for opportunity in snapshot.opportunities:
+        opportunities_by_aircraft[
+            (opportunity.aircraft_id.value, opportunity.operator_id.value)
+        ].append(opportunity)
+
+    feasible: list[FeasibleInsertion] = []
+    for structural_item, baseline in baselines:
+        candidate = candidate_by_aircraft[structural_item.aircraft_id]
+        for opportunity in opportunities_by_aircraft.get(
+            (structural_item.aircraft_id, structural_item.operator_id),
+            [],
+        ):
+            insertion_eval = evaluate_insertion(
+                baseline=baseline,
+                candidate=candidate,
+                opportunity=opportunity,
+                from_airport=airports[AirportId(structural_item.from_airport_id)],
+                mission_origin=airports[opportunity.origin_airport_id],
+                mission_destination=airports[opportunity.destination_airport_id],
+                continuity_airport=airports[AirportId(structural_item.to_airport_id)],
+            )
+            evaluations.append(insertion_eval)
+            if insertion_eval.insertion is not None:
+                feasible.append(insertion_eval.insertion)
+
+    grouped: dict[str, list[FeasibleInsertion]] = defaultdict(list)
+    for insertion in feasible:
+        grouped[str(insertion.currency)].append(insertion)
+    plans = tuple(build_currency_plan(tuple(grouped[currency])) for currency in sorted(grouped))
+
+    return RepositionOptimization(
+        policy_version=POLICY_VERSION,
+        projection_version=snapshot.projection_version,
+        graph_knowledge_cutoff=snapshot.graph_knowledge_cutoff,
+        evaluated_at=snapshot.evaluated_at,
+        window_start=snapshot.window_start,
+        window_end=snapshot.window_end,
+        structural_empty_leg_count=len(structural),
+        evaluable_empty_leg_count=len(baselines),
+        direct_reposition_feasible_count=sum(
+            1 for _, baseline in baselines if baseline.baseline_reposition_feasible
+        ),
+        quoted_future_leg_count=len(snapshot.opportunities),
+        feasible_candidate_count=len(feasible),
+        rejection_summary=merge_rejection_counts(tuple(evaluations)),
+        global_plan_available=len(plans) <= 1,
+        currency_plans=plans,
+    )

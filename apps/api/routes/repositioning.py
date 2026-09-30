@@ -12,7 +12,10 @@ from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_session
 from charteros.application.graph_queries import GraphQueryService
-from charteros.application.repositioning import RepositioningService
+from charteros.application.repositioning import (
+    RepositioningService,
+    optimize_reposition_snapshot,
+)
 from charteros.infrastructure.db.repositories import (
     SqlAlchemyAirportRepository,
     SqlAlchemyGraphQueryRepository,
@@ -183,11 +186,13 @@ def optimize_repositioning(
 ) -> RepositionOptimizationResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
-        result = _service(session).optimize(
+        snapshot = _service(session).materialize_snapshot(
             window_start=window_start,
             window_end=window_end,
             evaluated_at=evaluated_at,
             empty_leg_limit=empty_leg_limit,
             opportunity_limit=opportunity_limit,
         )
-    return _response(result)
+    if session.in_transaction():
+        raise RuntimeError("reposition optimization must run outside the database transaction")
+    return _response(optimize_reposition_snapshot(snapshot))
