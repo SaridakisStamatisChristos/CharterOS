@@ -12,6 +12,7 @@ from charteros.domain.operators import (
 )
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.money import Money
+from charteros.domain.shared.time_range import TimeRange
 from charteros.matching.distance import haversine_distance_tenths_nm
 from charteros.matching.types import (
     MAX_SCORE_BASIS_POINTS,
@@ -85,8 +86,10 @@ def evaluate_candidate(
     origin_longitude: Decimal,
     route_distance_tenths_nm: int,
     decision_time: datetime,
+    departure_window: TimeRange | None = None,
 ) -> CandidateEvaluation:
     rejection: list[MatchReasonCode] = []
+    window = departure_window or mission.departure_window
 
     if candidate.aircraft_status is not AircraftStatus.ACTIVE:
         rejection.append(MatchReasonCode.AIRCRAFT_INACTIVE)
@@ -140,7 +143,7 @@ def evaluate_candidate(
         )
 
     decision_utc = ensure_utc(decision_time, field_name="decision_time")
-    available_seconds = (mission.departure_window.end - decision_utc).total_seconds()
+    available_seconds = (window.end - decision_utc).total_seconds()
     available_minutes = max(0, int(available_seconds // 60))
     reposition_minutes = flight_minutes(reposition_distance, profile.cruise_speed_kts)
     required_reposition_minutes = reposition_minutes + profile.turnaround_buffer_minutes
