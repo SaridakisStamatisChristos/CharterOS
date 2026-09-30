@@ -239,7 +239,7 @@ def test_skip_locked_claimers_partition_due_work() -> None:
         second_id = _seed_event(factory, ordinal=5)
         barrier = Barrier(2)
 
-        def claim(worker_id: str) -> UUID:
+        def claim(worker_id: str) -> tuple[UUID, UUID]:
             barrier.wait()
             repository = SqlAlchemyOutboxDeliveryRepository(factory)
             claims = repository.claim_batch(
@@ -250,14 +250,22 @@ def test_skip_locked_claimers_partition_due_work() -> None:
                 max_attempts=3,
             )
             assert len(claims) == 1
-            return claims[0].envelope.event_id
+            return claims[0].envelope.event_id, claims[0].lease_token
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             a = executor.submit(claim, "worker-a")
             b = executor.submit(claim, "worker-b")
-            claimed = {a.result(), b.result()}
+            first_claim = a.result()
+            second_claim = b.result()
 
-        assert claimed == {first_id, second_id}
+        assert {first_claim[0], second_claim[0]} == {first_id, second_id}
+        repository = SqlAlchemyOutboxDeliveryRepository(factory)
+        for event_id, lease_token in (first_claim, second_claim):
+            repository.mark_delivered(
+                event_id=event_id,
+                lease_token=lease_token,
+                delivered_at=BASE + timedelta(minutes=5),
+            )
     finally:
         engine.dispose()
 
