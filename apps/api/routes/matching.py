@@ -11,15 +11,16 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_session
-from charteros.shared.clock import Clock
 from charteros.application.matching import MatchingService
 from charteros.domain.missions import MissionId
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyAirportRepository
 from charteros.infrastructure.db.repositories.matching import SqlAlchemyMatchingSnapshotRepository
 from charteros.infrastructure.db.repositories.missions import SqlAlchemyMissionRepository
 from charteros.matching import BudgetComparison, MatchingDecision, MatchReasonCode, RankedMatch
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["matching"])
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 KnownAsOf = Annotated[datetime | None, Query(description="UTC knowledge-time cutoff for replay")]
 ResultLimit = Annotated[int, Query(ge=1, le=100)]
@@ -208,7 +209,8 @@ def get_mission_matches(
     known_as_of: KnownAsOf = None,
     limit: ResultLimit = 20,
 
-    clock: Clock = Depends(get_clock),) -> MatchingResponse:
+    clock: ClockDep,
+) -> MatchingResponse:
     cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
