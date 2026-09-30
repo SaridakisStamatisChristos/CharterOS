@@ -12,7 +12,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
-from charteros.shared.clock import Clock
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -68,9 +67,11 @@ from charteros.infrastructure.db.repositories.catalog import (
     SqlAlchemyIdempotencyRepository,
 )
 from charteros.infrastructure.db.repositories.matching import SqlAlchemyMatchingSnapshotRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["quotes"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -543,7 +544,8 @@ def submit_quote(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/quotes"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -587,7 +589,8 @@ def compare_mission_quotes(
     mission_id: UUID,
     session: SessionDep,
 
-    clock: Clock = Depends(get_clock),) -> MissionQuoteComparisonResponse:
+    clock: ClockDep,
+) -> MissionQuoteComparisonResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         typed_mission_id = MissionId(mission_id)
@@ -631,7 +634,8 @@ def revise_quote(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/quotes/{quote_id}/revise"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -666,7 +670,8 @@ def withdraw_quote(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/quotes/{quote_id}/withdraw"
     request_hash = canonical_request_hash({})
     with session.begin():
@@ -691,7 +696,8 @@ def expire_quote(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/quotes/{quote_id}/expire"
     request_hash = canonical_request_hash({})
     with session.begin():
