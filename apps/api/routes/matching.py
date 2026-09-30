@@ -206,10 +206,9 @@ def _response(mission_id: UUID, decision: MatchingDecision, limit: int) -> Match
 def get_mission_matches(
     mission_id: UUID,
     session: SessionDep,
+    clock: ClockDep,
     known_as_of: KnownAsOf = None,
     limit: ResultLimit = 20,
-
-    clock: ClockDep,
 ) -> MatchingResponse:
     cutoff = known_as_of or clock.now()
     with session.begin():
