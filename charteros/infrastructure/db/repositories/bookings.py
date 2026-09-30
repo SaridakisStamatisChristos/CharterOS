@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 
 from charteros.application.exceptions import EntityConflictError
 from charteros.domain.aircraft import AircraftId
-from charteros.domain.bookings import Booking, BookingId, BookingState
+from charteros.domain.bookings import (
+    Booking,
+    BookingId,
+    BookingState,
+    BookingTerminationReason,
+    BookingTerminationSource,
+)
 from charteros.domain.missions import MissionId
 from charteros.domain.operators import OperatorId
 from charteros.domain.quotes import QuoteId
@@ -24,6 +30,16 @@ def _to_domain(row: BookingRow) -> Booking:
         state=BookingState(row.state),
         created_at=row.created_at,
         state_changed_at=row.state_changed_at,
+        termination_reason=(
+            BookingTerminationReason(row.termination_reason)
+            if row.termination_reason is not None
+            else None
+        ),
+        termination_source=(
+            BookingTerminationSource(row.termination_source)
+            if row.termination_source is not None
+            else None
+        ),
         version=row.version,
     )
 
@@ -44,6 +60,16 @@ class SqlAlchemyBookingRepository:
                 state=booking.state.value,
                 created_at=booking.created_at,
                 state_changed_at=booking.state_changed_at,
+                termination_reason=(
+                    booking.termination_reason.value
+                    if booking.termination_reason is not None
+                    else None
+                ),
+                termination_source=(
+                    booking.termination_source.value
+                    if booking.termination_source is not None
+                    else None
+                ),
             )
         )
         try:
@@ -80,6 +106,16 @@ class SqlAlchemyBookingRepository:
                 version=booking.version,
                 state=booking.state.value,
                 state_changed_at=booking.state_changed_at,
+                termination_reason=(
+                    booking.termination_reason.value
+                    if booking.termination_reason is not None
+                    else None
+                ),
+                termination_source=(
+                    booking.termination_source.value
+                    if booking.termination_source is not None
+                    else None
+                ),
             )
             .returning(BookingRow.id)
         )

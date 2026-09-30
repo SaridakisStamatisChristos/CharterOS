@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,7 @@ from charteros.domain.capacity_reservations import (
 from charteros.domain.missions import MissionId
 from charteros.domain.operators import OperatorId
 from charteros.domain.shared.currency import Currency
+from charteros.domain.shared.exceptions import OptimisticConcurrencyError
 from charteros.domain.shared.money import Money
 from charteros.domain.shared.time_range import TimeRange
 from charteros.infrastructure.db.models.capacity import AircraftCapacityReservationRow
@@ -93,6 +94,42 @@ class SqlAlchemyAircraftCapacityReservationRepository:
             )
         )
         return _to_domain(row) if row is not None else None
+
+    def get_for_booking_for_update(
+        self,
+        booking_id: BookingId,
+    ) -> AircraftCapacityReservation | None:
+        row = self._session.scalar(
+            select(AircraftCapacityReservationRow)
+            .where(AircraftCapacityReservationRow.booking_id == booking_id.value)
+            .with_for_update()
+        )
+        return _to_domain(row) if row is not None else None
+
+    def save(
+        self,
+        reservation: AircraftCapacityReservation,
+        *,
+        expected_version: int,
+    ) -> None:
+        statement = (
+            update(AircraftCapacityReservationRow)
+            .where(
+                AircraftCapacityReservationRow.id == reservation.id.value,
+                AircraftCapacityReservationRow.version == expected_version,
+            )
+            .values(
+                version=reservation.version,
+                status=reservation.status.value,
+                released_at=reservation.released_at,
+                release_reason=reservation.release_reason,
+            )
+            .returning(AircraftCapacityReservationRow.id)
+        )
+        updated_id = self._session.scalar(statement)
+        if updated_id is None:
+            raise OptimisticConcurrencyError("aircraft capacity reservation changed concurrently")
+        self._session.flush()
 
 
 class SqlAlchemyCapacityReferenceRepository(CapacityReferenceRepository):

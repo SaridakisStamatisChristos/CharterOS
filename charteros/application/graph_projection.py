@@ -240,6 +240,8 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
         "MISSION_BOOKED",
         "MISSION_OPERATING",
         "MISSION_COMPLETED",
+        "MISSION_CANCELLED",
+        "MISSION_EXPIRED",
     }:
         _expect_aggregate(envelope, "mission")
         return GraphMutation(node_upserts=(GraphNodeUpsert("mission", aggregate_id, payload),))
@@ -417,6 +419,8 @@ def graph_mutation_for(envelope: OutboxEnvelope) -> GraphMutation:
         "BOOKING_OPERATING",
         "BOOKING_COMPLETED",
         "BOOKING_RECONCILED",
+        "BOOKING_CANCELLED",
+        "BOOKING_EXPIRED",
     }:
         _expect_aggregate(envelope, "booking")
         to_state = payload.get("to_state")

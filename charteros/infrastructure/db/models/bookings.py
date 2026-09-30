@@ -26,12 +26,19 @@ class BookingRow(Base):
         CheckConstraint("version > 0", name="ck_bookings_version_positive"),
         CheckConstraint(
             "state IN ('pending_contract','contracted','payment_pending','confirmed',"
-            "'pre_operation','operating','completed','reconciled')",
+            "'pre_operation','operating','completed','reconciled','cancelled','expired')",
             name="ck_bookings_state",
         ),
         CheckConstraint(
             "state_changed_at >= created_at",
             name="ck_bookings_state_changed_at",
+        ),
+        CheckConstraint(
+            "(state IN ('cancelled','expired') AND termination_reason IS NOT NULL "
+            "AND termination_source IS NOT NULL) OR "
+            "(state NOT IN ('cancelled','expired') AND termination_reason IS NULL "
+            "AND termination_source IS NULL)",
+            name="ck_bookings_termination_evidence",
         ),
         Index("ix_bookings_operator_state", "operator_id", "state"),
         Index("ix_bookings_aircraft_state", "aircraft_id", "state"),
@@ -62,3 +69,5 @@ class BookingRow(Base):
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     state_changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    termination_reason: Mapped[str | None] = mapped_column(String(32))
+    termination_source: Mapped[str | None] = mapped_column(String(16))

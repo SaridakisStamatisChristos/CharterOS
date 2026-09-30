@@ -291,6 +291,8 @@ def _build_route_policies() -> dict[RouteKey, RoutePolicy]:
         ("POST", "/v1/bookings/{booking_id}/mark-contracted"),
         ("POST", "/v1/bookings/{booking_id}/mark-payment-pending"),
         ("POST", "/v1/bookings/{booking_id}/confirm"),
+        ("POST", "/v1/bookings/{booking_id}/cancel"),
+        ("POST", "/v1/bookings/{booking_id}/expire"),
         ("POST", "/v1/bookings/{booking_id}/enter-pre-operation"),
         ("POST", "/v1/bookings/{booking_id}/start-operation"),
         ("POST", "/v1/bookings/{booking_id}/complete"),

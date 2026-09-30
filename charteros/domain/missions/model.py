@@ -259,6 +259,43 @@ class Mission(AggregateRoot[MissionId]):
             correlation_id=correlation_id,
         )
 
+    def terminate_booking(
+        self,
+        *,
+        expired: bool,
+        reason: str,
+        source: str,
+        transitioned_at: datetime,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        if self.status not in (MissionStatus.SELECTED, MissionStatus.CONTRACTING):
+            raise DomainValidationError(
+                "only selected or contracting missions can terminate a booking"
+            )
+        normalized_reason = " ".join(reason.split())
+        normalized_source = " ".join(source.split())
+        if not normalized_reason:
+            raise DomainValidationError("termination reason is required")
+        if not normalized_source:
+            raise DomainValidationError("termination source is required")
+        when = _utc(transitioned_at, field_name="transitioned_at")
+        previous = self.status
+        target = MissionStatus.EXPIRED if expired else MissionStatus.CANCELLED
+        self.status = target
+        self._record_event(
+            "MISSION_EXPIRED" if expired else "MISSION_CANCELLED",
+            {
+                "from_status": previous.value,
+                "status": target.value,
+                "reason": normalized_reason,
+                "source": normalized_source,
+                "transitioned_at": _iso(when),
+            },
+            correlation_id=correlation_id,
+            recorded_at=when,
+            occurred_at=when,
+        )
+
     def _workflow_transition(
         self,
         *,
