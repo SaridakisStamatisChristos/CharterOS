@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
+from uuid import UUID
 
-from charteros.domain.aircraft import AircraftId, AvailabilityRecordId
+from charteros.domain.aircraft import AircraftId, AvailabilityRecordId, PositionObservationId
 from charteros.domain.bookings import BookingId, BookingState
 from charteros.domain.operators import OperatorId
 from charteros.domain.organizations import OrganizationId
@@ -128,6 +129,19 @@ class ReplacementProposal:
     source: str
     source_evidence: str | None
     proposed_at: datetime
+    feasibility_policy_version: str | None = None
+    feasibility_known_as_of: datetime | None = None
+    position_observation_id: PositionObservationId | None = None
+    position_event_time: datetime | None = None
+    position_recorded_at: datetime | None = None
+    reference_profile_id: UUID | None = None
+    reference_profile_recorded_at: datetime | None = None
+    route_distance_tenths_nm: int | None = None
+    required_range_nm: int | None = None
+    reposition_distance_tenths_nm: int | None = None
+    route_minutes: int | None = None
+    reposition_minutes: int | None = None
+    timing_buffer_minutes: int | None = None
     superseded_at: datetime | None = None
 
     def __post_init__(self) -> None:
@@ -161,6 +175,80 @@ class ReplacementProposal:
             raise DomainValidationError(
                 "availability evidence cannot be learned after proposal time"
             )
+        feasibility_fields = (
+            self.feasibility_policy_version,
+            self.feasibility_known_as_of,
+            self.position_observation_id,
+            self.position_event_time,
+            self.position_recorded_at,
+            self.reference_profile_id,
+            self.reference_profile_recorded_at,
+            self.route_distance_tenths_nm,
+            self.required_range_nm,
+            self.reposition_distance_tenths_nm,
+            self.route_minutes,
+            self.reposition_minutes,
+            self.timing_buffer_minutes,
+        )
+        has_feasibility = any(value is not None for value in feasibility_fields)
+        if has_feasibility and not all(value is not None for value in feasibility_fields):
+            raise DomainValidationError(
+                "replacement feasibility evidence must be complete when present"
+            )
+        if has_feasibility:
+            policy_version = _required_text(
+                self.feasibility_policy_version or "",
+                field_name="feasibility_policy_version",
+                max_length=64,
+            )
+            known_as_of = _utc(
+                self.feasibility_known_as_of,
+                field_name="feasibility_known_as_of",
+            )
+            position_event_time = _utc(
+                self.position_event_time,
+                field_name="position_event_time",
+            )
+            position_recorded_at = _utc(
+                self.position_recorded_at,
+                field_name="position_recorded_at",
+            )
+            reference_profile_recorded_at = _utc(
+                self.reference_profile_recorded_at,
+                field_name="reference_profile_recorded_at",
+            )
+            if known_as_of > proposed_at:
+                raise DomainValidationError(
+                    "feasibility evidence cannot be learned after proposal time"
+                )
+            if position_recorded_at > known_as_of:
+                raise DomainValidationError(
+                    "position evidence cannot be learned after feasibility decision time"
+                )
+            if reference_profile_recorded_at > known_as_of:
+                raise DomainValidationError(
+                    "reference profile cannot be learned after feasibility decision time"
+                )
+            for field_name, value in (
+                ("route_distance_tenths_nm", self.route_distance_tenths_nm),
+                ("required_range_nm", self.required_range_nm),
+                ("reposition_distance_tenths_nm", self.reposition_distance_tenths_nm),
+                ("route_minutes", self.route_minutes),
+                ("reposition_minutes", self.reposition_minutes),
+                ("timing_buffer_minutes", self.timing_buffer_minutes),
+            ):
+                if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                    raise DomainValidationError(f"{field_name} must be a non-negative integer")
+            object.__setattr__(self, "feasibility_policy_version", policy_version)
+            object.__setattr__(self, "feasibility_known_as_of", known_as_of)
+            object.__setattr__(self, "position_event_time", position_event_time)
+            object.__setattr__(self, "position_recorded_at", position_recorded_at)
+            object.__setattr__(
+                self,
+                "reference_profile_recorded_at",
+                reference_profile_recorded_at,
+            )
+
         superseded_at = (
             _utc(self.superseded_at, field_name="superseded_at")
             if self.superseded_at is not None
