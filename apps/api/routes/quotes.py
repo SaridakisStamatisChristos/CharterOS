@@ -543,7 +543,6 @@ def submit_quote(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/quotes"
@@ -588,7 +587,6 @@ def list_quotes(rfq_id: UUID, session: SessionDep) -> QuoteListResponse:
 def compare_mission_quotes(
     mission_id: UUID,
     session: SessionDep,
-
     clock: ClockDep,
 ) -> MissionQuoteComparisonResponse:
     with session.begin():
@@ -633,7 +631,6 @@ def revise_quote(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/quotes/{quote_id}/revise"
@@ -669,7 +666,6 @@ def withdraw_quote(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/quotes/{quote_id}/withdraw"
@@ -695,7 +691,6 @@ def expire_quote(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> QuoteResponse:
     scope = f"POST:/v1/quotes/{quote_id}/expire"
