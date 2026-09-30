@@ -685,10 +685,9 @@ def search_suppliers(
     mission_id: UUID,
     session: SessionDep,
     buyer_id: BuyerIdDep,
+    clock: ClockDep,
     known_as_of: KnownAsOf = None,
     limit: SupplierLimit = 20,
-
-    clock: ClockDep,
 ) -> SupplierSearchResponse:
     cutoff = known_as_of or clock.now()
     with session.begin():
@@ -758,7 +757,6 @@ def issue_rfqs(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> BuyerRfqBatchResponse:
     if len(set(body.operator_ids)) != len(body.operator_ids):
@@ -871,7 +869,6 @@ def compare_quotes(
     mission_id: UUID,
     session: SessionDep,
     buyer_id: BuyerIdDep,
-
     clock: ClockDep,
 ) -> BuyerQuoteComparisonResponse:
     evaluated_at = clock.now()
@@ -902,7 +899,6 @@ def lock_fx_comparison(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> BuyerQuoteComparisonResponse:
     typed_buyer = OrganizationId(buyer_id)
@@ -961,7 +957,6 @@ def approve_quote(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> ApprovalResponse:
     typed_buyer = OrganizationId(buyer_id)
@@ -1067,7 +1062,6 @@ def award_approval(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> AwardResponse:
     typed_buyer = OrganizationId(buyer_id)
