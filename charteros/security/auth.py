@@ -210,10 +210,7 @@ class JwksKeyCache:
                 raise AuthenticationError("token signing key is unknown")
 
             last_unknown = self._last_unknown_refresh_at
-            if (
-                last_unknown is not None
-                and now - last_unknown < self._refresh_min_interval_seconds
-            ):
+            if last_unknown is not None and now - last_unknown < self._refresh_min_interval_seconds:
                 self._remember_unknown(key_id, now)
                 raise AuthenticationError("token signing key is unknown")
 
