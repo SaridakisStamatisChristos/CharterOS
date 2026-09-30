@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -301,6 +303,33 @@ class SqlAlchemyIdempotencyRepository:
             )
         )
         _flush(self._session, conflict_message="idempotency key already exists")
+
+    def delete_created_before(self, *, cutoff: datetime, limit: int) -> int:
+        if cutoff.tzinfo is None or cutoff.utcoffset() is None:
+            raise ValueError("idempotency cleanup cutoff must be timezone-aware")
+        if limit < 1:
+            raise ValueError("idempotency cleanup limit must be positive")
+        rows = self._session.execute(
+            text(
+                """
+                WITH victims AS (
+                    SELECT scope, key
+                    FROM idempotency_records
+                    WHERE created_at < :cutoff
+                    ORDER BY created_at, scope, key
+                    LIMIT :limit
+                    FOR UPDATE SKIP LOCKED
+                )
+                DELETE FROM idempotency_records AS target
+                USING victims
+                WHERE target.scope = victims.scope
+                  AND target.key = victims.key
+                RETURNING target.scope
+                """
+            ),
+            {"cutoff": cutoff, "limit": limit},
+        ).all()
+        return len(rows)
 
 
 class SqlAlchemyDomainEventRepository:
