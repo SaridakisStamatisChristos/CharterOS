@@ -186,6 +186,17 @@ def _booked_operation(
     )
 
     departure = datetime.now(UTC) + timedelta(days=7)
+    replacement_position = client.post(
+        f"/v1/aircraft/{replacement_aircraft_id}/positions",
+        headers={"Idempotency-Key": f"pr23-position-{suffix}-replacement"},
+        json={
+            "airport_id": origin,
+            "event_time": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+            "source": "pr23-operations",
+            "provenance": {"fixture": "pr23", "role": "replacement"},
+        },
+    )
+    assert replacement_position.status_code == 201
     _make_available(
         client,
         aircraft_id=replacement_aircraft_id,
