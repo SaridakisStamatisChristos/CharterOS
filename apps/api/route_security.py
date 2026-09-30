@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from charteros.application.resource_limits import AbuseBudget
 from charteros.security.auth import Permission, PrincipalType
 
 RouteKey = tuple[str, str]
@@ -29,6 +30,7 @@ class RoutePolicy:
     allowed_principal_types: frozenset[PrincipalType]
     selector: SelectorRequirement = SelectorRequirement.NONE
     resource: ResourceRequirement = ResourceRequirement.NONE
+    abuse_budget: AbuseBudget | None = None
 
 
 ADMIN = frozenset({PrincipalType.ADMINISTRATOR})
@@ -42,12 +44,14 @@ def _policy(
     principal_types: frozenset[PrincipalType],
     selector: SelectorRequirement = SelectorRequirement.NONE,
     resource: ResourceRequirement = ResourceRequirement.NONE,
+    abuse_budget: AbuseBudget | None = None,
 ) -> RoutePolicy:
     return RoutePolicy(
         permission=permission,
         allowed_principal_types=principal_types,
         selector=selector,
         resource=resource,
+        abuse_budget=abuse_budget,
     )
 
 
@@ -86,7 +90,7 @@ def _build_route_policies() -> dict[RouteKey, RoutePolicy]:
         ("GET", "/v1/fx/rates/{rate_id}"),
     )
     add(
-        _policy(Permission.GRAPH_READ, ADMIN),
+        _policy(Permission.GRAPH_READ, ADMIN, abuse_budget=AbuseBudget.GRAPH),
         ("GET", "/v1/graph/aircraft/near-airport"),
         ("GET", "/v1/graph/aircraft/{aircraft_id}/historical-position"),
         ("GET", "/v1/graph/missions/{mission_id}/feasible-aircraft"),
@@ -96,7 +100,11 @@ def _build_route_policies() -> dict[RouteKey, RoutePolicy]:
         ("GET", "/v1/graph/bookings/{booking_id}/flight-lineage"),
     )
     add(
-        _policy(Permission.OPTIMIZATION_READ, ADMIN),
+        _policy(
+            Permission.OPTIMIZATION_READ,
+            ADMIN,
+            abuse_budget=AbuseBudget.REPOSITIONING,
+        ),
         ("GET", "/v1/optimization/repositioning"),
     )
 
@@ -109,10 +117,18 @@ def _build_route_policies() -> dict[RouteKey, RoutePolicy]:
     add(
         _policy(Permission.BUYER_MISSION_READ, BUYER, SelectorRequirement.BUYER),
         ("GET", "/v1/buyer-portal/missions/{mission_id}"),
-        ("GET", "/v1/buyer-portal/missions/{mission_id}/suppliers"),
         ("GET", "/v1/buyer-portal/missions/{mission_id}/rfqs"),
         ("GET", "/v1/buyer-portal/missions/{mission_id}/quotes/compare"),
         ("GET", "/v1/buyer-portal/missions/{mission_id}/booking"),
+    )
+    add(
+        _policy(
+            Permission.BUYER_MISSION_READ,
+            BUYER,
+            SelectorRequirement.BUYER,
+            abuse_budget=AbuseBudget.MATCHING,
+        ),
+        ("GET", "/v1/buyer-portal/missions/{mission_id}/suppliers"),
     )
     add(
         _policy(Permission.BUYER_FX_LOCK_CREATE, BUYER, SelectorRequirement.BUYER),
@@ -124,7 +140,12 @@ def _build_route_policies() -> dict[RouteKey, RoutePolicy]:
         ("POST", "/v1/buyer-portal/approvals/{approval_id}/award"),
     )
     add(
-        _policy(Permission.AUDIT_EVIDENCE_READ, BUYER, SelectorRequirement.BUYER),
+        _policy(
+            Permission.AUDIT_EVIDENCE_READ,
+            BUYER,
+            SelectorRequirement.BUYER,
+            abuse_budget=AbuseBudget.EVIDENCE,
+        ),
         ("GET", "/v1/buyer-portal/missions/{mission_id}/audit"),
     )
 
@@ -162,9 +183,18 @@ def _build_route_policies() -> dict[RouteKey, RoutePolicy]:
     add(
         _policy(Permission.OPERATOR_BOOKING_READ, OPERATOR, SelectorRequirement.OPERATOR),
         ("GET", "/v1/operator-portal/calendar"),
-        ("GET", "/v1/operator-portal/empty-legs"),
         ("GET", "/v1/operator-portal/bookings"),
         ("GET", "/v1/operator-portal/bookings/{booking_id}"),
+    )
+
+    add(
+        _policy(
+            Permission.OPERATOR_BOOKING_READ,
+            OPERATOR,
+            SelectorRequirement.OPERATOR,
+            abuse_budget=AbuseBudget.REPOSITIONING,
+        ),
+        ("GET", "/v1/operator-portal/empty-legs"),
     )
 
     add(
@@ -206,7 +236,12 @@ def _build_route_policies() -> dict[RouteKey, RoutePolicy]:
         ("GET", "/v1/reconciliations/{reconciliation_id}/invoices"),
     )
     add(
-        _policy(Permission.AUDIT_EVIDENCE_READ, PARTIES, SelectorRequirement.PARTY_OR_ADMIN),
+        _policy(
+            Permission.AUDIT_EVIDENCE_READ,
+            PARTIES,
+            SelectorRequirement.PARTY_OR_ADMIN,
+            abuse_budget=AbuseBudget.EVIDENCE,
+        ),
         ("GET", "/v1/evidence/missions/{mission_id}"),
         ("GET", "/v1/evidence/bookings/{booking_id}"),
         ("GET", "/v1/evidence/disruptions/{disruption_id}"),
@@ -304,7 +339,6 @@ def _build_route_policies() -> dict[RouteKey, RoutePolicy]:
     add(
         _policy(Permission.DOMAIN_READ, ADMIN),
         ("GET", "/v1/missions/{mission_id}"),
-        ("GET", "/v1/missions/{mission_id}/matches"),
         ("GET", "/v1/missions/{mission_id}/rfqs"),
         ("GET", "/v1/rfqs/{rfq_id}/quotes"),
         ("GET", "/v1/missions/{mission_id}/quotes/compare"),
@@ -313,6 +347,10 @@ def _build_route_policies() -> dict[RouteKey, RoutePolicy]:
         ("GET", "/v1/bookings/{booking_id}"),
         ("GET", "/v1/contracts/{contract_id}"),
         ("GET", "/v1/bookings/{booking_id}/contract"),
+    )
+    add(
+        _policy(Permission.DOMAIN_READ, ADMIN, abuse_budget=AbuseBudget.MATCHING),
+        ("GET", "/v1/missions/{mission_id}/matches"),
     )
     return policies
 
