@@ -5,7 +5,10 @@ from datetime import UTC, datetime
 
 from charteros.application.capacity import AircraftCapacityPolicy
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
-from charteros.application.feasibility import AircraftMissionFeasibilityService
+from charteros.application.feasibility import (
+    AircraftMissionFeasibility,
+    AircraftMissionFeasibilityService,
+)
 from charteros.application.ports.bookings import BookingRepository
 from charteros.application.ports.capacity import AircraftCapacityReservationRepository
 from charteros.application.ports.catalog import (
@@ -538,7 +541,7 @@ class DisruptionService:
         operator_id: OperatorId,
         departure_window: TimeRange | None,
         known_as_of: datetime,
-    ):
+    ) -> AircraftMissionFeasibility:
         result = self._feasibility.evaluate(
             mission=context.mission,
             aircraft_id=aircraft_id,
