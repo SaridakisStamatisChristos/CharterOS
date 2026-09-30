@@ -10,7 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
+from charteros.shared.clock import Clock
 from charteros.application.buyer_portal import BuyerPortalService
 from charteros.application.evidence import (
     SUPPLIER_SELECTION_POLICY_VERSION,
@@ -685,8 +686,9 @@ def search_suppliers(
     buyer_id: BuyerIdDep,
     known_as_of: KnownAsOf = None,
     limit: SupplierLimit = 20,
-) -> SupplierSearchResponse:
-    cutoff = known_as_of or datetime.now(UTC)
+
+    clock: Clock = Depends(get_clock),) -> SupplierSearchResponse:
+    cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         _portal(session).mission(
@@ -754,7 +756,8 @@ def issue_rfqs(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> BuyerRfqBatchResponse:
+
+    clock: Clock = Depends(get_clock),) -> BuyerRfqBatchResponse:
     if len(set(body.operator_ids)) != len(body.operator_ids):
         raise DomainValidationError("operator_ids cannot contain duplicates")
 
@@ -777,7 +780,7 @@ def issue_rfqs(
         if stored is not None:
             return BuyerRfqBatchResponse.model_validate(stored.response_body)
 
-        issued_at = datetime.now(UTC)
+        issued_at = clock.now()
         matching_decision = (
             _matching_service(session).match_mission(
                 mission_id=MissionId(mission_id),
@@ -865,8 +868,9 @@ def compare_quotes(
     mission_id: UUID,
     session: SessionDep,
     buyer_id: BuyerIdDep,
-) -> BuyerQuoteComparisonResponse:
-    evaluated_at = datetime.now(UTC)
+
+    clock: Clock = Depends(get_clock),) -> BuyerQuoteComparisonResponse:
+    evaluated_at = clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         _portal(session).mission(
@@ -894,12 +898,13 @@ def lock_fx_comparison(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> BuyerQuoteComparisonResponse:
+
+    clock: Clock = Depends(get_clock),) -> BuyerQuoteComparisonResponse:
     typed_buyer = OrganizationId(buyer_id)
     typed_mission = MissionId(mission_id)
     scope = f"POST:/v1/buyer-portal/missions/{mission_id}/quotes/compare/fx-locks:{buyer_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
-    evaluated_at = datetime.now(UTC)
+    evaluated_at = clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
         _portal(session).mission(buyer_id=typed_buyer, mission_id=typed_mission)
@@ -951,7 +956,8 @@ def approve_quote(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> ApprovalResponse:
+
+    clock: Clock = Depends(get_clock),) -> ApprovalResponse:
     typed_buyer = OrganizationId(buyer_id)
     typed_mission = MissionId(mission_id)
     scope = f"POST:/v1/buyer-portal/missions/{mission_id}/quotes/{quote_id}/approve:{buyer_id}"
@@ -970,7 +976,7 @@ def approve_quote(
             return ApprovalResponse.model_validate(stored.response_body)
 
         _visibility_policy(session).assert_mission_comparison_visible(typed_mission)
-        approved_at = datetime.now(UTC)
+        approved_at = clock.now()
         comparison = _comparison_service(session).compare(
             mission_id=typed_mission,
             evaluated_at=approved_at,
@@ -1055,7 +1061,8 @@ def award_approval(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> AwardResponse:
+
+    clock: Clock = Depends(get_clock),) -> AwardResponse:
     typed_buyer = OrganizationId(buyer_id)
     scope = f"POST:/v1/buyer-portal/approvals/{approval_id}/award:{buyer_id}"
     request_hash = canonical_request_hash({})
@@ -1074,7 +1081,7 @@ def award_approval(
         approval, booking = _approval_service(session).award(
             buyer_id=typed_buyer,
             approval_id=ProcurementApprovalId(approval_id),
-            awarded_at=datetime.now(UTC),
+            awarded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = AwardResponse(
