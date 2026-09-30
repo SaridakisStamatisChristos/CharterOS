@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
+from charteros.application.completeness import require_complete_bounded
 from charteros.application.exceptions import EntityConflictError
 from charteros.domain.aircraft import AircraftId
 from charteros.domain.airports import AirportId
@@ -88,13 +89,14 @@ class SqlAlchemyRepositionOpportunityRepository:
             .order_by(MissionRow.departure_from, MissionRow.id, QuoteRow.id)
             .limit(limit + 1)
         ).all()
-        if len(rows) > limit:
-            raise EntityConflictError(
-                f"reposition opportunity set exceeds bounded PR18 limit of {limit}"
-            )
+        complete_rows = require_complete_bounded(
+            rows,
+            limit=limit,
+            reason="quoted_future_leg_universe_exceeds_requested_capacity",
+        )
 
         result: list[QuotedFutureLeg] = []
-        for row in rows:
+        for row in complete_rows:
             quote = self._quotes.get(QuoteId(row.quote_id))
             if quote is None:
                 raise EntityConflictError("reposition opportunity quote disappeared during read")
