@@ -234,6 +234,12 @@ class DisruptionService:
         availability = (
             feasibility.candidate.availability if feasibility is not None else None
         )
+        proposal_operator_version = (
+            feasibility.candidate.operator_version if feasibility is not None else operator.version
+        )
+        proposal_aircraft_version = (
+            feasibility.candidate.aircraft_version if feasibility is not None else aircraft.version
+        )
         draft = feasibility.evaluation.draft if feasibility is not None else None
         if feasibility is not None and draft is None:
             raise RuntimeError("accepted replacement feasibility is missing its canonical draft")
@@ -247,8 +253,8 @@ class DisruptionService:
             status=DisruptionProposalStatus.CURRENT,
             proposed_operator_id=target_operator,
             proposed_aircraft_id=target_aircraft,
-            proposed_operator_version=operator.version,
-            proposed_aircraft_version=aircraft.version,
+            proposed_operator_version=proposal_operator_version,
+            proposed_aircraft_version=proposal_aircraft_version,
             availability_record_id=availability.id if availability is not None else None,
             availability_recorded_at=(
                 availability.recorded_at if availability is not None else None
