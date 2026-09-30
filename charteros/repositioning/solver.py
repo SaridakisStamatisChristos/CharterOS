@@ -136,7 +136,9 @@ def maximum_margin_matching(
 
     Each structural empty-leg window can accept at most one future mission and each mission can be
     assigned at most once. Margin remains the primary objective. The existing candidate-order tie
-    encoding remains strictly smaller than one minor unit of aggregate margin.
+    encoding remains strictly smaller than one minor unit of aggregate margin. A final canonical
+    lexicographic tie-break over sorted left keys and mission ranks makes the selected plan a total
+    order rather than an algorithm-iteration artifact.
     """
 
     if not candidates:
@@ -156,9 +158,20 @@ def maximum_margin_matching(
     right_index = {key: index for index, key in enumerate(right_keys)}
 
     max_assignments = min(len(left_keys), len(right_keys))
-    # Preserve PR18's objective encoding: one minor unit of margin dominates every possible
-    # aggregate candidate-order tie penalty.
+    # Objective hierarchy:
+    #   1. maximize aggregate margin;
+    #   2. minimize aggregate candidate-index penalty (the PR18/PR32 scalar tie objective);
+    #   3. among equal scalar objectives, choose the lexicographically smallest mission-rank
+    #      vector over sorted left keys, treating "unmatched" as greater than every real mission.
+    #
+    # The mixed-radix lexicographic component is strictly smaller than one unit of the existing
+    # scalar objective, so it cannot change margin or candidate-index economics.
     tie_scale = max_assignments * len(ordered) + 1
+    lex_base = len(right_keys) + 1
+    lex_scale = lex_base ** len(left_keys)
+    row_lex_multipliers = tuple(
+        lex_base ** (len(left_keys) - 1 - row) for row in range(len(left_keys))
+    )
     row_weights: list[dict[int, tuple[int, int]]] = [dict() for _ in left_keys]
 
     for candidate_index, item in enumerate(ordered):
@@ -167,11 +180,16 @@ def maximum_margin_matching(
             continue
         row = left_index[_left_key(item)]
         column = right_index[item.opportunity.mission_id.value]
-        encoded_weight = margin_minor * tie_scale - candidate_index
+        scalar_weight = margin_minor * tie_scale - candidate_index
+        # Smaller mission rank is lexicographically preferred for the earliest differing left row.
+        # Unmatched rows contribute zero, equivalent to a sentinel rank after every real mission.
+        lex_digit = len(right_keys) - column
+        lex_weight = lex_digit * row_lex_multipliers[row]
+        encoded_weight = scalar_weight * lex_scale + lex_weight
         existing = row_weights[row].get(column)
         if existing is None or encoded_weight > existing[0]:
-            # Parallel candidates for the same gap/mission pair are equivalent assignment edges;
-            # retaining only the best encoded edge preserves the exact objective.
+            # Parallel candidates for the same gap/mission pair share the same lexicographic digit;
+            # retaining the best composite edge therefore preserves the full objective hierarchy.
             row_weights[row][column] = (encoded_weight, candidate_index)
 
     if not any(row_weights):
