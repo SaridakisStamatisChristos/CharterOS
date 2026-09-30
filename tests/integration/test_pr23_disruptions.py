@@ -291,6 +291,8 @@ def _booked_operation(
         "mission_id": mission_id,
         "quote_id": quote_id,
         "booking_id": booking_id,
+        "origin_id": origin,
+        "destination_id": destination,
         "departure": departure,
     }
 
