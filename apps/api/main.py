@@ -33,6 +33,7 @@ from charteros.application.exceptions import EntityConflictError, EntityNotFound
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.infrastructure.db.engine import build_engine, build_session_factory
 from charteros.security.auth import AuthenticationBackend
+from charteros.shared.clock import Clock, SystemClock
 from charteros.shared.config import Settings, get_settings
 from charteros.shared.logging import configure_logging, get_logger
 from charteros.shared.middleware import CorrelationIdMiddleware
@@ -55,6 +56,7 @@ def create_app(
     settings: Settings | None = None,
     *,
     auth_backend: AuthenticationBackend | None = None,
+    clock: Clock | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     configure_logging(resolved_settings)
@@ -70,6 +72,7 @@ def create_app(
         swagger_ui_oauth2_redirect_url=None,
     )
     app.state.settings = resolved_settings
+    app.state.clock = clock if clock is not None else SystemClock()
     app.state.engine = engine
     app.state.session_factory = build_session_factory(engine)
     app.state.auth_backend = (
