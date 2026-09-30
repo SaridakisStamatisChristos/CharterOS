@@ -1,0 +1,54 @@
+{
+  "policy_version": "reposition-v2",
+  "description": "Minimal scalar-objective collision derived from the legacy PR18 solver ordering. Both perfect matchings have equal aggregate margin and equal candidate-index penalty; reposition-v2 resolves the tie lexicographically by mission rank over sorted empty-leg keys.",
+  "candidates": [
+    {
+      "empty_seed": 1,
+      "mission_seed": 1,
+      "margin_minor": 100
+    },
+    {
+      "empty_seed": 1,
+      "mission_seed": 2,
+      "margin_minor": 100
+    },
+    {
+      "empty_seed": 2,
+      "mission_seed": 1,
+      "margin_minor": 100
+    },
+    {
+      "empty_seed": 2,
+      "mission_seed": 3,
+      "margin_minor": 100
+    }
+  ],
+  "expected_candidate_indices": [
+    0,
+    3
+  ],
+  "equal_scalar_alternative_candidate_indices": [
+    1,
+    2
+  ],
+  "expected_pairs": [
+    {
+      "previous_booking_id_int": 1001,
+      "mission_id_int": 5001
+    },
+    {
+      "previous_booking_id_int": 1002,
+      "mission_id_int": 5003
+    }
+  ],
+  "equal_scalar_alternative_pairs": [
+    {
+      "previous_booking_id_int": 1001,
+      "mission_id_int": 5002
+    },
+    {
+      "previous_booking_id_int": 1002,
+      "mission_id_int": 5001
+    }
+  ]
+}
