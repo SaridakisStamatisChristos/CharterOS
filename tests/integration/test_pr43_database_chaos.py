@@ -8,12 +8,12 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
-from sqlalchemy.orm import Session
 
 from charteros.infrastructure.db.engine import build_engine, build_session_factory
-from charteros.infrastructure.db.models.catalog import IdempotencyRecordRow
 from charteros.infrastructure.db.failures import DatabaseFailureKind, DatabaseTransactionError
+from charteros.infrastructure.db.models.catalog import IdempotencyRecordRow
 from charteros.infrastructure.db.transactions import run_transaction
 from charteros.shared.config import Settings
 
