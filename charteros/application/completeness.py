@@ -1,11 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TypeVar
-
 from charteros.application.exceptions import EntityConflictError
-
-T = TypeVar("T")
 
 
 class BoundedInputOverflowError(EntityConflictError):
@@ -31,7 +27,7 @@ class BoundedInputOverflowError(EntityConflictError):
         )
 
 
-def require_complete_bounded(
+def require_complete_bounded[T](
     items: Sequence[T],
     *,
     limit: int,
