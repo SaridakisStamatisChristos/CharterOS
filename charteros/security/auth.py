@@ -99,7 +99,8 @@ class HttpJwksSource:
             method="GET",
         )
         try:
-            with urlopen(request, timeout=self._timeout_seconds) as response:
+            # HttpJwksSource.__init__ rejects every non-HTTPS URL before this request is built.
+            with urlopen(request, timeout=self._timeout_seconds) as response:  # nosec B310
                 if response.status != 200:
                     raise AuthenticationError("identity key endpoint returned a non-success status")
                 payload = json.loads(response.read().decode("utf-8"))
