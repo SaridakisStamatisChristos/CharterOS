@@ -1,4 +1,4 @@
-.PHONY: install format format-check lint type test test-unit test-integration migrate smoke compose-config quality outbox-worker outbox-worker-once graph-rebuild graph-verify graph-status
+.PHONY: install format format-check lint type test test-unit test-integration migrate smoke compose-config quality outbox-worker outbox-worker-once graph-rebuild graph-verify graph-status resource-cleanup
 
 install:
 	python -m pip install -e '.[dev]'
@@ -47,5 +47,8 @@ graph-verify:
 
 graph-status:
 	python -m apps.graph_projection.main status
+
+resource-cleanup:
+	python -m apps.resource_cleanup.main
 
 quality: lint format-check type test smoke
