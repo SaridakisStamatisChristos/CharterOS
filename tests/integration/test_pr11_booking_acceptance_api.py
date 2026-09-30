@@ -11,13 +11,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from apps.api.main import create_app
 from charteros.application.bookings import BookingService
 from charteros.domain.bookings import Booking
 from charteros.domain.quotes import QuoteId
 from charteros.domain.shared.ids import CorrelationId
 from charteros.domain.tenders import TenderId
-
-from apps.api.main import create_app
 from charteros.shared.config import Settings
 from tests.integration.capacity_support import seed_capacity_reference_profile
 
