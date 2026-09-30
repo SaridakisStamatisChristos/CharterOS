@@ -9,7 +9,8 @@ from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
+from charteros.shared.clock import Clock
 from charteros.application.contracts import ContractService
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
@@ -144,7 +145,8 @@ def create_contract(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> ContractResponse:
+
+    clock: Clock = Depends(get_clock),) -> ContractResponse:
     scope = f"POST:/v1/bookings/{booking_id}/contract"
     request_hash = canonical_request_hash(request.model_dump(mode="json"))
     with session.begin():
@@ -159,7 +161,7 @@ def create_contract(
                 document_reference=request.document_reference,
                 document_version=request.document_version,
                 metadata=request.metadata,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )
@@ -174,7 +176,8 @@ def accept_contract_buyer(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> ContractResponse:
+
+    clock: Clock = Depends(get_clock),) -> ContractResponse:
     scope = f"POST:/v1/contracts/{contract_id}/accept/buyer"
     request_hash = canonical_request_hash({})
     with session.begin():
@@ -186,7 +189,7 @@ def accept_contract_buyer(
             success_status=status.HTTP_200_OK,
             action=lambda: _service(session).accept_buyer(
                 contract_id=ContractId(contract_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )
@@ -201,7 +204,8 @@ def accept_contract_operator(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> ContractResponse:
+
+    clock: Clock = Depends(get_clock),) -> ContractResponse:
     scope = f"POST:/v1/contracts/{contract_id}/accept/operator"
     request_hash = canonical_request_hash({})
     with session.begin():
@@ -213,7 +217,7 @@ def accept_contract_operator(
             success_status=status.HTTP_200_OK,
             action=lambda: _service(session).accept_operator(
                 contract_id=ContractId(contract_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             ),
         )
