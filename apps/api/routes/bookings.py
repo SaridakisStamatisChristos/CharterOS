@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
-from charteros.shared.clock import Clock
 from charteros.application.bookings import BookingService
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
@@ -31,9 +30,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["bookings"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -155,7 +156,8 @@ def accept_quote(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> BookingResponse:
+    clock: ClockDep,
+) -> BookingResponse:
     scope = f"POST:/v1/quotes/{quote_id}/accept"
     request_hash = canonical_request_hash({})
     with session.begin():
@@ -180,7 +182,8 @@ def mark_contracted(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> BookingResponse:
+    clock: ClockDep,
+) -> BookingResponse:
     return _run_workflow_command(
         session=session,
         booking_id=booking_id,
@@ -201,7 +204,8 @@ def mark_payment_pending(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> BookingResponse:
+    clock: ClockDep,
+) -> BookingResponse:
     return _run_workflow_command(
         session=session,
         booking_id=booking_id,
@@ -222,7 +226,8 @@ def confirm_booking(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> BookingResponse:
+    clock: ClockDep,
+) -> BookingResponse:
     return _run_workflow_command(
         session=session,
         booking_id=booking_id,
@@ -243,7 +248,8 @@ def enter_pre_operation(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> BookingResponse:
+    clock: ClockDep,
+) -> BookingResponse:
     return _run_workflow_command(
         session=session,
         booking_id=booking_id,
@@ -264,7 +270,8 @@ def start_operation(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> BookingResponse:
+    clock: ClockDep,
+) -> BookingResponse:
     return _run_workflow_command(
         session=session,
         booking_id=booking_id,
@@ -285,7 +292,8 @@ def complete_booking(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> BookingResponse:
+    clock: ClockDep,
+) -> BookingResponse:
     return _run_workflow_command(
         session=session,
         booking_id=booking_id,
