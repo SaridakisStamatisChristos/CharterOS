@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
+from charteros.application.completeness import require_complete_bounded
 from charteros.application.exceptions import EntityNotFoundError
 from charteros.domain.shared.exceptions import DomainValidationError
 
@@ -251,6 +252,7 @@ class GraphQueryService:
         window_end: datetime,
         limit: int,
         operator_id: UUID | None = None,
+        require_complete: bool = False,
     ) -> tuple[EmptyLegCandidate, ...]:
         start = _utc(window_start, field_name="window_start")
         end = _utc(window_end, field_name="window_end")
@@ -258,12 +260,21 @@ class GraphQueryService:
             raise DomainValidationError("window_end must be after window_start")
         if end - start > MAX_EMPTY_LEG_WINDOW:
             raise DomainValidationError("empty-leg query window cannot exceed 90 days")
-        return self._repository.empty_leg_candidates(
+        bounded = _limit(limit)
+        repository_limit = bounded + 1 if require_complete else bounded
+        items = self._repository.empty_leg_candidates(
             window_start=start,
             window_end=end,
-            limit=_limit(limit),
+            limit=repository_limit,
             operator_id=operator_id,
         )
+        if require_complete:
+            return require_complete_bounded(
+                items,
+                limit=bounded,
+                reason="structural_candidate_universe_exceeds_requested_capacity",
+            )
+        return tuple(items[:bounded])
 
     def booking_flight_lineage(self, *, booking_id: UUID) -> BookingFlightLineage:
         item = self._repository.booking_flight_lineage(booking_id=booking_id)
