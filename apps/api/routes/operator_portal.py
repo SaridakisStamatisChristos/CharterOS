@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from apps.api.routes.catalog import AircraftTypeCreate
 from apps.api.routes.fleet import (
     AvailabilityCreate,
@@ -28,6 +28,7 @@ from apps.api.routes.quotes import _response as quote_response
 from apps.api.routes.quotes import _terms as quote_terms
 from apps.api.routes.repositioning import RepositionOptimizationResponse
 from apps.api.routes.repositioning import _response as repositioning_response
+from charteros.shared.clock import Clock
 from charteros.application.catalog import AircraftTypeSpec, CatalogService
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.graph_queries import EmptyLegCandidate, GraphQueryService
@@ -537,7 +538,8 @@ def get_aircraft_availability(
     known_as_of: datetime | None = None,
     at: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
-) -> TimelineResponse:
+
+    clock: Clock = Depends(get_clock),) -> TimelineResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         _portal(session).aircraft(
@@ -548,7 +550,7 @@ def get_aircraft_availability(
             aircraft_id=AircraftId(aircraft_id),
             from_time=from_time,
             to_time=to_time,
-            known_as_of=known_as_of or datetime.now(UTC),
+            known_as_of=known_as_of or clock.now(),
             state_at=at,
             limit=limit,
         )
@@ -671,7 +673,8 @@ def acknowledge_rfq(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
     invitation_id: TenderCapability = None,
-) -> PortalRfqResponse:
+
+    clock: Clock = Depends(get_clock),) -> PortalRfqResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/acknowledge"
 
     def action() -> PortalRfqResponse:
@@ -684,13 +687,13 @@ def acknowledge_rfq(
         if item.tender_invitation_id is not None:
             _tender_service(session).accept_invitation(
                 invitation_id=TenderInvitationId(item.tender_invitation_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         else:
             _rfq_service(session).acknowledge(
                 rfq_id=RfqId(rfq_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         return _refresh_rfq(
@@ -721,7 +724,8 @@ def decline_rfq(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
     invitation_id: TenderCapability = None,
-) -> PortalRfqResponse:
+
+    clock: Clock = Depends(get_clock),) -> PortalRfqResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/decline"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
 
@@ -736,14 +740,14 @@ def decline_rfq(
             _tender_service(session).decline_invitation(
                 invitation_id=TenderInvitationId(item.tender_invitation_id),
                 reason=body.reason,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         else:
             _rfq_service(session).decline(
                 rfq_id=RfqId(rfq_id),
                 reason=body.reason,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         return _refresh_rfq(
@@ -773,7 +777,8 @@ def _submit_quote_for_context(
     invitation_id: UUID | None,
     body: QuoteTermsRequest,
     correlation_id: CorrelationId,
-) -> QuoteResponse:
+
+    clock: Clock,) -> QuoteResponse:
     item = _portal(session).rfq(
         operator_id=OperatorId(operator_id),
         rfq_id=rfq_id,
@@ -793,7 +798,7 @@ def _submit_quote_for_context(
             cancellation_terms=body.cancellation_terms,
             payment_terms=body.payment_terms,
             valid_until=body.valid_until,
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         )
 
@@ -809,7 +814,7 @@ def _submit_quote_for_context(
             cancellation_terms=body.cancellation_terms,
             payment_terms=body.payment_terms,
             valid_until=body.valid_until,
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         )
     return quote_response(quote)
@@ -828,7 +833,8 @@ def submit_quote(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
     invitation_id: TenderCapability = None,
-) -> QuoteResponse:
+
+    clock: Clock = Depends(get_clock),) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/quotes"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -846,6 +852,7 @@ def submit_quote(
                 invitation_id=invitation_id,
                 body=body,
                 correlation_id=correlation_id,
+                clock=clock,
             ),
         )
 
@@ -876,7 +883,8 @@ def _revise_quote_for_context(
     invitation_id: UUID | None,
     body: QuoteTermsRequest,
     correlation_id: CorrelationId,
-) -> QuoteResponse:
+
+    clock: Clock,) -> QuoteResponse:
     context = _portal(session).quote_context(
         operator_id=OperatorId(operator_id),
         quote_id=quote_id,
@@ -899,7 +907,7 @@ def _revise_quote_for_context(
                 cancellation_terms=body.cancellation_terms,
                 payment_terms=body.payment_terms,
                 valid_until=body.valid_until,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         else:
@@ -915,7 +923,7 @@ def _revise_quote_for_context(
                 cancellation_terms=body.cancellation_terms,
                 payment_terms=body.payment_terms,
                 valid_until=body.valid_until,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
     else:
@@ -930,7 +938,7 @@ def _revise_quote_for_context(
             cancellation_terms=body.cancellation_terms,
             payment_terms=body.payment_terms,
             valid_until=body.valid_until,
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         )
     return quote_response(quote)
@@ -949,7 +957,8 @@ def revise_quote(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
     invitation_id: TenderCapability = None,
-) -> QuoteResponse:
+
+    clock: Clock = Depends(get_clock),) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/quotes/{quote_id}/revise"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -967,6 +976,7 @@ def revise_quote(
                 invitation_id=invitation_id,
                 body=body,
                 correlation_id=correlation_id,
+                clock=clock,
             ),
         )
 
@@ -979,7 +989,8 @@ def withdraw_quote(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
     invitation_id: TenderCapability = None,
-) -> QuoteResponse:
+
+    clock: Clock = Depends(get_clock),) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/quotes/{quote_id}/withdraw"
 
     def action() -> QuoteResponse:
@@ -992,13 +1003,13 @@ def withdraw_quote(
             quote = _tender_service(session).withdraw_bid(
                 invitation_id=TenderInvitationId(context.rfq.tender_invitation_id),
                 quote_id=QuoteId(quote_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         else:
             quote = _quote_service(session).withdraw(
                 quote_id=QuoteId(quote_id),
-                now=datetime.now(UTC),
+                now=clock.now(),
                 correlation_id=correlation_id,
             )
         return quote_response(quote)
