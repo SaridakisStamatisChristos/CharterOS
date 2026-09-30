@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from apps.api.routes.bookings import BookingResponse
 from apps.api.routes.bookings import _response as booking_response
 from apps.api.routes.quotes import (
@@ -23,6 +23,7 @@ from apps.api.routes.quotes import (
 from apps.api.routes.quotes import (
     _terms as quote_terms,
 )
+from charteros.shared.clock import Clock
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -355,7 +356,8 @@ def create_tender(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> TenderResponse:
+
+    clock: Clock = Depends(get_clock),) -> TenderResponse:
     scope = f"POST:/v1/missions/{mission_id}/tenders"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -372,7 +374,7 @@ def create_tender(
                     opens_at=body.opens_at,
                     deadline_at=body.deadline_at,
                     sealed_bid=body.sealed_bid,
-                    now=datetime.now(UTC),
+                    now=clock.now(),
                     correlation_id=correlation_id,
                 )
             ),
@@ -385,7 +387,8 @@ def open_tender(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> TenderResponse:
+
+    clock: Clock = Depends(get_clock),) -> TenderResponse:
     scope = f"POST:/v1/tenders/{tender_id}/open"
     with session.begin():
         return _run_idempotent(
@@ -398,7 +401,7 @@ def open_tender(
             action=lambda: _tender_response(
                 _service(session).open(
                     tender_id=TenderId(tender_id),
-                    now=datetime.now(UTC),
+                    now=clock.now(),
                     correlation_id=correlation_id,
                 )
             ),
@@ -416,7 +419,8 @@ def invite_supplier(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> TenderInvitationResponse:
+
+    clock: Clock = Depends(get_clock),) -> TenderInvitationResponse:
     scope = f"POST:/v1/tenders/{tender_id}/invitations"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -431,7 +435,7 @@ def invite_supplier(
                 _service(session).invite(
                     tender_id=TenderId(tender_id),
                     operator_id=OperatorId(body.operator_id),
-                    now=datetime.now(UTC),
+                    now=clock.now(),
                     correlation_id=correlation_id,
                 )
             ),
@@ -447,7 +451,8 @@ def accept_invitation(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> TenderInvitationResponse:
+
+    clock: Clock = Depends(get_clock),) -> TenderInvitationResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/accept"
     with session.begin():
         return _run_idempotent(
@@ -460,7 +465,7 @@ def accept_invitation(
             action=lambda: _invitation_response(
                 _service(session).accept_invitation(
                     invitation_id=TenderInvitationId(invitation_id),
-                    now=datetime.now(UTC),
+                    now=clock.now(),
                     correlation_id=correlation_id,
                 )
             ),
@@ -477,7 +482,8 @@ def decline_invitation(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> TenderInvitationResponse:
+
+    clock: Clock = Depends(get_clock),) -> TenderInvitationResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/decline"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -492,7 +498,7 @@ def decline_invitation(
                 _service(session).decline_invitation(
                     invitation_id=TenderInvitationId(invitation_id),
                     reason=body.reason,
-                    now=datetime.now(UTC),
+                    now=clock.now(),
                     correlation_id=correlation_id,
                 )
             ),
@@ -507,11 +513,12 @@ def _submit_terms(
     correlation_id: CorrelationId,
     best_and_final: bool,
     quote_id: UUID | None = None,
-) -> QuoteResponse:
+
+    clock: Clock,) -> QuoteResponse:
     aircraft_id, base_price, components, repositioning = quote_terms(body)
     service = _service(session)
     invitation = TenderInvitationId(invitation_id)
-    now = datetime.now(UTC)
+    now = clock.now()
     if quote_id is None:
         return quote_response(
             service.submit_bid(
@@ -578,7 +585,8 @@ def submit_bid(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> QuoteResponse:
+
+    clock: Clock = Depends(get_clock),) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/bids"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -595,6 +603,7 @@ def submit_bid(
                 body=body,
                 correlation_id=correlation_id,
                 best_and_final=False,
+                clock=clock,
             ),
         )
 
@@ -611,7 +620,8 @@ def revise_bid(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> QuoteResponse:
+
+    clock: Clock = Depends(get_clock),) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/bids/{quote_id}/revise"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -629,6 +639,7 @@ def revise_bid(
                 body=body,
                 correlation_id=correlation_id,
                 best_and_final=False,
+                clock=clock,
             ),
         )
 
@@ -642,7 +653,8 @@ def request_best_and_final(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> TenderResponse:
+
+    clock: Clock = Depends(get_clock),) -> TenderResponse:
     scope = f"POST:/v1/tenders/{tender_id}/best-and-final"
     with session.begin():
         return _run_idempotent(
@@ -655,7 +667,7 @@ def request_best_and_final(
             action=lambda: _tender_response(
                 _service(session).request_best_and_final(
                     tender_id=TenderId(tender_id),
-                    now=datetime.now(UTC),
+                    now=clock.now(),
                     correlation_id=correlation_id,
                 )
             ),
@@ -674,7 +686,8 @@ def submit_best_and_final(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> QuoteResponse:
+
+    clock: Clock = Depends(get_clock),) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/best-and-final/{quote_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -692,6 +705,7 @@ def submit_best_and_final(
                 body=body,
                 correlation_id=correlation_id,
                 best_and_final=True,
+                clock=clock,
             ),
         )
 
@@ -706,7 +720,8 @@ def withdraw_bid(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> QuoteResponse:
+
+    clock: Clock = Depends(get_clock),) -> QuoteResponse:
     scope = f"POST:/v1/tender-invitations/{invitation_id}/bids/{quote_id}/withdraw"
     with session.begin():
         return _run_idempotent(
@@ -720,7 +735,7 @@ def withdraw_bid(
                 _service(session).withdraw_bid(
                     invitation_id=TenderInvitationId(invitation_id),
                     quote_id=QuoteId(quote_id),
-                    now=datetime.now(UTC),
+                    now=clock.now(),
                     correlation_id=correlation_id,
                 )
             ),
@@ -733,7 +748,8 @@ def close_tender(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> TenderResponse:
+
+    clock: Clock = Depends(get_clock),) -> TenderResponse:
     scope = f"POST:/v1/tenders/{tender_id}/close"
     with session.begin():
         return _run_idempotent(
@@ -746,7 +762,7 @@ def close_tender(
             action=lambda: _tender_response(
                 _service(session).close(
                     tender_id=TenderId(tender_id),
-                    now=datetime.now(UTC),
+                    now=clock.now(),
                     correlation_id=correlation_id,
                 )
             ),
@@ -760,7 +776,8 @@ def award_tender(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> TenderAwardResponse:
+
+    clock: Clock = Depends(get_clock),) -> TenderAwardResponse:
     scope = f"POST:/v1/tenders/{tender_id}/award"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
 
@@ -768,7 +785,7 @@ def award_tender(
         tender, booking = _service(session).award(
             tender_id=TenderId(tender_id),
             quote_id=QuoteId(body.quote_id),
-            now=datetime.now(UTC),
+            now=clock.now(),
             correlation_id=correlation_id,
         )
         return TenderAwardResponse(
@@ -799,7 +816,8 @@ def admin_correct(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-) -> TenderAdminCorrectionResponse:
+
+    clock: Clock = Depends(get_clock),) -> TenderAdminCorrectionResponse:
     scope = f"POST:/v1/tenders/{tender_id}/admin-corrections"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -821,7 +839,7 @@ def admin_correct(
                     replacement_value=body.replacement_value,
                     reason=body.reason,
                     causation_event_id=EventId(body.causation_event_id),
-                    now=datetime.now(UTC),
+                    now=clock.now(),
                     correlation_id=correlation_id,
                 )
             ),
