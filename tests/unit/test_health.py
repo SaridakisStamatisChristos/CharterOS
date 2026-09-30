@@ -18,15 +18,13 @@ class _UnavailableEngine:
         return None
 
 
-def _settings(**overrides: object) -> Settings:
-    values: dict[str, object] = {
-        "environment": "test",
-        "service_name": "charteros-test",
-        "database_url": TEST_DATABASE_URL,
-        "_env_file": None,
-    }
-    values.update(overrides)
-    return Settings(**values)
+def _settings() -> Settings:
+    return Settings(
+        environment="test",
+        service_name="charteros-test",
+        database_url=TEST_DATABASE_URL,
+        _env_file=None,
+    )
 
 
 def test_health_endpoint_is_stable_and_correlated() -> None:
