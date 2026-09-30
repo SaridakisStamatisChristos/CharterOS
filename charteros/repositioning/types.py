@@ -16,7 +16,7 @@ from charteros.domain.shared.currency import Currency
 from charteros.domain.shared.money import Money
 from charteros.domain.shared.time_range import TimeRange
 
-POLICY_VERSION = "reposition-v1"
+POLICY_VERSION = "reposition-v2"
 
 
 class RepositionReasonCode(StrEnum):
