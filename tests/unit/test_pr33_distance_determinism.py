@@ -10,8 +10,8 @@ from charteros.matching.distance import (
 
 
 def test_distance_policy_constants_are_explicit() -> None:
-    assert COORDINATE_QUANTUM_DEGREES == Decimal("0.000001")
-    assert DISTANCE_STABILITY_QUANTUM_NM == Decimal("0.000001")
+    assert Decimal("0.000001") == COORDINATE_QUANTUM_DEGREES
+    assert Decimal("0.000001") == DISTANCE_STABILITY_QUANTUM_NM
 
 
 def test_haversine_distance_is_symmetric_and_zero_for_same_point() -> None:
