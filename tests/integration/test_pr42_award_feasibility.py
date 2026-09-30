@@ -110,9 +110,7 @@ def test_pr42_successful_award_persists_canonical_decision_evidence() -> None:
         )
         assert evidence.status_code == 200, evidence.text
         decisions = [
-            item
-            for item in evidence.json()["decisions"]
-            if item["decision_type"] == "award_commit"
+            item for item in evidence.json()["decisions"] if item["decision_type"] == "award_commit"
         ]
         assert len(decisions) == 1
         decision = decisions[0]
@@ -136,16 +134,20 @@ def test_pr42_successful_award_persists_canonical_decision_evidence() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            row = connection.execute(
-                text(
-                    "SELECT decided_at, known_as_of, policy_versions, canonical_json "
-                    "FROM decision_evidence_snapshots "
-                    "WHERE decision_type = 'award_commit' "
-                    "AND source_aggregate_type = 'booking' "
-                    "AND source_aggregate_id = :booking_id"
-                ),
-                {"booking_id": UUID(booking_id)},
-            ).mappings().one()
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT decided_at, known_as_of, policy_versions, canonical_json "
+                        "FROM decision_evidence_snapshots "
+                        "WHERE decision_type = 'award_commit' "
+                        "AND source_aggregate_type = 'booking' "
+                        "AND source_aggregate_id = :booking_id"
+                    ),
+                    {"booking_id": UUID(booking_id)},
+                )
+                .mappings()
+                .one()
+            )
             assert row["decided_at"] == row["known_as_of"]
             assert row["policy_versions"]["matching"] == "matching-v1"
             canonical = json.loads(str(row["canonical_json"]))
@@ -298,15 +300,19 @@ def test_pr42_authoritative_availability_change_blocks_award() -> None:
         engine = create_engine(settings.database_url)
         try:
             with engine.connect() as connection:
-                current = connection.execute(
-                    text(
-                        "SELECT id, valid_from, valid_to "
-                        "FROM aircraft_availability_records "
-                        "WHERE aircraft_id = :aircraft_id "
-                        "ORDER BY recorded_at DESC, id DESC LIMIT 1"
-                    ),
-                    {"aircraft_id": UUID(shared["aircraft_id"])},
-                ).mappings().one()
+                current = (
+                    connection.execute(
+                        text(
+                            "SELECT id, valid_from, valid_to "
+                            "FROM aircraft_availability_records "
+                            "WHERE aircraft_id = :aircraft_id "
+                            "ORDER BY recorded_at DESC, id DESC LIMIT 1"
+                        ),
+                        {"aircraft_id": UUID(shared["aircraft_id"])},
+                    )
+                    .mappings()
+                    .one()
+                )
         finally:
             engine.dispose()
 
@@ -423,13 +429,17 @@ def test_pr42_failed_approved_award_preserves_historical_approval_evidence() -> 
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            approval_row = connection.execute(
-                text(
-                    "SELECT status, booking_id FROM procurement_approvals "
-                    "WHERE id = :approval_id"
-                ),
-                {"approval_id": UUID(approval_id)},
-            ).mappings().one()
+            approval_row = (
+                connection.execute(
+                    text(
+                        "SELECT status, booking_id FROM procurement_approvals "
+                        "WHERE id = :approval_id"
+                    ),
+                    {"approval_id": UUID(approval_id)},
+                )
+                .mappings()
+                .one()
+            )
             assert approval_row["status"] == "approved"
             assert approval_row["booking_id"] is None
             assert (
