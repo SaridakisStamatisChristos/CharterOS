@@ -156,6 +156,19 @@ class ReplacementProposalResponse(BaseModel):
     proposed_aircraft_version: int
     availability_record_id: UUID | None
     availability_recorded_at: datetime | None
+    feasibility_policy_version: str | None
+    feasibility_known_as_of: datetime | None
+    position_observation_id: UUID | None
+    position_event_time: datetime | None
+    position_recorded_at: datetime | None
+    reference_profile_id: UUID | None
+    reference_profile_recorded_at: datetime | None
+    route_distance_tenths_nm: int | None
+    required_range_nm: int | None
+    reposition_distance_tenths_nm: int | None
+    route_minutes: int | None
+    reposition_minutes: int | None
+    timing_buffer_minutes: int | None
     departure_window: DepartureWindowRequest | None
     requires_buyer_decision: bool
     source: str
@@ -319,6 +332,23 @@ def _proposal_response(proposal: ReplacementProposal) -> ReplacementProposalResp
             else None
         ),
         availability_recorded_at=proposal.availability_recorded_at,
+        feasibility_policy_version=proposal.feasibility_policy_version,
+        feasibility_known_as_of=proposal.feasibility_known_as_of,
+        position_observation_id=(
+            proposal.position_observation_id.value
+            if proposal.position_observation_id is not None
+            else None
+        ),
+        position_event_time=proposal.position_event_time,
+        position_recorded_at=proposal.position_recorded_at,
+        reference_profile_id=proposal.reference_profile_id,
+        reference_profile_recorded_at=proposal.reference_profile_recorded_at,
+        route_distance_tenths_nm=proposal.route_distance_tenths_nm,
+        required_range_nm=proposal.required_range_nm,
+        reposition_distance_tenths_nm=proposal.reposition_distance_tenths_nm,
+        route_minutes=proposal.route_minutes,
+        reposition_minutes=proposal.reposition_minutes,
+        timing_buffer_minutes=proposal.timing_buffer_minutes,
         departure_window=window,
         requires_buyer_decision=proposal.requires_buyer_decision,
         source=proposal.source,
