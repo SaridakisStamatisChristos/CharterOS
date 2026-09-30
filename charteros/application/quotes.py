@@ -67,8 +67,10 @@ class QuoteService:
         self._assert_tender_command(rfq.id, tender_command=tender_command)
         if rfq.status is not RfqStatus.ACKNOWLEDGED:
             raise EntityConflictError("quotes can only be submitted for acknowledged RFQs")
-        assert rfq.response_deadline is not None
-        if submitted_at >= rfq.response_deadline:
+        response_deadline = rfq.response_deadline
+        if response_deadline is None:
+            raise EntityConflictError("RFQ response deadline is missing")
+        if submitted_at >= response_deadline:
             raise EntityConflictError("RFQ response deadline has passed")
         if self._quotes.get_current_for_rfq(rfq_id) is not None:
             raise EntityConflictError("an authoritative quote already exists for this RFQ")
@@ -137,8 +139,10 @@ class QuoteService:
         if rfq is None:
             raise EntityNotFoundError("quote RFQ does not exist")
         self._assert_tender_command(rfq.id, tender_command=tender_command)
-        assert rfq.response_deadline is not None
-        if submitted_at >= rfq.response_deadline:
+        response_deadline = rfq.response_deadline
+        if response_deadline is None:
+            raise EntityConflictError("RFQ response deadline is missing")
+        if submitted_at >= response_deadline:
             raise EntityConflictError("RFQ response deadline has passed")
         mission = self._missions.get_for_update(rfq.mission_id)
         if mission is None:
@@ -202,8 +206,10 @@ class QuoteService:
         if rfq is None:
             raise EntityNotFoundError("quote RFQ does not exist")
         self._assert_tender_command(rfq.id, tender_command=tender_command)
-        assert rfq.response_deadline is not None
-        if when >= rfq.response_deadline:
+        response_deadline = rfq.response_deadline
+        if response_deadline is None:
+            raise EntityConflictError("RFQ response deadline is missing")
+        if when >= response_deadline:
             raise EntityConflictError("RFQ response deadline has passed")
         if quote.status is not QuoteStatus.SUBMITTED or not quote.is_current:
             raise EntityConflictError("only the current submitted quote can be withdrawn")
