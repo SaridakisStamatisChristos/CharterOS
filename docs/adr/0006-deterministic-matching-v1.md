@@ -15,7 +15,7 @@ PR6 introduces the first production matching decision layer over canonical PR3â€
 The pipeline is:
 
 1. Load the persisted mission and canonical airports.
-2. Resolve an explicit `known_as_of` knowledge cutoff (current UTC when omitted).
+2. Resolve an explicit `known_as_of` knowledge cutoff (the injected authoritative UTC clock when omitted).
 3. Build one bounded PostgreSQL candidate snapshot (maximum 2,000 aircraft) using lateral as-of lookups. Position facts require `recorded_at <= known_as_of`; availability and matching-profile authority are also evaluated as of the same cutoff.
 4. Apply hard filters before any ranking.
 5. Rank only feasible candidates with a deterministic, decomposed score.
@@ -44,7 +44,18 @@ PR6 intentionally provides no public mutation API for this table. Validated refe
 
 ### Distances, timing, and exact money
 
-Great-circle route and reposition distances use WGS84-style latitude/longitude inputs and are rounded deterministically to 0.1 nautical mile. Cruise duration is integer minutes rounded upward. Operating cost is computed from exact integer minor units and integer minutes, rounded upward; binary floating-point is never used for currency.
+Great-circle route and reposition distances use one centralized Haversine implementation over
+WGS84-style latitude/longitude inputs. Before trigonometry, coordinates are canonicalized to
+`0.000001` degree using decimal `ROUND_HALF_UP`. Haversine/libm remains a floating-point
+geometric calculation; its result is stabilized to `0.000001` nautical mile before the
+business-visible `0.1` nautical-mile `ROUND_HALF_UP` boundary is applied. This explicitly
+separates unavoidable transcendental floating computation from the discrete eligibility unit and
+prevents insignificant platform-level libm noise from flipping a boundary decision.
+
+The same distance implementation is used by matching and repositioning. No Decimal trigonometry or
+fake precision is claimed. Cruise duration is integer minutes rounded upward. Operating cost is
+computed from exact integer minor units and integer minutes, rounded upward; binary floating-point
+is never used for currency.
 
 ### Ranking
 
