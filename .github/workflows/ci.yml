@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -60,15 +60,18 @@ jobs:
           sudo install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv
           uv --version
 
-      - name: Resolve dependency lock
+      - name: Bootstrap dependency lock
         shell: bash
         run: |
           set -euo pipefail
           uv lock
-          echo "UV_LOCK_BASE64_BEGIN"
-          base64 -w 0 uv.lock
-          echo
-          echo "UV_LOCK_BASE64_END"
+          if [ -n "$(git status --porcelain -- uv.lock)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add uv.lock
+            git commit -m "PR30: lock resolved dependencies"
+            git push origin HEAD:hardening/pr30-security-ops
+          fi
 
       - name: Sync frozen environment
         run: uv sync --frozen --extra dev
