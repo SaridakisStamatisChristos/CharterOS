@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from charteros.application.capacity import AircraftCapacityPolicy
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.application.ports.bookings import BookingRepository
+from charteros.application.ports.capacity import AircraftCapacityReservationRepository
 from charteros.application.ports.catalog import DomainEventRepository
 from charteros.application.ports.contracts import ContractRepository
 from charteros.application.ports.missions import MissionRepository
@@ -11,6 +13,7 @@ from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
 from charteros.application.ports.tenders import TenderRepository
 from charteros.domain.bookings import Booking, BookingId, BookingState
+from charteros.domain.capacity_reservations import AircraftCapacityReservation
 from charteros.domain.contracts import ContractStatus
 from charteros.domain.missions import Mission, MissionStatus
 from charteros.domain.quotes import QuoteId, QuoteStatus
@@ -31,6 +34,8 @@ class BookingService:
         self,
         *,
         bookings: BookingRepository,
+        capacity_policy: AircraftCapacityPolicy,
+        capacity_reservations: AircraftCapacityReservationRepository,
         quotes: QuoteRepository,
         rfqs: RfqRepository,
         missions: MissionRepository,
@@ -39,6 +44,8 @@ class BookingService:
         tenders: TenderRepository | None = None,
     ) -> None:
         self._bookings = bookings
+        self._capacity_policy = capacity_policy
+        self._capacity_reservations = capacity_reservations
         self._quotes = quotes
         self._rfqs = rfqs
         self._missions = missions
@@ -107,6 +114,12 @@ class BookingService:
         if accepted_at >= target.valid_until:
             raise EntityConflictError("expired quote cannot be accepted")
 
+        capacity_plan = self._capacity_policy.derive(
+            mission=mission,
+            aircraft_id=target.aircraft_id,
+            operator_id=target_rfq.operator_id,
+            known_as_of=accepted_at,
+        )
         booking = Booking.create(
             mission_id=mission.id,
             accepted_quote_id=target.id,
@@ -115,6 +128,27 @@ class BookingService:
             created_at=accepted_at,
             correlation_id=correlation_id,
         )
+        reservation = AircraftCapacityReservation.create(
+            aircraft_id=target.aircraft_id,
+            booking_id=booking.id,
+            mission_id=mission.id,
+            operator_id=target_rfq.operator_id,
+            interval=capacity_plan.interval,
+            created_at=accepted_at,
+            policy_version=capacity_plan.policy_version,
+            reference_profile_id=capacity_plan.reference_profile_id,
+            reference_profile_recorded_at=capacity_plan.reference_profile_recorded_at,
+            route_distance_tenths_nm=capacity_plan.route_distance_tenths_nm,
+            route_minutes=capacity_plan.route_minutes,
+            turnaround_buffer_minutes=capacity_plan.turnaround_buffer_minutes,
+            correlation_id=correlation_id,
+        )
+
+        # Flush the Booking first to satisfy the reservation FK, then reserve capacity before any
+        # Quote/Mission state mutation. A PostgreSQL exclusion conflict aborts the transaction.
+        self._bookings.add(booking)
+        self._capacity_reservations.add(reservation)
+
         expected_mission_version = mission.version
         expected_quote_versions = {quote.id: quote.version for quote in current_quotes}
 
@@ -139,7 +173,6 @@ class BookingService:
             correlation_id=correlation_id,
         )
 
-        self._bookings.add(booking)
         for quote in current_quotes:
             self._quotes.save(quote, expected_version=expected_quote_versions[quote.id])
         self._missions.save(mission, expected_version=expected_mission_version)
@@ -148,6 +181,7 @@ class BookingService:
             self._events.add_aggregate_events(quote)
         self._events.add_aggregate_events(mission)
         self._events.add_aggregate_events(booking)
+        self._events.add_aggregate_events(reservation)
         return booking
 
     def mark_contracted(

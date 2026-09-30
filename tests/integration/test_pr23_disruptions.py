@@ -11,6 +11,7 @@ from sqlalchemy import create_engine, text
 
 from apps.api.main import create_app
 from charteros.shared.config import Settings
+from tests.integration.capacity_support import seed_capacity_reference_profile
 
 
 def _settings() -> Settings:
@@ -111,6 +112,10 @@ def _aircraft(
         },
     )
     assert response.status_code == 201
+    seed_capacity_reference_profile(
+        response.json(),
+        source=f"pr23-capacity-{suffix}-{ordinal}",
+    )
     return str(response.json()["id"])
 
 

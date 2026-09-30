@@ -11,6 +11,7 @@ from sqlalchemy import create_engine, text
 
 from apps.api.main import create_app
 from charteros.shared.config import Settings
+from tests.integration.capacity_support import seed_capacity_reference_profile
 
 
 def _settings() -> Settings:
@@ -106,6 +107,10 @@ def _setup_booking(client: TestClient, *, suffix: str) -> tuple[str, str, str, s
         },
     )
     assert aircraft.status_code == 201
+    seed_capacity_reference_profile(
+        aircraft.json(),
+        source=f"pr12-capacity-{suffix}",
+    )
 
     departure = datetime.now(UTC) + timedelta(days=7)
     mission = client.post(

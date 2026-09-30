@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from apps.api.main import create_app
 from charteros.shared.config import Settings
+from tests.integration.capacity_support import seed_capacity_reference_profile
 
 
 def _settings() -> Settings:
@@ -111,6 +112,10 @@ def _portal_aircraft(
     )
     assert replay.status_code == 201
     assert replay.json() == response.json()
+    seed_capacity_reference_profile(
+        response.json(),
+        source=f"pr21-capacity-{suffix}",
+    )
     return str(response.json()["id"])
 
 
