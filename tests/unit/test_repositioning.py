@@ -1,7 +1,7 @@
 from dataclasses import replace
-from itertools import product
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from itertools import product
 from uuid import UUID
 
 from charteros.domain.aircraft import AircraftId, AircraftStatus, AircraftTypeId
