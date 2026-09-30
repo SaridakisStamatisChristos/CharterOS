@@ -94,7 +94,7 @@ def main() -> None:
         if args.command == "status":
             _print_json([asdict(item) for item in store.statuses()])
             return
-        raise AssertionError(f"unknown command: {args.command}")
+        parser.error(f"unsupported command: {args.command}")
     finally:
         engine.dispose()
 
