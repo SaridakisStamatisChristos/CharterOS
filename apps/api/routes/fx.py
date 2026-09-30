@@ -123,7 +123,6 @@ def create_rate(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> FxRateResponse:
     scope = "POST:/v1/fx/rates"
@@ -174,7 +173,6 @@ def correct_rate(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> FxRateResponse:
     scope = f"POST:/v1/fx/rates/{rate_id}/corrections"
