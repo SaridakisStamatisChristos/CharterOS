@@ -336,7 +336,6 @@ def open_reconciliation(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> FinancialReconciliationResponse:
     scope = f"POST:/v1/bookings/{booking_id}/reconciliation:operator:{operator_id}"
@@ -420,7 +419,6 @@ def submit_invoice(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> OperatorInvoiceResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/invoices:operator:{operator_id}"
@@ -504,7 +502,6 @@ def dispute_invoice(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> DisputeResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/disputes:buyer:{buyer_id}"
@@ -552,7 +549,6 @@ def approve_variance(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> VarianceApprovalResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/variance-approvals:buyer:{buyer_id}"
@@ -603,7 +599,6 @@ def complete_reconciliation(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> FinancialReconciliationResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/complete:operator:{operator_id}"
