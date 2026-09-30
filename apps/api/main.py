@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, status
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from apps.api.routes import (
     booking_router,
@@ -128,6 +130,18 @@ def create_app(
             "version": __version__,
             "environment": resolved_settings.environment,
         }
+
+    @app.get("/ready", tags=["system"])
+    def readiness(request: Request) -> JSONResponse:
+        try:
+            with request.app.state.engine.connect() as connection:
+                connection.execute(text("SELECT 1")).scalar_one()
+        except SQLAlchemyError:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"status": "unavailable"},
+            )
+        return JSONResponse(status_code=status.HTTP_200_OK, content={"status": "ready"})
 
     return app
 
