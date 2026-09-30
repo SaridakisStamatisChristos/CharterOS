@@ -41,6 +41,4 @@ def validate_bounded_window(
     if end <= start:
         raise DomainValidationError(f"{name} end must be after start")
     if end - start > maximum:
-        raise DomainValidationError(
-            f"{name} exceeds maximum duration of {maximum.days} days"
-        )
+        raise DomainValidationError(f"{name} exceeds maximum duration of {maximum.days} days")
