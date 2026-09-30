@@ -381,10 +381,9 @@ def create_disruption(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
     buyer_id: BuyerIdOptional = None,
     operator_id: OperatorIdOptional = None,
-
-    clock: ClockDep,
 ) -> DisruptionResponse:
     actor_scope = _actor_scope(buyer_id, operator_id)
     scope = f"POST:/v1/bookings/{booking_id}/disruptions:{actor_scope}"
@@ -473,7 +472,6 @@ def propose_replacement(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> ReplacementProposalResponse:
     scope = f"POST:/v1/disruptions/{disruption_id}/replacement-options:operator:{operator_id}"
@@ -560,7 +558,6 @@ def create_requote(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> CommercialChangeResponse:
     scope = f"POST:/v1/disruptions/{disruption_id}/requotes:operator:{operator_id}"
@@ -611,7 +608,6 @@ def buyer_decision(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> BuyerDecisionResponse:
     scope = f"POST:/v1/disruptions/{disruption_id}/buyer-decisions:buyer:{buyer_id}"
@@ -664,7 +660,6 @@ def resolve_disruption(
     correlation_id: CorrelationIdDep,
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> DisruptionResponse:
     scope = f"POST:/v1/disruptions/{disruption_id}/resolve:operator:{operator_id}"
