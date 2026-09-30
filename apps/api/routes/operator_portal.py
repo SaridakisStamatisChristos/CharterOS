@@ -778,7 +778,6 @@ def _submit_quote_for_context(
     invitation_id: UUID | None,
     body: QuoteTermsRequest,
     correlation_id: CorrelationId,
-
     clock: Clock,
 ) -> QuoteResponse:
     item = _portal(session).rfq(
@@ -885,7 +884,6 @@ def _revise_quote_for_context(
     invitation_id: UUID | None,
     body: QuoteTermsRequest,
     correlation_id: CorrelationId,
-
     clock: Clock,
 ) -> QuoteResponse:
     context = _portal(session).quote_context(
