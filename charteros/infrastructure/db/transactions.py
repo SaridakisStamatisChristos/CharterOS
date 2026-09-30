@@ -119,7 +119,5 @@ def _rollback_quietly(session: Session) -> None:
     try:
         session.rollback()
     except SQLAlchemyError:
-        try:
+        with suppress(SQLAlchemyError):
             session.invalidate()
-        except SQLAlchemyError:
-            pass
