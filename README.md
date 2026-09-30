@@ -767,16 +767,25 @@ Important settings include:
 | `CHARTEROS_DATABASE_CONNECT_TIMEOUT_SECONDS` | PostgreSQL connect timeout |
 | `CHARTEROS_ENVIRONMENT` | development / test / staging / production |
 | `CHARTEROS_API_HOST` / `PORT` | API bind configuration |
+| `CHARTEROS_API_MAX_REQUEST_BODY_BYTES` | Maximum buffered request body |
+| `CHARTEROS_API_MAX_JSON_DEPTH` | Maximum JSON object/array nesting |
+| `CHARTEROS_API_REQUEST_BODY_READ_TIMEOUT_SECONDS` | Pre-route body receive timeout |
+| `CHARTEROS_TRUSTED_INGRESS_RATE_LIMIT_ENFORCED` | Required staging/production ingress contract |
+| `CHARTEROS_API_*_REQUESTS_PER_WINDOW` | Shared expensive-work request budgets |
 | `CHARTEROS_AUTH_ISSUER` | OIDC issuer |
 | `CHARTEROS_AUTH_AUDIENCE` | OIDC audience |
 | `CHARTEROS_AUTH_JWKS_URL` | JWKS endpoint |
 | `CHARTEROS_AUTH_ALLOWED_ALGORITHMS` | Allowed asymmetric JWT algorithms |
+| `CHARTEROS_AUTH_JWKS_MAX_DOCUMENT_BYTES` | Maximum JWKS document size |
+| `CHARTEROS_AUTH_JWKS_REFRESH_MIN_INTERVAL_SECONDS` | Refresh-storm suppression interval |
+| `CHARTEROS_IDEMPOTENCY_RETENTION_DAYS` | Replay-record retention contract |
+| `CHARTEROS_IDEMPOTENCY_CLEANUP_BATCH_SIZE` | Bounded cleanup work per invocation |
 | `CHARTEROS_OUTBOX_BATCH_SIZE` | Worker claim batch |
 | `CHARTEROS_OUTBOX_LEASE_SECONDS` | Delivery lease duration |
 | `CHARTEROS_OUTBOX_MAX_ATTEMPTS` | Retry budget |
 | `CHARTEROS_OUTBOX_BACKOFF_*` | Deterministic retry policy |
 
-Staging and production require the complete issuer/audience/JWKS tuple. Production rejects DEBUG logging and known development database passwords.
+Staging and production require the complete issuer/audience/JWKS tuple and explicit trusted-ingress rate-limit enforcement. Production rejects DEBUG logging and known development database passwords.
 
 See [.env.example](.env.example).
 
@@ -803,6 +812,18 @@ make graph-status
 make graph-rebuild
 make graph-verify
 ```
+
+### Replay / abuse transient-state cleanup
+
+Run one bounded cleanup batch:
+
+```bash
+make resource-cleanup
+# or
+python -m apps.resource_cleanup.main
+```
+
+Schedule repeated invocations externally. The command deletes only expired idempotency replay records and transient API rate-window rows; it does not delete authoritative business/evidence data.
 
 ### Database runtime role
 
