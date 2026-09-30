@@ -104,6 +104,24 @@ class EvidenceMaterial:
     diagnostics: tuple[str, ...] = ()
 
 
+class DecisionEvidenceWriter(Protocol):
+    def add_snapshot(
+        self,
+        *,
+        decision_type: str,
+        subject_type: str,
+        subject_id: UUID,
+        source_aggregate_type: str,
+        source_aggregate_id: UUID,
+        decided_at: datetime,
+        known_as_of: datetime | None,
+        actor_id: UUID | None,
+        correlation_id: UUID | None,
+        policy_versions: Mapping[str, object],
+        content: Mapping[str, object],
+    ) -> UUID: ...
+
+
 class EvidenceRepository(Protocol):
     def load(
         self,
