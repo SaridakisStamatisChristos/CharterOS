@@ -314,18 +314,10 @@ def test_unrelated_aggregates_may_interleave_without_global_timestamp_order() ->
         store.prepare_version(version, now=BASE)
         first_id = uuid4()
         second_id = uuid4()
-        a1 = _seed_airport_event(
-            factory, aggregate_id=first_id, aggregate_version=1, ordinal=30
-        )
-        a2 = _seed_airport_event(
-            factory, aggregate_id=first_id, aggregate_version=2, ordinal=27
-        )
-        b1 = _seed_airport_event(
-            factory, aggregate_id=second_id, aggregate_version=1, ordinal=29
-        )
-        b2 = _seed_airport_event(
-            factory, aggregate_id=second_id, aggregate_version=2, ordinal=28
-        )
+        a1 = _seed_airport_event(factory, aggregate_id=first_id, aggregate_version=1, ordinal=30)
+        a2 = _seed_airport_event(factory, aggregate_id=first_id, aggregate_version=2, ordinal=27)
+        b1 = _seed_airport_event(factory, aggregate_id=second_id, aggregate_version=1, ordinal=29)
+        b2 = _seed_airport_event(factory, aggregate_id=second_id, aggregate_version=2, ordinal=28)
 
         for envelope in (a1, b1, b2, a2):
             assert store.consume_into_version(
