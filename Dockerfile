@@ -25,7 +25,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN addgroup --system charteros \
+RUN python -m pip uninstall --yes msgpack setuptools \
+    && addgroup --system charteros \
     && adduser --system --ingroup charteros --no-create-home charteros
 
 COPY --from=builder --chown=charteros:charteros /build/.venv /app/.venv
