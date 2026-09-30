@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from charteros.application.exceptions import EntityConflictError
-from charteros.domain.aircraft import AircraftId, AvailabilityRecordId
+from charteros.domain.aircraft import AircraftId, AvailabilityRecordId, PositionObservationId
 from charteros.domain.bookings import BookingId, BookingState
 from charteros.domain.disruptions import (
     Disruption,
@@ -114,6 +114,23 @@ def _proposal_from_row(row: DisruptionProposalRow) -> ReplacementProposal:
         ),
         availability_recorded_at=row.availability_recorded_at,
         departure_window=window,
+        feasibility_policy_version=row.feasibility_policy_version,
+        feasibility_known_as_of=row.feasibility_known_as_of,
+        position_observation_id=(
+            PositionObservationId(row.position_observation_id)
+            if row.position_observation_id is not None
+            else None
+        ),
+        position_event_time=row.position_event_time,
+        position_recorded_at=row.position_recorded_at,
+        reference_profile_id=row.reference_profile_id,
+        reference_profile_recorded_at=row.reference_profile_recorded_at,
+        route_distance_tenths_nm=row.route_distance_tenths_nm,
+        required_range_nm=row.required_range_nm,
+        reposition_distance_tenths_nm=row.reposition_distance_tenths_nm,
+        route_minutes=row.route_minutes,
+        reposition_minutes=row.reposition_minutes,
+        timing_buffer_minutes=row.timing_buffer_minutes,
         requires_buyer_decision=row.requires_buyer_decision,
         source=row.source,
         source_evidence=row.source_evidence,
@@ -304,6 +321,23 @@ class SqlAlchemyDisruptionRepository:
                     else None
                 ),
                 availability_recorded_at=proposal.availability_recorded_at,
+                feasibility_policy_version=proposal.feasibility_policy_version,
+                feasibility_known_as_of=proposal.feasibility_known_as_of,
+                position_observation_id=(
+                    proposal.position_observation_id.value
+                    if proposal.position_observation_id is not None
+                    else None
+                ),
+                position_event_time=proposal.position_event_time,
+                position_recorded_at=proposal.position_recorded_at,
+                reference_profile_id=proposal.reference_profile_id,
+                reference_profile_recorded_at=proposal.reference_profile_recorded_at,
+                route_distance_tenths_nm=proposal.route_distance_tenths_nm,
+                required_range_nm=proposal.required_range_nm,
+                reposition_distance_tenths_nm=proposal.reposition_distance_tenths_nm,
+                route_minutes=proposal.route_minutes,
+                reposition_minutes=proposal.reposition_minutes,
+                timing_buffer_minutes=proposal.timing_buffer_minutes,
                 departure_start=(
                     proposal.departure_window.start
                     if proposal.departure_window is not None
