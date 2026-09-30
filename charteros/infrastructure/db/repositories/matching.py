@@ -39,7 +39,9 @@ _QUERY = text(
     """
     SELECT
         a.id AS aircraft_id,
+        a.version AS aircraft_version,
         a.operator_id,
+        o.version AS operator_version,
         a.aircraft_type_id,
         a.seat_capacity,
         a.range_nm,
@@ -220,6 +222,8 @@ def _candidate(mapping: RowMapping) -> MatchingCandidateSnapshot:
         position=_position(mapping),
         availability=_availability(mapping),
         reference_profile=_profile(mapping),
+        aircraft_version=_integer(mapping["aircraft_version"]),
+        operator_version=_integer(mapping["operator_version"]),
     )
 
 
