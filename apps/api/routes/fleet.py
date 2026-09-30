@@ -9,7 +9,8 @@ from fastapi import APIRouter, Depends, Header, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
+from charteros.shared.clock import Clock
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.fleet import AircraftTimeline, FleetTimelineService
 from charteros.application.idempotency import (
@@ -323,12 +324,13 @@ def get_timeline(
     known_as_of: Annotated[datetime | None, Query()] = None,
     at: Annotated[datetime | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
-) -> TimelineResponse:
+
+    clock: Clock = Depends(get_clock),) -> TimelineResponse:
     timeline = _service(session).get_timeline(
         aircraft_id=AircraftId(aircraft_id),
         from_time=from_time,
         to_time=to_time,
-        known_as_of=known_as_of or datetime.now(UTC),
+        known_as_of=known_as_of or clock.now(),
         state_at=at,
         limit=limit,
     )
