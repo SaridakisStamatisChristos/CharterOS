@@ -146,7 +146,7 @@ class JwksKeyCache:
         ttl_seconds: float,
         max_keys: int = 64,
         refresh_min_interval_seconds: float = 5.0,
-        unknown_key_ttl_seconds: float = 30.0,
+        unknown_key_ttl_seconds: float = 5.0,
         max_negative_keys: int = 128,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
