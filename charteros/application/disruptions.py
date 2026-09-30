@@ -231,9 +231,7 @@ class DisruptionService:
                 known_as_of=when,
             )
 
-        availability = (
-            feasibility.candidate.availability if feasibility is not None else None
-        )
+        availability = feasibility.candidate.availability if feasibility is not None else None
         proposal_operator_version = (
             feasibility.candidate.operator_version if feasibility is not None else operator.version
         )
@@ -263,40 +261,24 @@ class DisruptionService:
             feasibility_policy_version=(
                 feasibility.policy_version if feasibility is not None else None
             ),
-            feasibility_known_as_of=(
-                feasibility.known_as_of if feasibility is not None else None
-            ),
-            position_observation_id=(
-                draft.position.id if draft is not None else None
-            ),
-            position_event_time=(
-                draft.position.event_time if draft is not None else None
-            ),
-            position_recorded_at=(
-                draft.position.recorded_at if draft is not None else None
-            ),
-            reference_profile_id=(
-                draft.reference_profile.id.value if draft is not None else None
-            ),
+            feasibility_known_as_of=(feasibility.known_as_of if feasibility is not None else None),
+            position_observation_id=(draft.position.id if draft is not None else None),
+            position_event_time=(draft.position.event_time if draft is not None else None),
+            position_recorded_at=(draft.position.recorded_at if draft is not None else None),
+            reference_profile_id=(draft.reference_profile.id.value if draft is not None else None),
             reference_profile_recorded_at=(
                 draft.reference_profile.recorded_at if draft is not None else None
             ),
             route_distance_tenths_nm=(
                 draft.route_distance_tenths_nm if draft is not None else None
             ),
-            required_range_nm=(
-                draft.required_range_nm if draft is not None else None
-            ),
+            required_range_nm=(draft.required_range_nm if draft is not None else None),
             reposition_distance_tenths_nm=(
                 draft.reposition_distance_tenths_nm if draft is not None else None
             ),
             route_minutes=(draft.route_minutes if draft is not None else None),
-            reposition_minutes=(
-                draft.reposition_minutes if draft is not None else None
-            ),
-            timing_buffer_minutes=(
-                draft.timing_buffer_minutes if draft is not None else None
-            ),
+            reposition_minutes=(draft.reposition_minutes if draft is not None else None),
+            timing_buffer_minutes=(draft.timing_buffer_minutes if draft is not None else None),
             requires_buyer_decision=(
                 target_operator != context.booking.operator_id
                 or target_aircraft != context.booking.aircraft_id
