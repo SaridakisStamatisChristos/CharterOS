@@ -218,7 +218,7 @@ def upgrade() -> None:
 
     op.execute(
         """
-        DO $
+        DO $$
         BEGIN
             IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'charteros_runtime') THEN
                 PERFORM charteros_apply_runtime_evidence_privileges('charteros_runtime');

@@ -4,7 +4,6 @@ def load_models() -> None:
     from charteros.infrastructure.db.models.capacity import AircraftCapacityReservationRow
     from charteros.infrastructure.db.models.catalog import (
         AircraftRow,
-        AircraftCapacityReservationRow,
         AircraftTypeRow,
         AirportRow,
         IdempotencyRecordRow,
@@ -59,6 +58,7 @@ def load_models() -> None:
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
         AircraftRow,
+        AircraftCapacityReservationRow,
         AircraftTypeRow,
         AirportRow,
         BookingRow,
