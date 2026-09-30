@@ -459,9 +459,11 @@ class Tender(AggregateRoot[TenderId]):
     ) -> None:
         if self.status is not TenderStatus.CLOSED:
             raise DomainValidationError("only a closed tender can be awarded")
-        assert self.closed_at is not None
+        closed_at = self.closed_at
+        if closed_at is None:
+            raise DomainValidationError("closed tender requires a close timestamp")
         when = _utc(awarded_at, field_name="awarded_at")
-        if when < self.closed_at:
+        if when < closed_at:
             raise DomainValidationError("award cannot precede tender close")
         self.status = TenderStatus.AWARDED
         self.awarded_quote_id = quote_id
