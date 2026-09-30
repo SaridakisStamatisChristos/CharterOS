@@ -23,8 +23,7 @@ class BoundedInputOverflowError(EntityConflictError):
         self.limit = limit
         self.observed_count_at_least = observed_count_at_least
         super().__init__(
-            f"{reason}; limit={limit}; "
-            f"observed_count_at_least={observed_count_at_least}"
+            f"{reason}; limit={limit}; observed_count_at_least={observed_count_at_least}"
         )
 
 
