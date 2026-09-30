@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from charteros.application.outbox import OutboxDeliveryStatus, OutboxEnvelope, OutboxLeaseLostError
 from charteros.infrastructure.db.engine import build_engine, build_session_factory
-from charteros.infrastructure.db.models.catalog import OutboxEventRow
+from charteros.infrastructure.db.models.catalog import IdempotencyRecordRow, OutboxEventRow
 from charteros.infrastructure.db.models.outbox import OutboxConsumerReceiptRow
 from charteros.infrastructure.db.repositories.outbox import (
     SqlAlchemyIdempotentConsumerRunner,
@@ -335,9 +335,15 @@ def test_pr43_consumer_commit_survives_lost_delivery_acknowledgement() -> None:
 
         def handler(session: Session, envelope: OutboxEnvelope) -> None:
             handler_calls.append(envelope.event_id)
-            row = session.get(OutboxEventRow, envelope.event_id)
-            assert row is not None
-            row.last_error = "pr43-consumer-side-effect"
+            session.add(
+                IdempotencyRecordRow(
+                    scope="pr43:consumer-side-effect",
+                    key=str(envelope.event_id),
+                    request_hash="b" * 64,
+                    status_code=200,
+                    response_body={"effect": "committed"},
+                )
+            )
 
         assert runner.consume(
             consumer_name="pr43-durable-consumer",
@@ -387,7 +393,12 @@ def test_pr43_consumer_commit_survives_lost_delivery_acknowledgement() -> None:
             row = session.get(OutboxEventRow, event_id)
             assert row is not None
             assert row.delivery_status == OutboxDeliveryStatus.DELIVERED.value
-            assert row.last_error == "pr43-consumer-side-effect"
+            side_effect = session.get(
+                IdempotencyRecordRow,
+                ("pr43:consumer-side-effect", str(event_id)),
+            )
+            assert side_effect is not None
+            assert side_effect.response_body == {"effect": "committed"}
             receipt = session.get(
                 OutboxConsumerReceiptRow,
                 ("pr43-durable-consumer", event_id),
