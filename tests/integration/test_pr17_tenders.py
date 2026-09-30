@@ -26,6 +26,7 @@ def _operator_aircraft(
     suffix: str,
     ordinal: int,
     home_base: str,
+    departure: datetime,
 ) -> tuple[str, str]:
     organization = client.post(
         "/v1/organizations",
@@ -95,8 +96,8 @@ def _operator_aircraft(
         f"/v1/aircraft/{aircraft_id}/availability",
         headers={"Idempotency-Key": f"pr17-availability-{suffix}-{ordinal}"},
         json={
-            "valid_from": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
-            "valid_to": (datetime.now(UTC) + timedelta(days=30)).isoformat(),
+            "valid_from": (departure - timedelta(hours=3)).isoformat(),
+            "valid_to": (departure + timedelta(hours=6)).isoformat(),
             "status": "available",
             "source": "pr17-award-fixture",
             "provenance": {"fixture": "pr17"},
@@ -201,6 +202,7 @@ def _setup_tender(
             suffix=suffix,
             ordinal=ordinal,
             home_base=str(origin.json()["id"]),
+            departure=departure,
         )
         headers = {"Idempotency-Key": f"pr17-invite-{suffix}-{ordinal}"}
         invited = client.post(
