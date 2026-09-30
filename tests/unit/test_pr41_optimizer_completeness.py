@@ -88,9 +88,7 @@ def test_structural_optimizer_boundary_is_complete_or_fails_closed(
                 limit=MAX_STRUCTURAL_EMPTY_LEGS,
                 require_complete=True,
             )
-        assert captured.value.reason == (
-            "structural_candidate_universe_exceeds_requested_capacity"
-        )
+        assert captured.value.reason == ("structural_candidate_universe_exceeds_requested_capacity")
         assert captured.value.limit == MAX_STRUCTURAL_EMPTY_LEGS
         assert captured.value.observed_count_at_least == 101
     else:
@@ -143,11 +141,14 @@ def test_quoted_opportunity_boundary_is_complete_or_fails_closed(
         assert captured.value.limit == MAX_QUOTED_FUTURE_LEGS
         assert captured.value.observed_count_at_least == 2001
     else:
-        assert require_complete_bounded(
-            items,
-            limit=MAX_QUOTED_FUTURE_LEGS,
-            reason="quoted_future_leg_universe_exceeds_requested_capacity",
-        ) == items
+        assert (
+            require_complete_bounded(
+                items,
+                limit=MAX_QUOTED_FUTURE_LEGS,
+                reason="quoted_future_leg_universe_exceeds_requested_capacity",
+            )
+            == items
+        )
 
 
 def test_optimizer_overflow_error_is_deterministic_and_policy_versioned() -> None:
