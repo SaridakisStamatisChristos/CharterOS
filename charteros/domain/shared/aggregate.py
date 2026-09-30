@@ -71,6 +71,13 @@ class AggregateRoot[IdT: TypedId]:
         correlation_id: CorrelationId | None = None,
         causation_id: EventId | None = None,
     ) -> DomainEvent:
+        if recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
+            raise DomainValidationError("recorded_at must be timezone-aware")
+        if occurred_at is not None and (
+            occurred_at.tzinfo is None or occurred_at.utcoffset() is None
+        ):
+            raise DomainValidationError("occurred_at must be timezone-aware")
+
         event = DomainEvent(
             event_id=EventId.new(),
             aggregate_type=self.aggregate_type,
