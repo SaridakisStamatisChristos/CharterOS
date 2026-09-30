@@ -210,11 +210,10 @@ def aircraft_near_airport(
     session: SessionDep,
     airport_id: UUID,
     at: Annotated[datetime, Query(description="UTC event-time cutoff")],
+    clock: ClockDep,
     known_as_of: KnownAsOf = None,
     radius_nm: Annotated[Decimal, Query(gt=0, le=5000)] = Decimal("100"),
     limit: ResultLimit = 20,
-
-    clock: ClockDep,
 ) -> NearbyAircraftResponse:
     knowledge_cutoff = known_as_of or clock.now()
     with session.begin():
@@ -254,9 +253,8 @@ def historical_aircraft_position(
     aircraft_id: UUID,
     session: SessionDep,
     at: Annotated[datetime, Query(description="UTC event-time cutoff")],
-    known_as_of: KnownAsOf = None,
-
     clock: ClockDep,
+    known_as_of: KnownAsOf = None,
 ) -> HistoricalPositionResponse:
     knowledge_cutoff = known_as_of or clock.now()
     with session.begin():
@@ -276,10 +274,9 @@ def historical_aircraft_position(
 def feasible_aircraft_for_mission(
     mission_id: UUID,
     session: SessionDep,
+    clock: ClockDep,
     known_as_of: KnownAsOf = None,
     limit: ResultLimit = 20,
-
-    clock: ClockDep,
 ) -> FeasibleAircraftResponse:
     cutoff = known_as_of or clock.now()
     with session.begin():
