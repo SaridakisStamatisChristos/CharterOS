@@ -454,7 +454,7 @@ def _golden_pairs(items: list[_GoldenPair]) -> tuple[tuple[UUID, UUID], ...]:
 
 def test_solver_tie_break_v2_matches_golden_plan_and_is_input_order_invariant() -> None:
     golden = _load_solver_tie_break_golden()
-    assert POLICY_VERSION == golden["policy_version"]
+    assert golden["policy_version"] == POLICY_VERSION
 
     candidates = tuple(_solver_candidate(**item) for item in golden["candidates"])
     expected = tuple(candidates[index] for index in golden["expected_candidate_indices"])
