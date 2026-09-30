@@ -63,12 +63,16 @@ def test_pr44_postgresql_rate_budget_is_atomic_across_independent_pools() -> Non
         barrier.wait(timeout=10)
         factory = first_factory if index % 2 == 0 else second_factory
         with factory.begin() as session:
-            return SqlAlchemyRateBudgetRepository(session).consume(
-                budget=AbuseBudget.MATCHING,
-                identity_digest=identity_digest,
-                limit=5,
-                window_seconds=60,
-            ).allowed
+            return (
+                SqlAlchemyRateBudgetRepository(session)
+                .consume(
+                    budget=AbuseBudget.MATCHING,
+                    identity_digest=identity_digest,
+                    limit=5,
+                    window_seconds=60,
+                )
+                .allowed
+            )
 
     try:
         with ThreadPoolExecutor(max_workers=12) as executor:
