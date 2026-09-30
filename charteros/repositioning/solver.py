@@ -55,11 +55,7 @@ def _maximum_weight_assignment(
 
     column_count = real_column_count + row_count
     max_weight = max(
-        (
-            weight
-            for row in row_weights
-            for weight, _candidate_index in row.values()
-        ),
+        (weight for row in row_weights for weight, _candidate_index in row.values()),
         default=0,
     )
     infinity = (max_weight + 2) * (row_count + column_count + 2)
@@ -95,11 +91,7 @@ def _maximum_weight_assignment(
                 else:
                     cost = 0
 
-                reduced_cost = (
-                    cost
-                    - row_potential[active_row]
-                    - column_potential[column_number]
-                )
+                reduced_cost = cost - row_potential[active_row] - column_potential[column_number]
                 if reduced_cost < minimum_reduced_cost[column_number]:
                     minimum_reduced_cost[column_number] = reduced_cost
                     predecessor_column[column_number] = current_column
