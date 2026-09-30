@@ -32,6 +32,12 @@ def _stable_distance_nm(value: float) -> Decimal:
     )
 
 
+def _round_stable_distance_tenths_nm(stable_nm: Decimal) -> int:
+    if stable_nm < 0:
+        raise DomainValidationError("distance cannot be negative")
+    return _round_stable_distance_tenths_nm(stable_nm)
+
+
 def haversine_distance_tenths_nm(
     latitude_a: Decimal,
     longitude_a: Decimal,
