@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Barrier
@@ -153,7 +154,7 @@ def test_pr39_contracted_buyer_cancel_is_atomic_with_capacity_release() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            booking_events = (
+            booking_events: Sequence[str] = (
                 connection.execute(
                     text(
                         "SELECT event_type FROM outbox_events WHERE aggregate_id = :id "
@@ -164,7 +165,7 @@ def test_pr39_contracted_buyer_cancel_is_atomic_with_capacity_release() -> None:
                 .scalars()
                 .all()
             )
-            mission_events = (
+            mission_events: Sequence[str] = (
                 connection.execute(
                     text(
                         "SELECT event_type FROM outbox_events WHERE aggregate_id = :id "
@@ -175,7 +176,7 @@ def test_pr39_contracted_buyer_cancel_is_atomic_with_capacity_release() -> None:
                 .scalars()
                 .all()
             )
-            reservation_events = (
+            reservation_events: Sequence[str] = (
                 connection.execute(
                     text(
                         "SELECT event_type FROM outbox_events WHERE aggregate_id = :id "
