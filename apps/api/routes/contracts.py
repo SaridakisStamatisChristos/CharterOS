@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
-from charteros.shared.clock import Clock
 from charteros.application.contracts import ContractService
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
@@ -28,9 +27,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyMissionRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["contracts"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -146,7 +147,8 @@ def create_contract(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> ContractResponse:
+    clock: ClockDep,
+) -> ContractResponse:
     scope = f"POST:/v1/bookings/{booking_id}/contract"
     request_hash = canonical_request_hash(request.model_dump(mode="json"))
     with session.begin():
@@ -177,7 +179,8 @@ def accept_contract_buyer(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> ContractResponse:
+    clock: ClockDep,
+) -> ContractResponse:
     scope = f"POST:/v1/contracts/{contract_id}/accept/buyer"
     request_hash = canonical_request_hash({})
     with session.begin():
@@ -205,7 +208,8 @@ def accept_contract_operator(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> ContractResponse:
+    clock: ClockDep,
+) -> ContractResponse:
     scope = f"POST:/v1/contracts/{contract_id}/accept/operator"
     request_hash = canonical_request_hash({})
     with session.begin():
