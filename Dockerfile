@@ -25,7 +25,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN python -m pip uninstall --yes msgpack setuptools \
+# The application runs from /app/.venv; global pip and its vendored packages are
+# build-time tooling only. Remove them from the final image, not the builder.
+RUN python -m pip uninstall --yes setuptools wheel pip \
+    && python -c "import importlib.util, sys; sys.exit(importlib.util.find_spec('pip') is not None)" \
     && addgroup --system charteros \
     && adduser --system --ingroup charteros --no-create-home charteros
 
