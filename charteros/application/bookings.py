@@ -134,6 +134,7 @@ class BookingService:
             mission=mission,
             aircraft_id=target.aircraft_id,
             known_as_of=accepted_at,
+            lock_catalog=True,
         )
         if feasibility.candidate.operator_id != target_rfq.operator_id:
             raise EntityConflictError(
