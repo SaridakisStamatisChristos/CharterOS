@@ -1,17 +1,17 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
-import time
 from typing import Any
 from uuid import UUID
 
 import jwt
 import pytest
-import charteros.security.auth as auth_module
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.utils import base64url_encode
 
+import charteros.security.auth as auth_module
 from charteros.security.auth import (
     AuthenticationError,
     HttpJwksSource,
