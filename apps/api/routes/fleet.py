@@ -322,11 +322,10 @@ def get_timeline(
     session: SessionDep,
     from_time: Annotated[datetime, Query(alias="from")],
     to_time: Annotated[datetime, Query(alias="to")],
+    clock: ClockDep,
     known_as_of: Annotated[datetime | None, Query()] = None,
     at: Annotated[datetime | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
-
-    clock: ClockDep,
 ) -> TimelineResponse:
     timeline = _service(session).get_timeline(
         aircraft_id=AircraftId(aircraft_id),
