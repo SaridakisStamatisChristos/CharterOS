@@ -246,6 +246,24 @@ def test_symmetric_algorithm_configuration_is_rejected() -> None:
         )
 
 
+def test_unknown_kid_storm_from_cold_cache_is_single_refresh_per_interval() -> None:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    source = _MutableJwksSource([_jwk(key, kid="key-1")])
+    now = [0.0]
+    backend = _backend(
+        source,
+        monotonic=lambda: now[0],
+        refresh_min_interval_seconds=5,
+        unknown_key_ttl_seconds=5,
+    )
+
+    for index in range(20):
+        with pytest.raises(AuthenticationError):
+            backend.authenticate(f"Bearer {_token(key, kid=f'cold-unknown-{index}')}")
+
+    assert source.fetch_count == 1
+
+
 def test_unknown_kid_storm_triggers_at_most_one_refresh_per_interval() -> None:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     source = _MutableJwksSource([_jwk(key, kid="key-1")])
