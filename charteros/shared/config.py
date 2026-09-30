@@ -57,10 +57,10 @@ class Settings(BaseSettings):
     api_request_body_read_timeout_seconds: float = Field(default=10.0, gt=0, le=60.0)
     trusted_ingress_rate_limit_enforced: bool = False
     api_rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
-    api_matching_requests_per_window: int = Field(default=30, ge=1, le=10_000)
-    api_repositioning_requests_per_window: int = Field(default=6, ge=1, le=10_000)
-    api_evidence_requests_per_window: int = Field(default=20, ge=1, le=10_000)
-    api_graph_requests_per_window: int = Field(default=60, ge=1, le=10_000)
+    api_matching_requests_per_window: int = Field(default=300, ge=1, le=10_000)
+    api_repositioning_requests_per_window: int = Field(default=60, ge=1, le=10_000)
+    api_evidence_requests_per_window: int = Field(default=120, ge=1, le=10_000)
+    api_graph_requests_per_window: int = Field(default=600, ge=1, le=10_000)
     api_rate_limit_window_retention_seconds: int = Field(default=7200, ge=60, le=604_800)
     auth_issuer: str | None = None
     auth_audience: str | None = None
