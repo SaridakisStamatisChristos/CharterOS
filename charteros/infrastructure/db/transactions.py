@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
-from typing import TypeVar
 
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -13,8 +13,6 @@ from charteros.infrastructure.db.failures import (
     DatabaseTransactionError,
     classify_database_failure,
 )
-
-T = TypeVar("T")
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,7 +33,7 @@ class TransactionRetryPolicy:
 DEFAULT_RETRY_POLICY = TransactionRetryPolicy()
 
 
-def run_transaction(
+def run_transaction[T](
     session: Session,
     action: Callable[[], T],
     *,
@@ -87,7 +85,7 @@ def run_transaction(
     raise RuntimeError("transaction retry loop exhausted unexpectedly")
 
 
-def _try_reconcile(
+def _try_reconcile[T](
     session: Session,
     reconcile: Callable[[], T | None] | None,
 ) -> T | None:
@@ -113,10 +111,8 @@ def _reset_failed_session(session: Session, exc: SQLAlchemyError) -> None:
         else:
             session.rollback()
     except SQLAlchemyError:
-        try:
+        with suppress(SQLAlchemyError):
             session.invalidate()
-        except SQLAlchemyError:
-            pass
 
 
 def _rollback_quietly(session: Session) -> None:
