@@ -317,6 +317,7 @@ def build_auth_backend(settings: Settings) -> AuthenticationBackend:
     source = HttpJwksSource(
         url=jwks_url,
         timeout_seconds=settings.auth_http_timeout_seconds,
+        max_document_bytes=settings.auth_jwks_max_document_bytes,
     )
     key_cache = JwksKeyCache(
         source=source,
