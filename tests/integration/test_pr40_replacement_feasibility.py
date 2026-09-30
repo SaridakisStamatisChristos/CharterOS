@@ -108,12 +108,8 @@ def _create_tail(
             f"/v1/aircraft/{aircraft_id}/availability",
             headers={"Idempotency-Key": f"pr40-availability-{suffix}"},
             json={
-                "valid_from": (
-                    availability_from or departure - timedelta(hours=3)
-                ).isoformat(),
-                "valid_to": (
-                    availability_to or departure + timedelta(hours=6)
-                ).isoformat(),
+                "valid_from": (availability_from or departure - timedelta(hours=3)).isoformat(),
+                "valid_to": (availability_to or departure + timedelta(hours=6)).isoformat(),
                 "status": availability_status,
                 "source": "pr40-operations",
                 "provenance": {"fixture": "pr40", "suffix": suffix},
@@ -499,10 +495,13 @@ def test_pr40_replacement_capacity_check_rejects_another_bookings_reserved_overl
         )
         assert second_mission.status_code == 201
         mission_id = str(second_mission.json()["id"])
-        assert client.post(
-            f"/v1/missions/{mission_id}/open",
-            headers={"Idempotency-Key": "pr40-capacity-open-c1"},
-        ).status_code == 200
+        assert (
+            client.post(
+                f"/v1/missions/{mission_id}/open",
+                headers={"Idempotency-Key": "pr40-capacity-open-c1"},
+            ).status_code
+            == 200
+        )
         rfq = client.post(
             f"/v1/missions/{mission_id}/rfqs",
             headers={"Idempotency-Key": "pr40-capacity-rfq-c1"},
@@ -513,10 +512,13 @@ def test_pr40_replacement_capacity_check_rejects_another_bookings_reserved_overl
         )
         assert rfq.status_code == 201
         rfq_id = str(rfq.json()["id"])
-        assert client.post(
-            f"/v1/rfqs/{rfq_id}/acknowledge",
-            headers={"Idempotency-Key": "pr40-capacity-ack-c1"},
-        ).status_code == 200
+        assert (
+            client.post(
+                f"/v1/rfqs/{rfq_id}/acknowledge",
+                headers={"Idempotency-Key": "pr40-capacity-ack-c1"},
+            ).status_code
+            == 200
+        )
         quote = client.post(
             f"/v1/rfqs/{rfq_id}/quotes",
             headers={"Idempotency-Key": "pr40-capacity-quote-c1"},
