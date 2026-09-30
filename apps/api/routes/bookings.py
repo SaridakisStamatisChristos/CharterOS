@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, status
@@ -18,7 +18,13 @@ from charteros.application.idempotency import (
     StoredResponse,
     canonical_request_hash,
 )
-from charteros.domain.bookings import Booking, BookingId, BookingState
+from charteros.domain.bookings import (
+    Booking,
+    BookingId,
+    BookingState,
+    BookingTerminationReason,
+    BookingTerminationSource,
+)
 from charteros.domain.quotes import QuoteId
 from charteros.domain.shared.ids import CorrelationId
 from charteros.infrastructure.db.repositories import (
@@ -53,6 +59,17 @@ class BookingResponse(BaseModel):
     aircraft_id: UUID
     state: BookingState
     created_at: datetime
+    state_changed_at: datetime | None = None
+    termination_reason: BookingTerminationReason | None = None
+    termination_source: BookingTerminationSource | None = None
+
+
+class CancelBookingRequest(BaseModel):
+    reason: Literal["buyer_cancel", "operator_release"]
+
+
+class ExpireBookingRequest(BaseModel):
+    reason: Literal["contract_unsigned", "deposit_timeout", "commercial_expiry"]
 
 
 def _service(session: Session) -> BookingService:
@@ -79,6 +96,9 @@ def _response(booking: Booking) -> BookingResponse:
         aircraft_id=booking.aircraft_id.value,
         state=booking.state,
         created_at=booking.created_at,
+        state_changed_at=booking.state_changed_at,
+        termination_reason=booking.termination_reason,
+        termination_source=booking.termination_source,
     )
 
 
@@ -238,6 +258,60 @@ def confirm_booking(
             correlation_id=correlation_id,
         ),
     )
+
+
+@router.post("/bookings/{booking_id}/cancel", response_model=BookingResponse)
+def cancel_booking(
+    booking_id: UUID,
+    body: CancelBookingRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
+) -> BookingResponse:
+    scope = f"POST:/v1/bookings/{booking_id}/cancel"
+    request_body = body.model_dump(mode="json")
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=canonical_request_hash(request_body),
+            success_status=status.HTTP_200_OK,
+            action=lambda: _service(session).terminate(
+                booking_id=BookingId(booking_id),
+                reason=BookingTerminationReason(body.reason),
+                now=clock.now(),
+                correlation_id=correlation_id,
+            ),
+        )
+
+
+@router.post("/bookings/{booking_id}/expire", response_model=BookingResponse)
+def expire_booking(
+    booking_id: UUID,
+    body: ExpireBookingRequest,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
+) -> BookingResponse:
+    scope = f"POST:/v1/bookings/{booking_id}/expire"
+    request_body = body.model_dump(mode="json")
+    with session.begin():
+        return _run_idempotent(
+            session=session,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=canonical_request_hash(request_body),
+            success_status=status.HTTP_200_OK,
+            action=lambda: _service(session).terminate(
+                booking_id=BookingId(booking_id),
+                reason=BookingTerminationReason(body.reason),
+                now=clock.now(),
+                correlation_id=correlation_id,
+            ),
+        )
 
 
 @router.post("/bookings/{booking_id}/enter-pre-operation", response_model=BookingResponse)

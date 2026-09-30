@@ -14,6 +14,18 @@ class AircraftCapacityReservationRepository(Protocol):
 
     def get_for_booking(self, booking_id: BookingId) -> AircraftCapacityReservation | None: ...
 
+    def get_for_booking_for_update(
+        self,
+        booking_id: BookingId,
+    ) -> AircraftCapacityReservation | None: ...
+
+    def save(
+        self,
+        reservation: AircraftCapacityReservation,
+        *,
+        expected_version: int,
+    ) -> None: ...
+
 
 class CapacityReferenceRepository(Protocol):
     def get_for_aircraft_type(

@@ -25,6 +25,31 @@ class BookingState(StrEnum):
     OPERATING = "operating"
     COMPLETED = "completed"
     RECONCILED = "reconciled"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+
+
+class BookingTerminationReason(StrEnum):
+    CONTRACT_UNSIGNED = "contract_unsigned"
+    DEPOSIT_TIMEOUT = "deposit_timeout"
+    BUYER_CANCEL = "buyer_cancel"
+    OPERATOR_RELEASE = "operator_release"
+    COMMERCIAL_EXPIRY = "commercial_expiry"
+
+
+class BookingTerminationSource(StrEnum):
+    BUYER = "buyer"
+    OPERATOR = "operator"
+    SYSTEM = "system"
+
+
+_TERMINATION_SOURCE_BY_REASON = {
+    BookingTerminationReason.CONTRACT_UNSIGNED: BookingTerminationSource.SYSTEM,
+    BookingTerminationReason.DEPOSIT_TIMEOUT: BookingTerminationSource.SYSTEM,
+    BookingTerminationReason.BUYER_CANCEL: BookingTerminationSource.BUYER,
+    BookingTerminationReason.OPERATOR_RELEASE: BookingTerminationSource.OPERATOR,
+    BookingTerminationReason.COMMERCIAL_EXPIRY: BookingTerminationSource.SYSTEM,
+}
 
 
 def _utc(value: datetime, *, field_name: str) -> datetime:
@@ -51,6 +76,8 @@ class Booking(AggregateRoot[BookingId]):
         state: BookingState,
         created_at: datetime,
         state_changed_at: datetime | None = None,
+        termination_reason: BookingTerminationReason | None = None,
+        termination_source: BookingTerminationSource | None = None,
         version: int = 0,
     ) -> None:
         super().__init__(booking_id, version=version)
@@ -66,6 +93,27 @@ class Booking(AggregateRoot[BookingId]):
         )
         if self.state_changed_at < self.created_at:
             raise DomainValidationError("state_changed_at cannot precede booking creation")
+        self.termination_reason = (
+            BookingTerminationReason(termination_reason)
+            if termination_reason is not None
+            else None
+        )
+        self.termination_source = (
+            BookingTerminationSource(termination_source)
+            if termination_source is not None
+            else None
+        )
+        is_terminal = self.state in (BookingState.CANCELLED, BookingState.EXPIRED)
+        if is_terminal != (
+            self.termination_reason is not None and self.termination_source is not None
+        ):
+            raise DomainValidationError(
+                "terminal booking state and termination evidence must be present together"
+            )
+        if self.termination_reason is not None:
+            expected_source = _TERMINATION_SOURCE_BY_REASON[self.termination_reason]
+            if self.termination_source is not expected_source:
+                raise DomainValidationError("termination source does not match termination reason")
 
     @classmethod
     def create(
@@ -200,6 +248,63 @@ class Booking(AggregateRoot[BookingId]):
             event_type="BOOKING_RECONCILED",
             transitioned_at=transitioned_at,
             correlation_id=correlation_id,
+        )
+
+    def terminate(
+        self,
+        *,
+        reason: BookingTerminationReason,
+        transitioned_at: datetime,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        normalized_reason = BookingTerminationReason(reason)
+        if self.state not in (
+            BookingState.PENDING_CONTRACT,
+            BookingState.CONTRACTED,
+            BookingState.PAYMENT_PENDING,
+        ):
+            raise DomainValidationError(
+                "only pending_contract, contracted, or payment_pending bookings can terminate"
+            )
+
+        if normalized_reason is BookingTerminationReason.CONTRACT_UNSIGNED:
+            if self.state is not BookingState.PENDING_CONTRACT:
+                raise DomainValidationError("contract_unsigned requires pending_contract")
+            target = BookingState.EXPIRED
+        elif normalized_reason is BookingTerminationReason.DEPOSIT_TIMEOUT:
+            if self.state is not BookingState.PAYMENT_PENDING:
+                raise DomainValidationError("deposit_timeout requires payment_pending")
+            target = BookingState.EXPIRED
+        elif normalized_reason is BookingTerminationReason.COMMERCIAL_EXPIRY:
+            if self.state not in (BookingState.PENDING_CONTRACT, BookingState.PAYMENT_PENDING):
+                raise DomainValidationError(
+                    "commercial_expiry requires pending_contract or payment_pending"
+                )
+            target = BookingState.EXPIRED
+        else:
+            target = BookingState.CANCELLED
+
+        when = _utc(transitioned_at, field_name="transitioned_at")
+        if when < self.state_changed_at:
+            raise DomainValidationError("transitioned_at cannot precede the current booking state")
+        previous = self.state
+        source = _TERMINATION_SOURCE_BY_REASON[normalized_reason]
+        self.state = target
+        self.state_changed_at = when
+        self.termination_reason = normalized_reason
+        self.termination_source = source
+        self._record_event(
+            "BOOKING_EXPIRED" if target is BookingState.EXPIRED else "BOOKING_CANCELLED",
+            {
+                "from_state": previous.value,
+                "to_state": target.value,
+                "reason": normalized_reason.value,
+                "source": source.value,
+                "transitioned_at": _iso(when),
+            },
+            correlation_id=correlation_id,
+            recorded_at=when,
+            occurred_at=when,
         )
 
     def _transition(

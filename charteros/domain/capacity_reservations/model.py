@@ -152,3 +152,38 @@ class AircraftCapacityReservation(AggregateRoot[AircraftCapacityReservationId]):
             correlation_id=correlation_id,
         )
         return reservation
+
+    def release(
+        self,
+        *,
+        released_at: datetime,
+        reason: str,
+        correlation_id: CorrelationId | None = None,
+    ) -> None:
+        if self.status is not AircraftCapacityReservationStatus.RESERVED:
+            raise DomainValidationError("only reserved aircraft capacity can be released")
+        when = _utc(released_at, field_name="released_at")
+        if when < self.created_at:
+            raise DomainValidationError("released_at cannot precede reservation creation")
+        normalized_reason = " ".join(reason.split())
+        if not 1 <= len(normalized_reason) <= 64:
+            raise DomainValidationError("release reason must contain 1 to 64 characters")
+
+        self.status = AircraftCapacityReservationStatus.RELEASED
+        self.released_at = when
+        self.release_reason = normalized_reason
+        self._record_event(
+            "AIRCRAFT_CAPACITY_RELEASED",
+            {
+                "aircraft_id": str(self.aircraft_id),
+                "booking_id": str(self.booking_id),
+                "mission_id": str(self.mission_id),
+                "operator_id": str(self.operator_id),
+                "status": self.status.value,
+                "released_at": _iso(when),
+                "release_reason": normalized_reason,
+            },
+            recorded_at=when,
+            occurred_at=when,
+            correlation_id=correlation_id,
+        )

@@ -12,8 +12,16 @@ from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
 from charteros.application.ports.tenders import TenderRepository
-from charteros.domain.bookings import Booking, BookingId, BookingState
-from charteros.domain.capacity_reservations import AircraftCapacityReservation
+from charteros.domain.bookings import (
+    Booking,
+    BookingId,
+    BookingState,
+    BookingTerminationReason,
+)
+from charteros.domain.capacity_reservations import (
+    AircraftCapacityReservation,
+    AircraftCapacityReservationStatus,
+)
 from charteros.domain.contracts import ContractStatus
 from charteros.domain.missions import Mission, MissionStatus
 from charteros.domain.quotes import QuoteId, QuoteStatus
@@ -363,11 +371,116 @@ class BookingService:
         self._events.add_aggregate_events(booking)
         return booking
 
+    def terminate(
+        self,
+        *,
+        booking_id: BookingId,
+        reason: BookingTerminationReason,
+        now: datetime,
+        correlation_id: CorrelationId,
+    ) -> Booking:
+        requested_at = _utc(now, field_name="now")
+        booking = self._bookings.get_for_update(booking_id)
+        if booking is None:
+            raise EntityNotFoundError("booking does not exist")
+        normalized_reason = BookingTerminationReason(reason)
+        self._validate_termination_reason(booking, normalized_reason)
+        if normalized_reason is BookingTerminationReason.CONTRACT_UNSIGNED:
+            if self._contracts is None:
+                raise RuntimeError("contract repository is required for contract expiry")
+            contract = self._contracts.get_for_booking_for_update(booking.id)
+            if contract is not None and contract.status is ContractStatus.ACCEPTED:
+                raise EntityConflictError("accepted contract cannot expire as contract_unsigned")
+
+        expected_mission_status = (
+            MissionStatus.SELECTED
+            if booking.state is BookingState.PENDING_CONTRACT
+            else MissionStatus.CONTRACTING
+        )
+        mission = self._lock_mission(booking, expected_status=expected_mission_status)
+        reservation = self._capacity_reservations.get_for_booking_for_update(booking.id)
+        if reservation is None:
+            raise EntityConflictError("booking has no aircraft capacity reservation")
+        if (
+            reservation.booking_id != booking.id
+            or reservation.mission_id != booking.mission_id
+            or reservation.aircraft_id != booking.aircraft_id
+            or reservation.operator_id != booking.operator_id
+        ):
+            raise EntityConflictError("booking capacity reservation identity does not match booking")
+        if reservation.status is not AircraftCapacityReservationStatus.RESERVED:
+            raise EntityConflictError("booking aircraft capacity is already released")
+
+        transitioned_at = max(requested_at, booking.state_changed_at, reservation.created_at)
+        expected_booking_version = booking.version
+        expected_mission_version = mission.version
+        expected_reservation_version = reservation.version
+
+        booking.terminate(
+            reason=normalized_reason,
+            transitioned_at=transitioned_at,
+            correlation_id=correlation_id,
+        )
+        if booking.termination_source is None:
+            raise RuntimeError("terminal booking must record a termination source")
+        expired = booking.state is BookingState.EXPIRED
+        mission.terminate_booking(
+            expired=expired,
+            reason=normalized_reason.value,
+            source=booking.termination_source.value,
+            transitioned_at=transitioned_at,
+            correlation_id=correlation_id,
+        )
+        reservation.release(
+            released_at=transitioned_at,
+            reason=normalized_reason.value,
+            correlation_id=correlation_id,
+        )
+
+        self._bookings.save(booking, expected_version=expected_booking_version)
+        self._missions.save(mission, expected_version=expected_mission_version)
+        self._capacity_reservations.save(
+            reservation,
+            expected_version=expected_reservation_version,
+        )
+        self._events.add_aggregate_events(booking)
+        self._events.add_aggregate_events(mission)
+        self._events.add_aggregate_events(reservation)
+        return booking
+
     def get_booking(self, booking_id: BookingId) -> Booking:
         booking = self._bookings.get(booking_id)
         if booking is None:
             raise EntityNotFoundError("booking does not exist")
         return booking
+
+    @staticmethod
+    def _validate_termination_reason(
+        booking: Booking,
+        reason: BookingTerminationReason,
+    ) -> None:
+        if booking.state not in (
+            BookingState.PENDING_CONTRACT,
+            BookingState.CONTRACTED,
+            BookingState.PAYMENT_PENDING,
+        ):
+            raise EntityConflictError(
+                "only pending_contract, contracted, or payment_pending bookings can terminate"
+            )
+        if reason is BookingTerminationReason.CONTRACT_UNSIGNED:
+            if booking.state is not BookingState.PENDING_CONTRACT:
+                raise EntityConflictError("contract_unsigned requires pending_contract")
+        elif reason is BookingTerminationReason.DEPOSIT_TIMEOUT:
+            if booking.state is not BookingState.PAYMENT_PENDING:
+                raise EntityConflictError("deposit_timeout requires payment_pending")
+        elif reason is BookingTerminationReason.COMMERCIAL_EXPIRY:
+            if booking.state not in (
+                BookingState.PENDING_CONTRACT,
+                BookingState.PAYMENT_PENDING,
+            ):
+                raise EntityConflictError(
+                    "commercial_expiry requires pending_contract or payment_pending"
+                )
 
     def _lock_booking(self, booking_id: BookingId, *, expected_state: BookingState) -> Booking:
         booking = self._bookings.get_for_update(booking_id)
