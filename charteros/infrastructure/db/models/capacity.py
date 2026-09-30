@@ -15,7 +15,7 @@ from sqlalchemy import (
     Uuid,
     text,
 )
-from sqlalchemy.dialects.postgresql import ExcludeConstraint, TSTZRANGE
+from sqlalchemy.dialects.postgresql import TSTZRANGE, ExcludeConstraint
 from sqlalchemy.dialects.postgresql.ranges import Range
 from sqlalchemy.orm import Mapped, mapped_column
 

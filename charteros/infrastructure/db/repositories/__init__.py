@@ -1,10 +1,10 @@
 from charteros.infrastructure.db.repositories.bookings import SqlAlchemyBookingRepository
+from charteros.infrastructure.db.repositories.buyer_portal import (
+    SqlAlchemyBuyerProcurementAuditRepository,
+)
 from charteros.infrastructure.db.repositories.capacity import (
     SqlAlchemyAircraftCapacityReservationRepository,
     SqlAlchemyCapacityReferenceRepository,
-)
-from charteros.infrastructure.db.repositories.buyer_portal import (
-    SqlAlchemyBuyerProcurementAuditRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import (
     SqlAlchemyAircraftRepository,
@@ -64,8 +64,8 @@ __all__ = [
     "SqlAlchemyAircraftTypeRepository",
     "SqlAlchemyAirportRepository",
     "SqlAlchemyBookingRepository",
-    "SqlAlchemyCapacityReferenceRepository",
     "SqlAlchemyBuyerProcurementAuditRepository",
+    "SqlAlchemyCapacityReferenceRepository",
     "SqlAlchemyContractRepository",
     "SqlAlchemyDecisionEvidenceRepository",
     "SqlAlchemyDisruptionRepository",
