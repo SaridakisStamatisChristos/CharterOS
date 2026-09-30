@@ -8,6 +8,8 @@ from charteros.matching import MatchingCandidateSnapshot
 
 
 class MatchingSnapshotRepository(Protocol):
+    def lock_aircraft_and_operator(self, aircraft_id: AircraftId) -> None: ...
+
     def load_candidates(
         self,
         *,
