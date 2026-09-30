@@ -98,6 +98,9 @@ jobs:
       - name: Tests
         run: uv run pytest
 
+      - name: Reposition solver benchmark
+        run: uv run python tools/benchmark_reposition_solver.py
+
       - name: App boot smoke
         run: uv run python tools/app_boot_smoke.py
 
