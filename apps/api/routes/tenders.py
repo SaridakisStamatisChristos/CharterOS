@@ -60,6 +60,7 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.infrastructure.db.transactions import run_transaction
 from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["tenders"])
@@ -806,8 +807,22 @@ def award_tender(
             booking=booking_response(booking),
         )
 
-    with session.begin():
-        return _run_idempotent(
+    def reconcile() -> TenderAwardResponse | None:
+        idempotency = SqlAlchemyIdempotencyRepository(session)
+        idempotency.lock(scope, idempotency_key)
+        stored = _stored_response(
+            idempotency,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+        )
+        if stored is None:
+            return None
+        return TenderAwardResponse.model_validate(stored.response_body)
+
+    return run_transaction(
+        session,
+        lambda: _run_idempotent(
             session=session,
             scope=scope,
             key=idempotency_key,
@@ -815,7 +830,9 @@ def award_tender(
             success_status=status.HTTP_200_OK,
             response_type=TenderAwardResponse,
             action=action,
-        )
+        ),
+        reconcile_ambiguous=reconcile,
+    )
 
 
 @router.post(
