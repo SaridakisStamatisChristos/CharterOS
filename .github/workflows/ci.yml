@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -42,8 +42,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          ref: hardening/pr30-security-ops
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -62,18 +60,8 @@ jobs:
           sudo install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv
           uv --version
 
-      - name: Bootstrap dependency lock
-        shell: bash
-        run: |
-          set -euo pipefail
-          uv lock
-          if [ -n "$(git status --porcelain -- uv.lock)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add uv.lock
-            git commit -m "PR30: lock resolved dependencies"
-            git push origin HEAD:hardening/pr30-security-ops
-          fi
+      - name: Verify dependency lock
+        run: uv lock --check
 
       - name: Sync frozen environment
         run: uv sync --frozen --extra dev
@@ -167,11 +155,3 @@ jobs:
           print(f"SBOM components: {len(document['components'])}")
           PY
 
-      - name: Verify dependency lock is committed
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -n "$(git status --porcelain -- uv.lock)" ]; then
-            echo "uv.lock is missing or stale; commit the resolver output."
-            exit 1
-          fi
