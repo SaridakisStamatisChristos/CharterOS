@@ -35,7 +35,11 @@ def _stable_distance_nm(value: float) -> Decimal:
 def _round_stable_distance_tenths_nm(stable_nm: Decimal) -> int:
     if stable_nm < 0:
         raise DomainValidationError("distance cannot be negative")
-    return _round_stable_distance_tenths_nm(stable_nm)
+    rounded_tenths = (stable_nm / _DISTANCE_TENTH_NM).quantize(
+        Decimal("1"),
+        rounding=ROUND_HALF_UP,
+    )
+    return int(rounded_tenths)
 
 
 def haversine_distance_tenths_nm(
@@ -86,8 +90,4 @@ def haversine_distance_tenths_nm(
     haversine = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     raw_distance_nm = 2 * EARTH_RADIUS_NM * asin(min(1.0, sqrt(haversine)))
     stable_nm = _stable_distance_nm(raw_distance_nm)
-    rounded_tenths = (stable_nm / _DISTANCE_TENTH_NM).quantize(
-        Decimal("1"),
-        rounding=ROUND_HALF_UP,
-    )
-    return int(rounded_tenths)
+    return _round_stable_distance_tenths_nm(stable_nm)
