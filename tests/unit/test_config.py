@@ -24,7 +24,7 @@ def test_settings_accept_valid_environment(monkeypatch: pytest.MonkeyPatch) -> N
     assert settings.api_max_request_body_bytes == 1_048_576
     assert settings.api_max_json_depth == 32
     assert settings.api_rate_limit_window_seconds == 60
-    assert settings.idempotency_retention_days == 30
+    assert settings.idempotency_retention_days == 90
 
 
 def test_database_pool_bounds_are_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
