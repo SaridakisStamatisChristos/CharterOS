@@ -10,7 +10,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
-from charteros.shared.clock import Clock
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -49,9 +48,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyRfqRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["financial-reconciliation"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 OperatorIdDep = Annotated[UUID, Header(alias="X-Operator-Id")]
@@ -336,7 +337,8 @@ def open_reconciliation(
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> FinancialReconciliationResponse:
+    clock: ClockDep,
+) -> FinancialReconciliationResponse:
     scope = f"POST:/v1/bookings/{booking_id}/reconciliation:operator:{operator_id}"
     request_hash = canonical_request_hash({})
     with session.begin():
@@ -419,7 +421,8 @@ def submit_invoice(
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> OperatorInvoiceResponse:
+    clock: ClockDep,
+) -> OperatorInvoiceResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/invoices:operator:{operator_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -502,7 +505,8 @@ def dispute_invoice(
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> DisputeResponse:
+    clock: ClockDep,
+) -> DisputeResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/disputes:buyer:{buyer_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -549,7 +553,8 @@ def approve_variance(
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> VarianceApprovalResponse:
+    clock: ClockDep,
+) -> VarianceApprovalResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/variance-approvals:buyer:{buyer_id}"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -599,7 +604,8 @@ def complete_reconciliation(
     operator_id: OperatorIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> FinancialReconciliationResponse:
+    clock: ClockDep,
+) -> FinancialReconciliationResponse:
     scope = f"POST:/v1/reconciliations/{reconciliation_id}/complete:operator:{operator_id}"
     request_hash = canonical_request_hash({})
     with session.begin():
