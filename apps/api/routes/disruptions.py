@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.capacity import AircraftCapacityPolicy
 from charteros.application.disruptions import DisruptionPartyContext, DisruptionService
-from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.exceptions import EntityConflictError
+from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.idempotency import (
     IdempotencyRepository,
     StoredResponse,
@@ -54,7 +54,6 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyQuoteRepository,
     SqlAlchemyRfqRepository,
 )
-from charteros.infrastructure.db.repositories.fleet import SqlAlchemyFleetTimelineRepository
 from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["disruptions"])
@@ -242,7 +241,6 @@ def _service(session: Session) -> DisruptionService:
         organizations=SqlAlchemyOrganizationRepository(session),
         operators=SqlAlchemyOperatorRepository(session),
         aircraft=aircraft,
-        fleet_timeline=SqlAlchemyFleetTimelineRepository(session),
         feasibility=feasibility,
         capacity_policy=capacity_policy,
         capacity_reservations=SqlAlchemyAircraftCapacityReservationRepository(session),
