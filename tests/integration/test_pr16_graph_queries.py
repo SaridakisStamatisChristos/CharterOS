@@ -8,7 +8,8 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete
+from sqlalchemy import delete, text
+from sqlalchemy.orm import Session
 
 from apps.api.main import create_app
 from charteros.application.graph_queries import GraphQueryService
@@ -38,6 +39,47 @@ def _settings() -> Settings:
     if not database_url:
         pytest.skip("CHARTEROS_DATABASE_URL is required")
     return Settings(environment="test", database_url=database_url, _env_file=None)
+
+
+def _purge_synthetic_quote_outbox_stream(session: Session, *, quote_id: UUID) -> None:
+    # Test-only owner cleanup. Production runtime cannot disable these ALWAYS triggers.
+    session.execute(
+        text("ALTER TABLE evidence_integrity_entries DISABLE TRIGGER trg_ei_entries_append_only")
+    )
+    try:
+        session.execute(
+            text(
+                """
+                DELETE FROM evidence_integrity_entries
+                WHERE stream_key IN (
+                    SELECT stream_key
+                    FROM evidence_integrity_entries
+                    WHERE source_table = 'outbox_events'
+                      AND canonical_payload ->> 'aggregate_type' = 'quote'
+                      AND canonical_payload ->> 'aggregate_id' = :quote_id
+                )
+                """
+            ),
+            {"quote_id": str(quote_id)},
+        )
+    finally:
+        session.execute(
+            text(
+                "ALTER TABLE evidence_integrity_entries "
+                "ENABLE ALWAYS TRIGGER trg_ei_entries_append_only"
+            )
+        )
+
+    session.execute(text("ALTER TABLE outbox_events DISABLE TRIGGER trg_ei_outbox_guard"))
+    try:
+        session.execute(
+            delete(OutboxEventRow).where(
+                OutboxEventRow.aggregate_type == "quote",
+                OutboxEventRow.aggregate_id == quote_id,
+            )
+        )
+    finally:
+        session.execute(text("ALTER TABLE outbox_events ENABLE ALWAYS TRIGGER trg_ei_outbox_guard"))
 
 
 def _node(
@@ -532,12 +574,7 @@ def test_pr16_graph_queries_are_bounded_bitemporal_and_lineage_preserving() -> N
             assert lineage.lineage_status == "planned_route_only"
     finally:
         with factory.begin() as session:
-            session.execute(
-                delete(OutboxEventRow).where(
-                    OutboxEventRow.aggregate_type == "quote",
-                    OutboxEventRow.aggregate_id == quote_v2,
-                )
-            )
+            _purge_synthetic_quote_outbox_stream(session, quote_id=quote_v2)
             session.execute(
                 delete(GraphEdgeRow).where(
                     GraphEdgeRow.projection_name == "charter_graph",

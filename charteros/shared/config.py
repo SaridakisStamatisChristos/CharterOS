@@ -31,6 +31,10 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://charteros:charteros@localhost:5432/charteros",
         min_length=1,
     )
+    database_runtime_role: str | None = Field(
+        default=None,
+        pattern=r"^[A-Za-z_][A-Za-z0-9_]{0,62}$",
+    )
     api_host: str = Field(default="0.0.0.0", min_length=1)
     api_port: int = Field(default=8000, ge=1, le=65535)
     auth_issuer: str | None = None

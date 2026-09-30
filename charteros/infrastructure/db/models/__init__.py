@@ -18,6 +18,10 @@ def load_models() -> None:
         DisruptionRow,
     )
     from charteros.infrastructure.db.models.evidence import DecisionEvidenceSnapshotRow
+    from charteros.infrastructure.db.models.evidence_integrity import (
+        EvidenceIntegrityCheckpointRow,
+        EvidenceIntegrityEntryRow,
+    )
     from charteros.infrastructure.db.models.fleet import (
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
@@ -62,6 +66,8 @@ def load_models() -> None:
         DisruptionProposalRow,
         DisruptionRow,
         DecisionEvidenceSnapshotRow,
+        EvidenceIntegrityCheckpointRow,
+        EvidenceIntegrityEntryRow,
         FinancialReconciliationRow,
         FxLockConversionRow,
         FxLockRow,
