@@ -196,6 +196,10 @@ class ReplacementProposal:
                 "replacement feasibility evidence must be complete when present"
             )
         if has_feasibility:
+            assert self.feasibility_known_as_of is not None
+            assert self.position_event_time is not None
+            assert self.position_recorded_at is not None
+            assert self.reference_profile_recorded_at is not None
             policy_version = _required_text(
                 self.feasibility_policy_version or "",
                 field_name="feasibility_policy_version",
