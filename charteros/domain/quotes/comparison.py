@@ -133,8 +133,12 @@ def score_comparison_drafts(
             )
             eligible_scored: list[ScoredComparison] = []
             for draft in eligible:
-                assert draft.reposition_distance_tenths_nm is not None
-                assert draft.schedule_risk_basis_points is not None
+                reposition_distance = draft.reposition_distance_tenths_nm
+                schedule_risk = draft.schedule_risk_basis_points
+                if reposition_distance is None or schedule_risk is None:
+                    raise DomainValidationError(
+                        "eligible comparison draft requires complete scoring metrics"
+                    )
                 expected_points = _relative_points(
                     draft.expected_total.amount_minor,
                     expected_values,
@@ -146,12 +150,12 @@ def score_comparison_drafts(
                     weight=WORST_CASE_TOTAL_WEIGHT,
                 )
                 reposition_points = _relative_points(
-                    draft.reposition_distance_tenths_nm,
+                    reposition_distance,
                     reposition_values,
                     weight=REPOSITION_WEIGHT,
                 )
                 risk_points = _relative_points(
-                    draft.schedule_risk_basis_points,
+                    schedule_risk,
                     risk_values,
                     weight=OPERATIONAL_RISK_WEIGHT,
                 )
