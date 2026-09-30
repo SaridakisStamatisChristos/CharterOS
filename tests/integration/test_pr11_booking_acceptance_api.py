@@ -8,6 +8,13 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
+
+from charteros.application.bookings import BookingService
+from charteros.domain.bookings import Booking
+from charteros.domain.quotes import QuoteId
+from charteros.domain.shared.ids import CorrelationId
+from charteros.domain.tenders import TenderId
 
 from apps.api.main import create_app
 from charteros.shared.config import Settings
@@ -487,5 +494,247 @@ def test_concurrent_acceptance_of_two_quotes_produces_exactly_one_booking() -> N
                 {"mission_id": UUID(mission_id)},
             ).scalar_one()
             assert accepted == rejected == 1
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_pr43_failure_after_award_staging_rolls_back_every_authoritative_effect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = _settings()
+    original = BookingService.accept_quote
+
+    def fail_after_staging(
+        service: BookingService,
+        *,
+        quote_id: QuoteId,
+        now: datetime,
+        correlation_id: CorrelationId,
+        tender_id: TenderId | None = None,
+    ) -> Booking:
+        original(
+            service,
+            quote_id=quote_id,
+            now=now,
+            correlation_id=correlation_id,
+            tender_id=tender_id,
+        )
+        raise SQLAlchemyError("synthetic pre-commit infrastructure failure")
+
+    monkeypatch.setattr(BookingService, "accept_quote", fail_after_staging)
+
+    with TestClient(create_app(settings)) as client:
+        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="P43FA")
+        response = client.post(
+            f"/v1/quotes/{quote_id}/accept",
+            headers={"Idempotency-Key": "pr43-fail-after-staging"},
+        )
+        assert response.status_code == 503
+        assert response.json() == {"detail": "temporarily_unavailable"}
+        assert client.get(f"/v1/quotes/{quote_id}").json()["status"] == "submitted"
+        assert client.get(f"/v1/missions/{mission_id}").json()["status"] == "sourcing"
+
+    engine = create_engine(settings.database_url)
+    try:
+        with engine.connect() as connection:
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM bookings WHERE mission_id = :mission_id"),
+                    {"mission_id": UUID(mission_id)},
+                ).scalar_one()
+                == 0
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM aircraft_capacity_reservations "
+                        "WHERE mission_id = :mission_id"
+                    ),
+                    {"mission_id": UUID(mission_id)},
+                ).scalar_one()
+                == 0
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM decision_evidence_snapshots "
+                        "WHERE decision_type = 'award_commit' AND subject_id = :mission_id"
+                    ),
+                    {"mission_id": UUID(mission_id)},
+                ).scalar_one()
+                == 0
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM outbox_events "
+                        "WHERE event_type IN "
+                        "('QUOTE_ACCEPTED','QUOTE_REJECTED','MISSION_SELECTED',"
+                        "'BOOKING_CREATED','AIRCRAFT_CAPACITY_RESERVED') "
+                        "AND recorded_at >= now() - interval '10 minutes'"
+                    )
+                ).scalar_one()
+                == 0
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM idempotency_records "
+                        "WHERE scope = :scope AND key = :key"
+                    ),
+                    {
+                        "scope": f"POST:/v1/quotes/{quote_id}/accept",
+                        "key": "pr43-fail-after-staging",
+                    },
+                ).scalar_one()
+                == 0
+            )
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_pr43_lost_response_after_commit_replays_one_canonical_award() -> None:
+    settings = _settings()
+    with TestClient(create_app(settings)) as client:
+        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="P43LR")
+        key = "pr43-lost-response"
+
+        committed = client.post(
+            f"/v1/quotes/{quote_id}/accept",
+            headers={"Idempotency-Key": key},
+        )
+        assert committed.status_code == 201
+        canonical = committed.json()
+
+        # Treat the first HTTP body as if it never reached the caller. The retry must recover the
+        # already committed response from the transactionally stored idempotency record.
+        replay = client.post(
+            f"/v1/quotes/{quote_id}/accept",
+            headers={"Idempotency-Key": key},
+        )
+        assert replay.status_code == 201
+        assert replay.json() == canonical
+
+    engine = create_engine(settings.database_url)
+    try:
+        with engine.connect() as connection:
+            reservation_id = connection.execute(
+                text(
+                    "SELECT id FROM aircraft_capacity_reservations "
+                    "WHERE mission_id = :mission_id"
+                ),
+                {"mission_id": UUID(mission_id)},
+            ).scalar_one()
+            booking_id = UUID(canonical["id"])
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM bookings WHERE mission_id = :mission_id"),
+                    {"mission_id": UUID(mission_id)},
+                ).scalar_one()
+                == 1
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM aircraft_capacity_reservations "
+                        "WHERE mission_id = :mission_id"
+                    ),
+                    {"mission_id": UUID(mission_id)},
+                ).scalar_one()
+                == 1
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM decision_evidence_snapshots "
+                        "WHERE decision_type = 'award_commit' AND subject_id = :mission_id"
+                    ),
+                    {"mission_id": UUID(mission_id)},
+                ).scalar_one()
+                == 1
+            )
+            for aggregate_id, event_type in (
+                (UUID(quote_id), "QUOTE_ACCEPTED"),
+                (UUID(mission_id), "MISSION_SELECTED"),
+                (booking_id, "BOOKING_CREATED"),
+                (reservation_id, "AIRCRAFT_CAPACITY_RESERVED"),
+            ):
+                assert (
+                    connection.execute(
+                        text(
+                            "SELECT count(*) FROM outbox_events "
+                            "WHERE aggregate_id = :aggregate_id AND event_type = :event_type"
+                        ),
+                        {"aggregate_id": aggregate_id, "event_type": event_type},
+                    ).scalar_one()
+                    == 1
+                )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM idempotency_records "
+                        "WHERE scope = :scope AND key = :key"
+                    ),
+                    {
+                        "scope": f"POST:/v1/quotes/{quote_id}/accept",
+                        "key": key,
+                    },
+                ).scalar_one()
+                == 1
+            )
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.concurrency
+def test_pr43_simultaneous_identical_award_requests_converge_on_one_result() -> None:
+    settings = _settings()
+    with TestClient(create_app(settings)) as client:
+        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="P43DU")
+        barrier = Barrier(2)
+        key = "pr43-concurrent-duplicate"
+
+        def award() -> tuple[int, dict[str, object]]:
+            barrier.wait()
+            response = client.post(
+                f"/v1/quotes/{quote_id}/accept",
+                headers={"Idempotency-Key": key},
+            )
+            return int(response.status_code), response.json()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first = executor.submit(award)
+            second = executor.submit(award)
+            results = (first.result(), second.result())
+
+        assert [item[0] for item in results] == [201, 201]
+        assert results[0][1] == results[1][1]
+
+    engine = create_engine(settings.database_url)
+    try:
+        with engine.connect() as connection:
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM bookings WHERE mission_id = :mission_id"),
+                    {"mission_id": UUID(mission_id)},
+                ).scalar_one()
+                == 1
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM idempotency_records "
+                        "WHERE scope = :scope AND key = :key"
+                    ),
+                    {
+                        "scope": f"POST:/v1/quotes/{quote_id}/accept",
+                        "key": key,
+                    },
+                ).scalar_one()
+                == 1
+            )
     finally:
         engine.dispose()
