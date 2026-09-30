@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
@@ -68,6 +69,7 @@ class CatalogService:
         trading_name: str | None,
         country: str,
         status: OrganizationStatus,
+        recorded_at: datetime,
         correlation_id: CorrelationId,
     ) -> Organization:
         organization = Organization.create(
@@ -76,6 +78,7 @@ class CatalogService:
             trading_name=trading_name,
             country=country,
             status=status,
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
         self._organizations.add(organization)
@@ -92,6 +95,7 @@ class CatalogService:
         insurance_status: InsuranceStatus,
         safety_documents: tuple[str, ...],
         commercial_status: CommercialStatus,
+        recorded_at: datetime,
         correlation_id: CorrelationId,
     ) -> Operator:
         organization = self._organizations.get(organization_id)
@@ -110,6 +114,7 @@ class CatalogService:
             insurance_status=insurance_status,
             safety_documents=safety_documents,
             commercial_status=commercial_status,
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
         self._operators.add(operator)
@@ -127,6 +132,7 @@ class CatalogService:
         runway_metadata: dict[str, object],
         curfew_metadata: dict[str, object],
         operational_flags: tuple[str, ...],
+        recorded_at: datetime,
         correlation_id: CorrelationId,
     ) -> Airport:
         airport = Airport.create(
@@ -138,6 +144,7 @@ class CatalogService:
             runway_metadata=runway_metadata,
             curfew_metadata=curfew_metadata,
             operational_flags=operational_flags,
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
         self._airports.add(airport)
@@ -155,6 +162,7 @@ class CatalogService:
         range_nm: int,
         home_base_id: AirportId,
         status: AircraftStatus,
+        recorded_at: datetime,
         correlation_id: CorrelationId,
     ) -> tuple[Aircraft, AircraftType]:
         if self._operators.get(operator_id) is None:
@@ -199,6 +207,7 @@ class CatalogService:
             range_nm=range_nm,
             home_base_id=home_base_id,
             status=status,
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
         self._aircraft.add(aircraft)

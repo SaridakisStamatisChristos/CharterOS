@@ -27,6 +27,7 @@ def test_valid_mission_inputs_preserve_passenger_count_and_half_open_window(
         destination_airport_id=AirportId(uuid4()),
         departure_window=TimeRange(start, end),
         passenger_count=passenger_count,
+        recorded_at=start,
     )
 
     assert mission.passenger_count == passenger_count

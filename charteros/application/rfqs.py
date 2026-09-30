@@ -87,7 +87,7 @@ class RfqService:
 
         if mission.status is MissionStatus.OPEN:
             expected_mission_version = mission.version
-            mission.start_sourcing(correlation_id=correlation_id)
+            mission.start_sourcing(recorded_at=issued_at, correlation_id=correlation_id)
             self._missions.save(mission, expected_version=expected_mission_version)
             self._events.add_aggregate_events(mission)
 

@@ -213,6 +213,31 @@ commit.
 The endpoint continues to expose bounded limits for structural empty legs and quoted future
 opportunities.
 
+### Validated capacity envelope
+
+The currently validated optimizer capacity envelope is:
+
+- maximum structural empty legs: **100**;
+- maximum quoted future legs: **2,000**;
+- maximum dense candidate edges: approximately **200,000**.
+
+The `reposition-v2` canonical final tie-break uses mixed-radix lexicographic encoding. Its integer
+width grows approximately with:
+
+```text
+(R + 1)^L
+```
+
+where `L` is the structural empty-leg count and `R` is the right-side Mission count. The current
+`L <= 100` limit is therefore part of the validated performance contract. A workload above 100
+structural empty legs is **unvalidated**, not mathematically invalid or inherently unsafe.
+
+Increasing `MAX_STRUCTURAL_EMPTY_LEGS` requires fresh benchmark evidence before merge. At minimum,
+the change must report left nodes, right nodes, candidate edges, solver time, total time, peak
+memory, and target hardware/CI environment, and it must reconfirm that the database transaction is
+closed before optimization begins. The existing PR32 benchmark remains the performance evidence
+mechanism; CI must not add a flaky wall-clock threshold tied to hosted-runner timing.
+
 ### Determinism and evidence
 
 The optimizer is deterministic for the same:

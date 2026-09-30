@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
@@ -48,13 +48,11 @@ class FleetTimelineService:
         airports: AirportRepository,
         timeline: FleetTimelineRepository,
         events: DomainEventRepository,
-        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._aircraft = aircraft
         self._airports = airports
         self._timeline = timeline
         self._events = events
-        self._clock = clock or (lambda: datetime.now(UTC))
 
     def record_position(
         self,
@@ -64,6 +62,7 @@ class FleetTimelineService:
         latitude: Decimal | None,
         longitude: Decimal | None,
         event_time: datetime,
+        recorded_at: datetime,
         source: str,
         provenance: Mapping[str, object] | None,
         correlation_id: CorrelationId,
@@ -75,14 +74,14 @@ class FleetTimelineService:
             raise EntityNotFoundError("position airport does not exist")
 
         expected_version = aircraft.version
-        recorded_at = ensure_utc(self._clock(), field_name="recorded_at")
+        recorded = ensure_utc(recorded_at, field_name="recorded_at")
         observation = AircraftPositionObservation.create(
             aircraft_id=aircraft_id,
             airport_id=airport_id,
             latitude=latitude,
             longitude=longitude,
             event_time=event_time,
-            recorded_at=recorded_at,
+            recorded_at=recorded,
             source=source,
             provenance=provenance,
         )
@@ -103,6 +102,7 @@ class FleetTimelineService:
         reason: str | None,
         provenance: Mapping[str, object] | None,
         supersedes_id: AvailabilityRecordId | None,
+        recorded_at: datetime,
         correlation_id: CorrelationId,
     ) -> tuple[AircraftAvailabilityRecord, int]:
         aircraft = self._aircraft.get_for_update(aircraft_id)
@@ -110,13 +110,13 @@ class FleetTimelineService:
             raise EntityNotFoundError("aircraft does not exist")
 
         expected_version = aircraft.version
-        recorded_at = ensure_utc(self._clock(), field_name="recorded_at")
+        recorded = ensure_utc(recorded_at, field_name="recorded_at")
         record = AircraftAvailabilityRecord.create(
             aircraft_id=aircraft_id,
             valid_from=valid_from,
             valid_to=valid_to,
             status=status,
-            recorded_at=recorded_at,
+            recorded_at=recorded,
             source=source,
             reason=reason,
             provenance=provenance,
@@ -147,7 +147,7 @@ class FleetTimelineService:
             )
 
         if superseded is not None:
-            self._timeline.mark_superseded(superseded.id, superseded_at=recorded_at)
+            self._timeline.mark_superseded(superseded.id, superseded_at=recorded)
         self._timeline.add_availability(record)
         aircraft.record_availability_change(record, correlation_id=correlation_id)
         self._aircraft.save_version(aircraft, expected_version=expected_version)

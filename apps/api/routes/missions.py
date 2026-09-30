@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -30,9 +30,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyMissionRepository,
     SqlAlchemyOrganizationRepository,
 )
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["missions"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -144,6 +146,7 @@ def create_mission(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> MissionResponse:
     scope = "POST:/v1/missions"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -176,6 +179,7 @@ def create_mission(
             passenger_count=body.passenger_count,
             max_budget=budget,
             special_requirements=tuple(body.special_requirements),
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _response(mission)
@@ -200,6 +204,7 @@ def open_mission(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> MissionResponse:
     scope = f"POST:/v1/missions/{mission_id}/open"
     request_hash = canonical_request_hash({})
@@ -217,6 +222,7 @@ def open_mission(
 
         mission = _service(session).open_mission(
             mission_id=MissionId(mission_id),
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _response(mission)

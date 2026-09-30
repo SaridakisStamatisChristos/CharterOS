@@ -480,6 +480,7 @@ def create_aircraft(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> PortalAircraftResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/fleet"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -505,6 +506,7 @@ def create_aircraft(
             range_nm=body.range_nm,
             home_base_id=AirportId(body.home_base),
             status=body.status,
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         return _aircraft_response(
@@ -570,6 +572,7 @@ def record_aircraft_availability(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> AvailabilityResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/fleet/{aircraft_id}/availability"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -590,6 +593,7 @@ def record_aircraft_availability(
             supersedes_id=(
                 AvailabilityRecordId(body.supersedes_id) if body.supersedes_id is not None else None
             ),
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         return availability_response(record, aircraft_version=aircraft_version)

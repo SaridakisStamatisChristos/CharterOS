@@ -228,6 +228,7 @@ class FxRateObservation(AggregateRoot[FxRateId]):
             "FX_RATE_RECORDED",
             observation.event_payload(),
             correlation_id=correlation_id,
+            recorded_at=observation.recorded_at,
             occurred_at=observation.recorded_at,
         )
         return observation
@@ -265,6 +266,7 @@ class FxRateObservation(AggregateRoot[FxRateId]):
             "FX_RATE_CORRECTED",
             correction.event_payload(),
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
         return correction
@@ -441,6 +443,7 @@ class FxLock(AggregateRoot[FxLockId]):
             },
             actor_id=buyer_id,
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
         return lock
@@ -494,5 +497,6 @@ class FxLock(AggregateRoot[FxLockId]):
             },
             actor_id=self.buyer_id,
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )

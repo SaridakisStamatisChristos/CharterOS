@@ -22,6 +22,7 @@ def _mission() -> Mission:
         passenger_count=42,
         max_budget=Money(7_500_000, Currency("EUR")),
         special_requirements=(" Wheelchair assistance ", "wheelchair assistance", "Catering"),
+        recorded_at=start,
     )
 
 
@@ -37,14 +38,15 @@ def test_mission_creation_is_canonical_and_emits_event() -> None:
 def test_mission_open_is_explicit_and_monotonic() -> None:
     mission = _mission()
     mission.collect_events()
+    command_time = datetime(2026, 10, 1, 10, 1, tzinfo=UTC)
 
-    mission.open()
+    mission.open(recorded_at=command_time)
 
     assert mission.status is MissionStatus.OPEN
     assert mission.version == 2
     assert mission.pending_events[0].event_type == "MISSION_OPENED"
     with pytest.raises(DomainValidationError):
-        mission.open()
+        mission.open(recorded_at=command_time)
 
 
 def test_mission_rejects_invalid_route_passengers_and_budget() -> None:
@@ -59,6 +61,7 @@ def test_mission_rejects_invalid_route_passengers_and_budget() -> None:
             destination_airport_id=airport,
             departure_window=window,
             passenger_count=1,
+            recorded_at=start,
         )
 
     with pytest.raises(DomainValidationError):
@@ -68,6 +71,7 @@ def test_mission_rejects_invalid_route_passengers_and_budget() -> None:
             destination_airport_id=AirportId(uuid4()),
             departure_window=window,
             passenger_count=0,
+            recorded_at=start,
         )
 
     with pytest.raises(DomainValidationError):
@@ -78,4 +82,5 @@ def test_mission_rejects_invalid_route_passengers_and_budget() -> None:
             departure_window=window,
             passenger_count=1,
             max_budget=Money(0, Currency("EUR")),
+            recorded_at=start,
         )

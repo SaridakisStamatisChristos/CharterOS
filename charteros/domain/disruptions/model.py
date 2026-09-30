@@ -419,6 +419,7 @@ class Disruption(AggregateRoot[DisruptionId]):
             },
             actor_id=actor_id,
             correlation_id=correlation_id,
+            recorded_at=disruption.detected_at,
             occurred_at=disruption.detected_at,
         )
         return disruption
@@ -480,6 +481,7 @@ class Disruption(AggregateRoot[DisruptionId]):
             },
             actor_id=actor_id,
             correlation_id=correlation_id,
+            recorded_at=proposal.proposed_at,
             occurred_at=proposal.proposed_at,
         )
 
@@ -503,6 +505,7 @@ class Disruption(AggregateRoot[DisruptionId]):
             },
             actor_id=actor_id,
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -546,6 +549,7 @@ class Disruption(AggregateRoot[DisruptionId]):
             },
             actor_id=actor_id,
             correlation_id=correlation_id,
+            recorded_at=change.created_at,
             occurred_at=change.created_at,
         )
 
@@ -569,6 +573,7 @@ class Disruption(AggregateRoot[DisruptionId]):
             },
             actor_id=actor_id,
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -611,6 +616,7 @@ class Disruption(AggregateRoot[DisruptionId]):
             },
             actor_id=decision.buyer_id,
             correlation_id=correlation_id,
+            recorded_at=decision.decided_at,
             occurred_at=decision.decided_at,
         )
 
@@ -681,6 +687,7 @@ class Disruption(AggregateRoot[DisruptionId]):
             },
             actor_id=actor_id,
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 

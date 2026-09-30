@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_correlation_id, get_session
+from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.catalog import AircraftTypeSpec, CatalogService
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
@@ -39,9 +39,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyOperatorRepository,
     SqlAlchemyOrganizationRepository,
 )
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["catalog"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -195,6 +197,7 @@ def create_organization(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> OrganizationResponse:
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -215,6 +218,7 @@ def create_organization(
             trading_name=body.trading_name,
             country=body.country,
             status=body.status,
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = OrganizationResponse(
@@ -246,6 +250,7 @@ def create_operator(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> OperatorResponse:
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -268,6 +273,7 @@ def create_operator(
             insurance_status=body.insurance_status,
             safety_documents=tuple(body.safety_documents),
             commercial_status=body.commercial_status,
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = OperatorResponse(
@@ -301,6 +307,7 @@ def create_airport(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> AirportResponse:
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -324,6 +331,7 @@ def create_airport(
             runway_metadata=body.runway_metadata,
             curfew_metadata=body.curfew_metadata,
             operational_flags=tuple(body.operational_flags),
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = AirportResponse(
@@ -358,6 +366,7 @@ def create_aircraft(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> AircraftResponse:
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     type_spec = AircraftTypeSpec(
@@ -391,6 +400,7 @@ def create_aircraft(
             range_nm=body.range_nm,
             home_base_id=AirportId(body.home_base),
             status=body.status,
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = AircraftResponse(

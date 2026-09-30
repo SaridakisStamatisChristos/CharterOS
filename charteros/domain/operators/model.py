@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 
 from charteros.domain.organizations import OrganizationId
@@ -83,6 +84,7 @@ class Operator(AggregateRoot[OperatorId]):
         organization_id: OrganizationId,
         aoc_reference: str,
         operating_regions: tuple[str, ...],
+        recorded_at: datetime,
         verification_status: VerificationStatus = VerificationStatus.PENDING,
         insurance_status: InsuranceStatus = InsuranceStatus.UNKNOWN,
         safety_documents: tuple[str, ...] = (),
@@ -109,6 +111,7 @@ class Operator(AggregateRoot[OperatorId]):
                 "insurance_status": operator.insurance_status.value,
                 "commercial_status": operator.commercial_status.value,
             },
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
         return operator

@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from apps.api.dependencies import get_session
 from charteros.application.graph_queries import GraphQueryService
 from charteros.application.repositioning import (
+    MAX_QUOTED_FUTURE_LEGS,
+    MAX_STRUCTURAL_EMPTY_LEGS,
     RepositioningService,
     optimize_reposition_snapshot,
 )
@@ -30,8 +32,8 @@ from charteros.repositioning import (
 
 router = APIRouter(prefix="/v1/optimization", tags=["repositioning"])
 SessionDep = Annotated[Session, Depends(get_session)]
-EmptyLegLimit = Annotated[int, Query(ge=1, le=100)]
-OpportunityLimit = Annotated[int, Query(ge=1, le=2000)]
+EmptyLegLimit = Annotated[int, Query(ge=1, le=MAX_STRUCTURAL_EMPTY_LEGS)]
+OpportunityLimit = Annotated[int, Query(ge=1, le=MAX_QUOTED_FUTURE_LEGS)]
 
 
 class RepositionAssignmentResponse(BaseModel):
@@ -181,8 +183,8 @@ def optimize_repositioning(
     window_start: datetime,
     window_end: datetime,
     evaluated_at: datetime,
-    empty_leg_limit: EmptyLegLimit = 100,
-    opportunity_limit: OpportunityLimit = 2000,
+    empty_leg_limit: EmptyLegLimit = MAX_STRUCTURAL_EMPTY_LEGS,
+    opportunity_limit: OpportunityLimit = MAX_QUOTED_FUTURE_LEGS,
 ) -> RepositionOptimizationResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))

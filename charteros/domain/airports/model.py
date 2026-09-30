@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -78,6 +79,7 @@ class Airport(AggregateRoot[AirportId]):
         timezone: str,
         runway_metadata: dict[str, object] | None = None,
         curfew_metadata: dict[str, object] | None = None,
+        recorded_at: datetime,
         operational_flags: tuple[str, ...] = (),
         correlation_id: CorrelationId | None = None,
     ) -> Airport:
@@ -99,6 +101,7 @@ class Airport(AggregateRoot[AirportId]):
                 "iata": airport.iata,
                 "timezone": airport.timezone,
             },
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
         return airport

@@ -282,6 +282,7 @@ class Tender(AggregateRoot[TenderId]):
                 "deadline_at": tender.deadline_at.isoformat().replace("+00:00", "Z"),
             },
             correlation_id=correlation_id,
+            recorded_at=tender.created_at,
             occurred_at=tender.created_at,
         )
         return tender
@@ -304,6 +305,7 @@ class Tender(AggregateRoot[TenderId]):
             "TENDER_OPENED",
             {"opened_at": when.isoformat().replace("+00:00", "Z")},
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -328,6 +330,7 @@ class Tender(AggregateRoot[TenderId]):
                 "rfq_id": str(rfq_id),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -351,6 +354,7 @@ class Tender(AggregateRoot[TenderId]):
                 "operator_id": str(operator_id),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -383,6 +387,7 @@ class Tender(AggregateRoot[TenderId]):
                 "revision_number": revision_number,
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -407,6 +412,7 @@ class Tender(AggregateRoot[TenderId]):
                 "quote_id": str(quote_id),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -426,6 +432,7 @@ class Tender(AggregateRoot[TenderId]):
             "TENDER_BEST_AND_FINAL_REQUESTED",
             {"requested_at": when.isoformat().replace("+00:00", "Z")},
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -446,6 +453,7 @@ class Tender(AggregateRoot[TenderId]):
             "TENDER_CLOSED",
             {"closed_at": when.isoformat().replace("+00:00", "Z")},
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -473,6 +481,7 @@ class Tender(AggregateRoot[TenderId]):
             "TENDER_AWARDED",
             {"quote_id": str(quote_id), "booking_id": str(booking_id)},
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -502,6 +511,7 @@ class Tender(AggregateRoot[TenderId]):
             actor_id=correction.actor_id,
             correlation_id=correlation_id,
             causation_id=correction.causation_event_id,
+            recorded_at=correction.corrected_at,
             occurred_at=correction.corrected_at,
         )
 

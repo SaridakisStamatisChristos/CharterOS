@@ -126,9 +126,13 @@ class RepositioningService:
         if end - start > MAX_EMPTY_LEG_WINDOW:
             raise DomainValidationError("reposition optimization window cannot exceed 90 days")
         if not 1 <= empty_leg_limit <= MAX_STRUCTURAL_EMPTY_LEGS:
-            raise DomainValidationError("empty_leg_limit must be between 1 and 100")
+            raise DomainValidationError(
+                f"empty_leg_limit must be between 1 and {MAX_STRUCTURAL_EMPTY_LEGS}"
+            )
         if not 1 <= opportunity_limit <= MAX_QUOTED_FUTURE_LEGS:
-            raise DomainValidationError("opportunity_limit must be between 1 and 2000")
+            raise DomainValidationError(
+                f"opportunity_limit must be between 1 and {MAX_QUOTED_FUTURE_LEGS}"
+            )
 
         graph_items = self._graph.empty_leg_candidates(
             window_start=start,

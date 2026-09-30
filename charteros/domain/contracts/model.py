@@ -149,6 +149,7 @@ class Contract(AggregateRoot[ContractId]):
                 "status": contract.status.value,
             },
             correlation_id=correlation_id,
+            recorded_at=contract.created_at,
             occurred_at=contract.created_at,
         )
         return contract
@@ -170,6 +171,7 @@ class Contract(AggregateRoot[ContractId]):
                 "signed_at": self._iso(when),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
         self._advance_acceptance(when=when, correlation_id=correlation_id)
@@ -191,6 +193,7 @@ class Contract(AggregateRoot[ContractId]):
                 "signed_at": self._iso(when),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
         self._advance_acceptance(when=when, correlation_id=correlation_id)
@@ -213,6 +216,7 @@ class Contract(AggregateRoot[ContractId]):
                     "accepted_at": self._iso(self.accepted_at),
                 },
                 correlation_id=correlation_id,
+                recorded_at=when,
                 occurred_at=when,
             )
         else:

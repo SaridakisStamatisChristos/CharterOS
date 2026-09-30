@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.application.ports import (
     AirportRepository,
@@ -39,6 +41,7 @@ class MissionService:
         passenger_count: int,
         max_budget: Money | None,
         special_requirements: tuple[str, ...],
+        recorded_at: datetime,
         correlation_id: CorrelationId,
     ) -> Mission:
         buyer = self._organizations.get(buyer_id)
@@ -59,6 +62,7 @@ class MissionService:
             passenger_count=passenger_count,
             max_budget=max_budget,
             special_requirements=special_requirements,
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
         self._missions.add(mission)
@@ -71,7 +75,13 @@ class MissionService:
             raise EntityNotFoundError("mission does not exist")
         return mission
 
-    def open_mission(self, *, mission_id: MissionId, correlation_id: CorrelationId) -> Mission:
+    def open_mission(
+        self,
+        *,
+        mission_id: MissionId,
+        recorded_at: datetime,
+        correlation_id: CorrelationId,
+    ) -> Mission:
         mission = self._missions.get_for_update(mission_id)
         if mission is None:
             raise EntityNotFoundError("mission does not exist")
@@ -79,7 +89,7 @@ class MissionService:
             raise EntityConflictError("only draft missions can be opened")
 
         expected_version = mission.version
-        mission.open(correlation_id=correlation_id)
+        mission.open(recorded_at=recorded_at, correlation_id=correlation_id)
         self._missions.save(mission, expected_version=expected_version)
         self._events.add_aggregate_events(mission)
         return mission

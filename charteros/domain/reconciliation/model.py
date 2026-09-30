@@ -451,6 +451,7 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
             },
             actor_id=actor_id,
             correlation_id=correlation_id,
+            recorded_at=reconciliation.opened_at,
             occurred_at=reconciliation.opened_at,
         )
         return reconciliation
@@ -503,6 +504,7 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
             },
             actor_id=actor_id,
             correlation_id=correlation_id,
+            recorded_at=invoice.submitted_at,
             occurred_at=invoice.submitted_at,
         )
 
@@ -526,6 +528,7 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
             },
             actor_id=actor_id,
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -564,6 +567,7 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
             },
             actor_id=dispute.buyer_id,
             correlation_id=correlation_id,
+            recorded_at=dispute.opened_at,
             occurred_at=dispute.opened_at,
         )
 
@@ -619,6 +623,7 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
             },
             actor_id=approval.buyer_id,
             correlation_id=correlation_id,
+            recorded_at=approval.approved_at,
             occurred_at=approval.approved_at,
         )
 
@@ -682,6 +687,7 @@ class FinancialReconciliation(AggregateRoot[FinancialReconciliationId]):
             },
             actor_id=actor_id,
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
         return final_payable
