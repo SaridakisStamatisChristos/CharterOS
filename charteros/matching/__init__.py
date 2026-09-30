@@ -1,7 +1,7 @@
+from charteros.matching.distance import haversine_distance_tenths_nm
 from charteros.matching.policy import (
     evaluate_candidate,
     flight_minutes,
-    haversine_distance_tenths_nm,
     operating_cost_for_minutes,
     required_range_nm,
 )
