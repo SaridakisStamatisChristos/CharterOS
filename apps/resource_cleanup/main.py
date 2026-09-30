@@ -40,6 +40,7 @@ def cleanup_resource_state(
                 session
             ).delete_windows_older_than(
                 retention_seconds=settings.api_rate_limit_window_retention_seconds,
+                limit=settings.idempotency_cleanup_batch_size,
             )
         return CleanupResult(
             idempotency_deleted=idempotency_deleted,
