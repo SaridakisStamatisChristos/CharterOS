@@ -174,8 +174,10 @@ class BookingService:
         ):
             raise EntityConflictError("booking requires an accepted contract before contracting")
 
-        assert contract.accepted_at is not None
-        transitioned_at = max(requested_at, booking.state_changed_at, contract.accepted_at)
+        accepted_at = contract.accepted_at
+        if accepted_at is None:
+            raise EntityConflictError("booking requires an accepted contract before contracting")
+        transitioned_at = max(requested_at, booking.state_changed_at, accepted_at)
         mission = self._lock_mission(booking, expected_status=MissionStatus.SELECTED)
         expected_booking_version = booking.version
         expected_mission_version = mission.version

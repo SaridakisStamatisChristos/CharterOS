@@ -124,8 +124,10 @@ class RfqService:
         self._assert_tender_command(rfq.id, tender_command=tender_command)
         if rfq.status is not RfqStatus.SENT:
             raise EntityConflictError("only sent RFQs can be acknowledged")
-        assert rfq.response_deadline is not None
-        if when >= rfq.response_deadline:
+        response_deadline = rfq.response_deadline
+        if response_deadline is None:
+            raise EntityConflictError("RFQ response deadline is missing")
+        if when >= response_deadline:
             raise EntityConflictError("RFQ response deadline has passed")
         expected_version = rfq.version
         rfq.acknowledge(acknowledged_at=when, correlation_id=correlation_id)
@@ -147,8 +149,10 @@ class RfqService:
         self._assert_tender_command(rfq.id, tender_command=tender_command)
         if rfq.status not in (RfqStatus.SENT, RfqStatus.ACKNOWLEDGED):
             raise EntityConflictError("only sent or acknowledged RFQs can be declined")
-        assert rfq.response_deadline is not None
-        if when >= rfq.response_deadline:
+        response_deadline = rfq.response_deadline
+        if response_deadline is None:
+            raise EntityConflictError("RFQ response deadline is missing")
+        if when >= response_deadline:
             raise EntityConflictError("RFQ response deadline has passed")
         expected_version = rfq.version
         rfq.decline(
@@ -173,8 +177,10 @@ class RfqService:
         self._assert_tender_command(rfq.id, tender_command=tender_command)
         if rfq.status not in (RfqStatus.SENT, RfqStatus.ACKNOWLEDGED):
             raise EntityConflictError("only sent or acknowledged RFQs can expire")
-        assert rfq.response_deadline is not None
-        if when < rfq.response_deadline:
+        response_deadline = rfq.response_deadline
+        if response_deadline is None:
+            raise EntityConflictError("RFQ response deadline is missing")
+        if when < response_deadline:
             raise EntityConflictError("RFQ response deadline has not passed")
         expected_version = rfq.version
         rfq.expire(expired_at=when, correlation_id=correlation_id)

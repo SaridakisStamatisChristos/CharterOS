@@ -143,9 +143,10 @@ def evaluate_candidate(
     if rejection:
         return CandidateEvaluation(draft=None, rejection_reasons=tuple(rejection))
 
-    assert availability is not None
-    assert position is not None
-    assert profile is not None
+    if availability is None or position is None or profile is None:
+        raise DomainValidationError(
+            "accepted matching candidate is missing required decision inputs"
+        )
 
     reposition_distance = haversine_distance_tenths_nm(
         position.latitude,

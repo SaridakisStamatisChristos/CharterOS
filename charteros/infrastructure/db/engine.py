@@ -16,6 +16,7 @@ def build_engine(settings: Settings) -> Engine:
         connect_args=connect_args,
         pool_pre_ping=True,
         future=True,
+        hide_parameters=True,
     )
 
 

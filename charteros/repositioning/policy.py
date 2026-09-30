@@ -64,7 +64,11 @@ def evaluate_baseline(
         return BaselineEvaluation(baseline=None, reasons=reasons)
 
     profile = candidate.reference_profile
-    assert profile is not None
+    if profile is None:
+        return BaselineEvaluation(
+            baseline=None,
+            reasons=(RepositionReasonCode.NO_REFERENCE_PROFILE,),
+        )
     previous_revenue_distance = haversine_distance_tenths_nm(
         previous_origin_airport.latitude,
         previous_origin_airport.longitude,
@@ -132,7 +136,11 @@ def evaluate_insertion(
     continuity_airport: Airport,
 ) -> InsertionEvaluation:
     profile = candidate.reference_profile
-    assert profile is not None
+    if profile is None:
+        return InsertionEvaluation(
+            insertion=None,
+            reasons=(RepositionReasonCode.NO_REFERENCE_PROFILE,),
+        )
 
     if opportunity.passenger_count > candidate.seat_capacity:
         return InsertionEvaluation(

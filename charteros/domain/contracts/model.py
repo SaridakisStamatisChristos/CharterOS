@@ -247,11 +247,16 @@ class Contract(AggregateRoot[ContractId]):
                     "partially accepted contract has inconsistent acceptance timestamps"
                 )
         elif self.status is ContractStatus.ACCEPTED:
-            if signed_count != 2 or self.accepted_at is None:
+            buyer_signed_at = self.buyer_signed_at
+            operator_signed_at = self.operator_signed_at
+            if (
+                signed_count != 2
+                or self.accepted_at is None
+                or buyer_signed_at is None
+                or operator_signed_at is None
+            ):
                 raise DomainValidationError("accepted contract requires both signed timestamps")
-            assert self.buyer_signed_at is not None
-            assert self.operator_signed_at is not None
-            if self.accepted_at != max(self.buyer_signed_at, self.operator_signed_at):
+            if self.accepted_at != max(buyer_signed_at, operator_signed_at):
                 raise DomainValidationError(
                     "accepted_at must equal the later party acceptance timestamp"
                 )

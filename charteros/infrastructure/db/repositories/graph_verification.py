@@ -93,8 +93,11 @@ def verify_graph_projection(
             .where(OutboxConsumerReceiptRow.consumer_name == consumer_name(projection_version))
         )
         current = session.get(GraphProjectionVersionRow, (PROJECTION_NAME, projection_version))
-        assert current is not None
-        stored_digest = current.state_digest
+        if current is None:
+            issues.append("projection version row is missing")
+            stored_digest = None
+        else:
+            stored_digest = current.state_digest
         checkpoint_count = checkpoint.processed_event_count if checkpoint else -1
 
     event_count = len(events)
