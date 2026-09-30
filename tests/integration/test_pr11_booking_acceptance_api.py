@@ -598,7 +598,7 @@ def test_pr43_failure_after_award_staging_rolls_back_every_authoritative_effect(
 def test_pr43_lost_response_after_commit_replays_one_canonical_award() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="LR")
+        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="QZ")
         key = "pr43-lost-response"
 
         committed = client.post(
