@@ -232,3 +232,31 @@ def test_pr43_commit_success_with_lost_commit_response_reconciles_canonical_stat
             assert row.response_body == {"result": "canonical"}
     finally:
         engine.dispose()
+
+
+@pytest.mark.integration
+def test_pr43_statement_timeout_retries_are_bounded() -> None:
+    settings = _settings()
+    engine = build_engine(settings)
+    factory = build_session_factory(engine)
+    try:
+        with factory() as session:
+            attempts = 0
+
+            def action() -> None:
+                nonlocal attempts
+                attempts += 1
+                session.execute(text("SET LOCAL statement_timeout = '100ms'"))
+                session.execute(text("SELECT pg_sleep(1)"))
+
+            started = monotonic()
+            with pytest.raises(DatabaseTransactionError) as captured:
+                run_transaction(session, action)
+            elapsed = monotonic() - started
+
+        assert attempts == 2
+        assert captured.value.failure.kind is DatabaseFailureKind.SAFE_TRANSIENT
+        assert captured.value.failure.sqlstate == "57014"
+        assert elapsed < 2.0
+    finally:
+        engine.dispose()
