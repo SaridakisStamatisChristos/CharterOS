@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from uuid import UUID
 
 from charteros.domain.airports import AirportId
@@ -10,41 +9,6 @@ from charteros.repositioning.types import (
     FeasibleInsertion,
     RepositionAssignment,
 )
-
-
-@dataclass(slots=True)
-class _ResidualEdge:
-    to: int
-    reverse: int
-    capacity: int
-    cost: int
-    candidate_index: int | None = None
-
-
-def _add_edge(
-    graph: list[list[_ResidualEdge]],
-    source: int,
-    target: int,
-    capacity: int,
-    cost: int,
-    *,
-    candidate_index: int | None = None,
-) -> None:
-    forward = _ResidualEdge(
-        to=target,
-        reverse=len(graph[target]),
-        capacity=capacity,
-        cost=cost,
-        candidate_index=candidate_index,
-    )
-    reverse = _ResidualEdge(
-        to=source,
-        reverse=len(graph[source]),
-        capacity=0,
-        cost=-cost,
-    )
-    graph[source].append(forward)
-    graph[target].append(reverse)
 
 
 def _left_key(item: FeasibleInsertion) -> tuple[UUID, UUID, UUID]:
@@ -69,13 +33,118 @@ def _candidate_sort_key(item: FeasibleInsertion) -> tuple[object, ...]:
     )
 
 
+def _maximum_weight_assignment(
+    row_weights: list[dict[int, tuple[int, int]]],
+    *,
+    real_column_count: int,
+) -> tuple[int, ...]:
+    """Solve a deterministic rectangular maximum-weight assignment exactly.
+
+    Each row receives either one real column or one zero-weight dummy column. Missing real edges
+    have a positive minimization penalty, so an unmatched row always uses a dummy rather than
+    consuming a mission it cannot actually serve.
+
+    The implementation is the shortest-augmenting-path Hungarian algorithm. With PR18's hard
+    bounds (at most 100 structural gaps and 2,000 missions), its dense worst case is bounded by
+    O(L^2 * (R + L)) rather than repeatedly relaxing every residual edge.
+    """
+
+    row_count = len(row_weights)
+    if row_count == 0 or real_column_count == 0:
+        return ()
+
+    column_count = real_column_count + row_count
+    max_weight = max(
+        (
+            weight
+            for row in row_weights
+            for weight, _candidate_index in row.values()
+        ),
+        default=0,
+    )
+    infinity = (max_weight + 2) * (row_count + column_count + 2)
+
+    # Hungarian uses one-based row/column indexing. p[column] is the assigned row.
+    row_potential = [0] * (row_count + 1)
+    column_potential = [0] * (column_count + 1)
+    assigned_row = [0] * (column_count + 1)
+    predecessor_column = [0] * (column_count + 1)
+
+    for row_number in range(1, row_count + 1):
+        assigned_row[0] = row_number
+        minimum_reduced_cost = [infinity] * (column_count + 1)
+        used = [False] * (column_count + 1)
+        current_column = 0
+
+        while True:
+            used[current_column] = True
+            active_row = assigned_row[current_column]
+            weights = row_weights[active_row - 1]
+            delta = infinity
+            next_column = 0
+
+            for column_number in range(1, column_count + 1):
+                if used[column_number]:
+                    continue
+                zero_based_column = column_number - 1
+                if zero_based_column < real_column_count:
+                    candidate = weights.get(zero_based_column)
+                    # Dummy columns cost zero. Missing real edges cost +1 so they cannot steal a
+                    # mission from a feasible edge when an unmatched dummy is always available.
+                    cost = -candidate[0] if candidate is not None else 1
+                else:
+                    cost = 0
+
+                reduced_cost = (
+                    cost
+                    - row_potential[active_row]
+                    - column_potential[column_number]
+                )
+                if reduced_cost < minimum_reduced_cost[column_number]:
+                    minimum_reduced_cost[column_number] = reduced_cost
+                    predecessor_column[column_number] = current_column
+                if minimum_reduced_cost[column_number] < delta:
+                    delta = minimum_reduced_cost[column_number]
+                    next_column = column_number
+
+            for column_number in range(column_count + 1):
+                if used[column_number]:
+                    row_potential[assigned_row[column_number]] += delta
+                    column_potential[column_number] -= delta
+                else:
+                    minimum_reduced_cost[column_number] -= delta
+
+            current_column = next_column
+            if assigned_row[current_column] == 0:
+                break
+
+        while True:
+            previous_column = predecessor_column[current_column]
+            assigned_row[current_column] = assigned_row[previous_column]
+            current_column = previous_column
+            if current_column == 0:
+                break
+
+    selected: list[int] = []
+    for column_number in range(1, real_column_count + 1):
+        row_number = assigned_row[column_number]
+        if row_number == 0:
+            continue
+        candidate = row_weights[row_number - 1].get(column_number - 1)
+        if candidate is not None:
+            selected.append(candidate[1])
+    selected.sort()
+    return tuple(selected)
+
+
 def maximum_margin_matching(
     candidates: tuple[FeasibleInsertion, ...],
 ) -> tuple[FeasibleInsertion, ...]:
-    """Maximum-weight bipartite matching using deterministic min-cost flow.
+    """Return the exact deterministic maximum-margin bipartite assignment.
 
     Each structural empty-leg window can accept at most one future mission and each mission can be
-    assigned at most once. Only positive-margin candidates should be supplied.
+    assigned at most once. Margin remains the primary objective. The existing candidate-order tie
+    encoding remains strictly smaller than one minor unit of aggregate margin.
     """
 
     if not candidates:
@@ -94,82 +163,33 @@ def maximum_margin_matching(
     left_index = {key: index for index, key in enumerate(left_keys)}
     right_index = {key: index for index, key in enumerate(right_keys)}
 
-    source = 0
-    left_offset = 1
-    right_offset = left_offset + len(left_keys)
-    sink = right_offset + len(right_keys)
-    graph: list[list[_ResidualEdge]] = [[] for _ in range(sink + 1)]
-
-    for index in range(len(left_keys)):
-        _add_edge(graph, source, left_offset + index, 1, 0)
-    for index in range(len(right_keys)):
-        _add_edge(graph, right_offset + index, sink, 1, 0)
-
     max_assignments = min(len(left_keys), len(right_keys))
-    # One minor unit of margin must dominate the maximum possible aggregate tie penalty.
+    # Preserve PR18's objective encoding: one minor unit of margin dominates every possible
+    # aggregate candidate-order tie penalty.
     tie_scale = max_assignments * len(ordered) + 1
+    row_weights: list[dict[int, tuple[int, int]]] = [dict() for _ in left_keys]
+
     for candidate_index, item in enumerate(ordered):
         margin_minor = item.margin.amount_minor
         if margin_minor <= 0:
             continue
-        cost = -(margin_minor * tie_scale) + candidate_index
-        _add_edge(
-            graph,
-            left_offset + left_index[_left_key(item)],
-            right_offset + right_index[item.opportunity.mission_id.value],
-            1,
-            cost,
-            candidate_index=candidate_index,
-        )
+        row = left_index[_left_key(item)]
+        column = right_index[item.opportunity.mission_id.value]
+        encoded_weight = margin_minor * tie_scale - candidate_index
+        existing = row_weights[row].get(column)
+        if existing is None or encoded_weight > existing[0]:
+            # Parallel candidates for the same gap/mission pair are equivalent assignment edges;
+            # retaining only the best encoded edge preserves the exact objective.
+            row_weights[row][column] = (encoded_weight, candidate_index)
 
-    node_count = len(graph)
-    while True:
-        distance: list[int | None] = [None] * node_count
-        previous_node = [-1] * node_count
-        previous_edge = [-1] * node_count
-        distance[source] = 0
+    if not any(row_weights):
+        return ()
 
-        for _ in range(node_count - 1):
-            changed = False
-            for node, edges in enumerate(graph):
-                base = distance[node]
-                if base is None:
-                    continue
-                for edge_index, edge in enumerate(edges):
-                    if edge.capacity <= 0:
-                        continue
-                    proposal = base + edge.cost
-                    current = distance[edge.to]
-                    if current is None or proposal < current:
-                        distance[edge.to] = proposal
-                        previous_node[edge.to] = node
-                        previous_edge[edge.to] = edge_index
-                        changed = True
-            if not changed:
-                break
-
-        sink_distance = distance[sink]
-        if sink_distance is None or sink_distance >= 0:
-            break
-
-        node = sink
-        while node != source:
-            parent = previous_node[node]
-            edge_index = previous_edge[node]
-            if parent < 0 or edge_index < 0:
-                raise RuntimeError("min-cost flow predecessor chain is incomplete")
-            edge = graph[parent][edge_index]
-            edge.capacity -= 1
-            graph[node][edge.reverse].capacity += 1
-            node = parent
-
-    selected_indexes: set[int] = set()
-    for left_node in range(left_offset, right_offset):
-        for edge in graph[left_node]:
-            if edge.candidate_index is not None and edge.capacity == 0:
-                selected_indexes.add(edge.candidate_index)
-
-    return tuple(ordered[index] for index in sorted(selected_indexes))
+    selected_indexes = _maximum_weight_assignment(
+        row_weights,
+        real_column_count=len(right_keys),
+    )
+    return tuple(ordered[index] for index in selected_indexes)
 
 
 def to_assignment(item: FeasibleInsertion) -> RepositionAssignment:
