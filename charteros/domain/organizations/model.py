@@ -50,7 +50,6 @@ class Organization(AggregateRoot[OrganizationId]):
         organization_id: OrganizationId,
         *,
         organization_type: OrganizationType,
-        recorded_at: datetime,
         legal_name: str,
         trading_name: str | None,
         country: str,
@@ -74,6 +73,7 @@ class Organization(AggregateRoot[OrganizationId]):
         legal_name: str,
         trading_name: str | None,
         country: str,
+        recorded_at: datetime,
         status: OrganizationStatus = OrganizationStatus.ACTIVE,
         correlation_id: CorrelationId | None = None,
     ) -> Organization:
