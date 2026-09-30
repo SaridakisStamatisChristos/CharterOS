@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     auth_jwks_max_keys: int = Field(default=64, ge=1, le=512)
     auth_jwks_max_document_bytes: int = Field(default=262_144, ge=4096, le=4_194_304)
     auth_jwks_refresh_min_interval_seconds: float = Field(default=5.0, ge=0.1, le=300.0)
-    auth_jwks_unknown_key_ttl_seconds: float = Field(default=30.0, ge=1.0, le=3600.0)
+    auth_jwks_unknown_key_ttl_seconds: float = Field(default=5.0, ge=1.0, le=3600.0)
     auth_jwks_negative_cache_max_keys: int = Field(default=128, ge=1, le=2048)
     auth_http_timeout_seconds: float = Field(default=2.0, gt=0, le=30.0)
     auth_jwt_leeway_seconds: float = Field(default=0.0, ge=0, le=300.0)
