@@ -11,7 +11,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
-from charteros.shared.clock import Clock
 from charteros.application.buyer_portal import BuyerPortalService
 from charteros.application.evidence import (
     SUPPLIER_SELECTION_POLICY_VERSION,
@@ -74,9 +73,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyRfqRepository,
     SqlAlchemyTenderRepository,
 )
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1/buyer-portal", tags=["buyer-portal"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 BuyerIdDep = Annotated[UUID, Header(alias="X-Buyer-Id")]
@@ -687,7 +688,8 @@ def search_suppliers(
     known_as_of: KnownAsOf = None,
     limit: SupplierLimit = 20,
 
-    clock: Clock = Depends(get_clock),) -> SupplierSearchResponse:
+    clock: ClockDep,
+) -> SupplierSearchResponse:
     cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
@@ -757,7 +759,8 @@ def issue_rfqs(
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> BuyerRfqBatchResponse:
+    clock: ClockDep,
+) -> BuyerRfqBatchResponse:
     if len(set(body.operator_ids)) != len(body.operator_ids):
         raise DomainValidationError("operator_ids cannot contain duplicates")
 
@@ -869,7 +872,8 @@ def compare_quotes(
     session: SessionDep,
     buyer_id: BuyerIdDep,
 
-    clock: Clock = Depends(get_clock),) -> BuyerQuoteComparisonResponse:
+    clock: ClockDep,
+) -> BuyerQuoteComparisonResponse:
     evaluated_at = clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
@@ -899,7 +903,8 @@ def lock_fx_comparison(
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> BuyerQuoteComparisonResponse:
+    clock: ClockDep,
+) -> BuyerQuoteComparisonResponse:
     typed_buyer = OrganizationId(buyer_id)
     typed_mission = MissionId(mission_id)
     scope = f"POST:/v1/buyer-portal/missions/{mission_id}/quotes/compare/fx-locks:{buyer_id}"
@@ -957,7 +962,8 @@ def approve_quote(
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> ApprovalResponse:
+    clock: ClockDep,
+) -> ApprovalResponse:
     typed_buyer = OrganizationId(buyer_id)
     typed_mission = MissionId(mission_id)
     scope = f"POST:/v1/buyer-portal/missions/{mission_id}/quotes/{quote_id}/approve:{buyer_id}"
@@ -1062,7 +1068,8 @@ def award_approval(
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> AwardResponse:
+    clock: ClockDep,
+) -> AwardResponse:
     typed_buyer = OrganizationId(buyer_id)
     scope = f"POST:/v1/buyer-portal/approvals/{approval_id}/award:{buyer_id}"
     request_hash = canonical_request_hash({})
