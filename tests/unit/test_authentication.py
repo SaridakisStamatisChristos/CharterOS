@@ -7,11 +7,13 @@ from uuid import UUID
 
 import jwt
 import pytest
+import charteros.security.auth as auth_module
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.utils import base64url_encode
 
 from charteros.security.auth import (
     AuthenticationError,
+    HttpJwksSource,
     JwksKeyCache,
     OidcJwtAuthenticationBackend,
     Permission,
@@ -89,16 +91,16 @@ def _backend(
     source: _MutableJwksSource,
     *,
     ttl_seconds: float = 300,
+    refresh_min_interval_seconds: float = 5,
+    unknown_key_ttl_seconds: float = 5,
     monotonic: Callable[[], float] | None = None,
 ) -> OidcJwtAuthenticationBackend:
-    cache = (
-        JwksKeyCache(source=source, ttl_seconds=ttl_seconds)
-        if monotonic is None
-        else JwksKeyCache(
-            source=source,
-            ttl_seconds=ttl_seconds,
-            monotonic=monotonic,
-        )
+    cache = JwksKeyCache(
+        source=source,
+        ttl_seconds=ttl_seconds,
+        refresh_min_interval_seconds=refresh_min_interval_seconds,
+        unknown_key_ttl_seconds=unknown_key_ttl_seconds,
+        monotonic=monotonic or __import__("time").monotonic,
     )
     return OidcJwtAuthenticationBackend(
         issuer=ISSUER,
@@ -241,3 +243,115 @@ def test_symmetric_algorithm_configuration_is_rejected() -> None:
             allowed_algorithms=("HS256",),
             key_cache=cache,
         )
+
+
+def test_unknown_kid_storm_triggers_at_most_one_refresh_per_interval() -> None:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    source = _MutableJwksSource([_jwk(key, kid="key-1")])
+    now = [0.0]
+    backend = _backend(
+        source,
+        monotonic=lambda: now[0],
+        refresh_min_interval_seconds=5,
+        unknown_key_ttl_seconds=5,
+    )
+    backend.authenticate(f"Bearer {_token(key)}")
+
+    for index in range(20):
+        with pytest.raises(AuthenticationError):
+            backend.authenticate(f"Bearer {_token(key, kid=f'unknown-{index}')}")
+
+    assert source.fetch_count == 2
+
+
+def test_new_kid_rotation_is_visible_after_bounded_negative_cache_window() -> None:
+    old_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    new_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    source = _MutableJwksSource([_jwk(old_key, kid="key-1")])
+    now = [0.0]
+    backend = _backend(
+        source,
+        monotonic=lambda: now[0],
+        refresh_min_interval_seconds=5,
+        unknown_key_ttl_seconds=5,
+    )
+    backend.authenticate(f"Bearer {_token(old_key)}")
+
+    with pytest.raises(AuthenticationError):
+        backend.authenticate(f"Bearer {_token(new_key, kid='key-2')}")
+    source.keys = [_jwk(old_key, kid="key-1"), _jwk(new_key, kid="key-2")]
+    now[0] = 6.0
+
+    principal = backend.authenticate(f"Bearer {_token(new_key, kid='key-2')}")
+
+    assert principal.subject == "buyer-user-1"
+    assert source.fetch_count == 3
+
+
+def test_invalid_signature_storm_is_refresh_throttled() -> None:
+    trusted = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    attacker = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    source = _MutableJwksSource([_jwk(trusted, kid="key-1")])
+    now = [0.0]
+    backend = _backend(
+        source,
+        monotonic=lambda: now[0],
+        refresh_min_interval_seconds=5,
+    )
+    backend.authenticate(f"Bearer {_token(trusted)}")
+
+    for _ in range(10):
+        with pytest.raises(AuthenticationError):
+            backend.authenticate(f"Bearer {_token(attacker)}")
+
+    assert source.fetch_count == 2
+
+
+def test_duplicate_jwks_key_ids_fail_closed() -> None:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    duplicate = _jwk(key, kid="duplicate")
+    cache = JwksKeyCache(
+        source=_MutableJwksSource([duplicate, duplicate]),
+        ttl_seconds=300,
+    )
+
+    with pytest.raises(AuthenticationError, match="duplicate key identifier"):
+        cache.key_for(key_id="duplicate")
+
+
+def test_malformed_jwks_without_usable_keys_fails_closed() -> None:
+    source = _MutableJwksSource([{"kid": "broken"}])
+    cache = JwksKeyCache(source=source, ttl_seconds=300)
+
+    with pytest.raises(AuthenticationError, match="no usable signing keys"):
+        cache.key_for(key_id="broken")
+
+
+def test_http_jwks_source_rejects_oversized_document_before_json_parse(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        status = 200
+
+        def __enter__(self) -> _Response:
+            return self
+
+        def __exit__(self, _exc_type: object, _exc: object, _tb: object) -> None:
+            return None
+
+        def read(self, _limit: int = -1) -> bytes:
+            return b"{" + (b"x" * 64) + b"}"
+
+    def fake_urlopen(_request: object, *, timeout: float) -> _Response:
+        del timeout
+        return _Response()
+
+    monkeypatch.setattr(auth_module, "urlopen", fake_urlopen)
+    source = HttpJwksSource(
+        url="https://id.example.test/.well-known/jwks.json",
+        timeout_seconds=1,
+        max_document_bytes=16,
+    )
+
+    with pytest.raises(AuthenticationError, match="exceeds the size bound"):
+        source.fetch()
