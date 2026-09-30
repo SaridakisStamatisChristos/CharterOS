@@ -202,16 +202,15 @@ def test_pr44_idempotency_response_storage_has_database_byte_ceiling() -> None:
     engine = build_engine(settings)
     factory = build_session_factory(engine)
     try:
-        with pytest.raises(IntegrityError):
-            with factory.begin() as session:
-                session.add(
-                    IdempotencyRecordRow(
-                        scope=f"pr44-response-bound:{uuid4()}",
-                        key="oversized",
-                        request_hash="a" * 64,
-                        status_code=200,
-                        response_body={"payload": "x" * 270_000},
-                    )
+        with pytest.raises(IntegrityError), factory.begin() as session:
+            session.add(
+                IdempotencyRecordRow(
+                    scope=f"pr44-response-bound:{uuid4()}",
+                    key="oversized",
+                    request_hash="a" * 64,
+                    status_code=200,
+                    response_body={"payload": "x" * 270_000},
                 )
+            )
     finally:
         engine.dispose()
