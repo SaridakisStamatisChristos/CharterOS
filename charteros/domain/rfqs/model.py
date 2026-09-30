@@ -204,8 +204,10 @@ class Rfq(AggregateRoot[RfqId]):
         if self.status is not RfqStatus.SENT:
             raise DomainValidationError("only sent RFQs can be acknowledged")
         when = _utc(acknowledged_at, field_name="acknowledged_at")
-        assert self.response_deadline is not None
-        if when >= self.response_deadline:
+        response_deadline = self.response_deadline
+        if response_deadline is None:
+            raise DomainValidationError("active RFQ requires a response deadline")
+        if when >= response_deadline:
             raise DomainValidationError("RFQ cannot be acknowledged at or after its deadline")
         self.acknowledged_at = when
         self.status = RfqStatus.ACKNOWLEDGED
@@ -226,8 +228,10 @@ class Rfq(AggregateRoot[RfqId]):
         if self.status not in (RfqStatus.SENT, RfqStatus.ACKNOWLEDGED):
             raise DomainValidationError("only sent or acknowledged RFQs can be declined")
         when = _utc(declined_at, field_name="declined_at")
-        assert self.response_deadline is not None
-        if when >= self.response_deadline:
+        response_deadline = self.response_deadline
+        if response_deadline is None:
+            raise DomainValidationError("active RFQ requires a response deadline")
+        if when >= response_deadline:
             raise DomainValidationError("RFQ cannot be declined at or after its deadline")
         self.declined_at = when
         self.decline_reason = _canonical_reason(reason)
@@ -251,8 +255,10 @@ class Rfq(AggregateRoot[RfqId]):
         if self.status not in (RfqStatus.SENT, RfqStatus.ACKNOWLEDGED):
             raise DomainValidationError("only sent or acknowledged RFQs can expire")
         when = _utc(expired_at, field_name="expired_at")
-        assert self.response_deadline is not None
-        if when < self.response_deadline:
+        response_deadline = self.response_deadline
+        if response_deadline is None:
+            raise DomainValidationError("active RFQ requires a response deadline")
+        if when < response_deadline:
             raise DomainValidationError("RFQ cannot expire before its response deadline")
         self.expired_at = when
         self.status = RfqStatus.EXPIRED
@@ -273,8 +279,10 @@ class Rfq(AggregateRoot[RfqId]):
         if self.status is not RfqStatus.ACKNOWLEDGED:
             raise DomainValidationError("only acknowledged RFQs can be quoted")
         when = _utc(quoted_at, field_name="quoted_at")
-        assert self.response_deadline is not None
-        if when >= self.response_deadline:
+        response_deadline = self.response_deadline
+        if response_deadline is None:
+            raise DomainValidationError("active RFQ requires a response deadline")
+        if when >= response_deadline:
             raise DomainValidationError("RFQ cannot be quoted at or after its deadline")
         if not quote_id.strip():
             raise DomainValidationError("quote_id is required")
