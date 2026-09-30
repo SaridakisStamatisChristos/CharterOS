@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import ROUND_HALF_UP, Decimal
-from math import asin, cos, radians, sin, sqrt
+from decimal import Decimal
 
 from charteros.domain.aircraft import AircraftStatus, AvailabilityStatus
 from charteros.domain.missions import Mission
@@ -13,6 +12,7 @@ from charteros.domain.operators import (
 )
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.money import Money
+from charteros.matching.distance import haversine_distance_tenths_nm
 from charteros.matching.types import (
     MAX_SCORE_BASIS_POINTS,
     RANGE_RESERVE_PERCENT,
@@ -25,34 +25,12 @@ from charteros.matching.types import (
     ensure_utc,
 )
 
-_EARTH_RADIUS_NM = 3440.065
-
-
 def _ceil_div(numerator: int, denominator: int) -> int:
     if denominator <= 0:
         raise DomainValidationError("denominator must be positive")
     if numerator < 0:
         raise DomainValidationError("numerator cannot be negative")
     return (numerator + denominator - 1) // denominator
-
-
-def haversine_distance_tenths_nm(
-    latitude_a: Decimal,
-    longitude_a: Decimal,
-    latitude_b: Decimal,
-    longitude_b: Decimal,
-) -> int:
-    """Return great-circle distance rounded half-up to 0.1 nautical mile."""
-    lat1 = radians(float(latitude_a))
-    lon1 = radians(float(longitude_a))
-    lat2 = radians(float(latitude_b))
-    lon2 = radians(float(longitude_b))
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    distance_nm = 2 * _EARTH_RADIUS_NM * asin(min(1.0, sqrt(a)))
-    rounded = Decimal(str(distance_nm * 10)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return int(rounded)
 
 
 def required_range_nm(route_distance_tenths_nm: int) -> int:
