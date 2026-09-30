@@ -196,29 +196,38 @@ class ReplacementProposal:
                 "replacement feasibility evidence must be complete when present"
             )
         if has_feasibility:
-            assert self.feasibility_known_as_of is not None
-            assert self.position_event_time is not None
-            assert self.position_recorded_at is not None
-            assert self.reference_profile_recorded_at is not None
+            known_as_of_value = self.feasibility_known_as_of
+            position_event_value = self.position_event_time
+            position_recorded_value = self.position_recorded_at
+            reference_recorded_value = self.reference_profile_recorded_at
+            if (
+                known_as_of_value is None
+                or position_event_value is None
+                or position_recorded_value is None
+                or reference_recorded_value is None
+            ):
+                raise DomainValidationError(
+                    "replacement feasibility timestamp evidence must be complete"
+                )
             policy_version = _required_text(
                 self.feasibility_policy_version or "",
                 field_name="feasibility_policy_version",
                 max_length=64,
             )
             known_as_of = _utc(
-                self.feasibility_known_as_of,
+                known_as_of_value,
                 field_name="feasibility_known_as_of",
             )
             position_event_time = _utc(
-                self.position_event_time,
+                position_event_value,
                 field_name="position_event_time",
             )
             position_recorded_at = _utc(
-                self.position_recorded_at,
+                position_recorded_value,
                 field_name="position_recorded_at",
             )
             reference_profile_recorded_at = _utc(
-                self.reference_profile_recorded_at,
+                reference_recorded_value,
                 field_name="reference_profile_recorded_at",
             )
             if known_as_of > proposed_at:
