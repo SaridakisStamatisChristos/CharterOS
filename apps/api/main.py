@@ -32,6 +32,12 @@ from charteros import __version__
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.infrastructure.db.engine import build_engine, build_session_factory
+from charteros.infrastructure.db.failures import (
+    DatabaseFailureKind,
+    DatabaseFailurePhase,
+    DatabaseTransactionError,
+    classify_database_failure,
+)
 from charteros.security.auth import AuthenticationBackend
 from charteros.shared.clock import Clock, SystemClock
 from charteros.shared.config import Settings, get_settings
@@ -123,6 +129,61 @@ def create_app(
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
             content={"detail": str(exc)},
+        )
+
+    @app.exception_handler(DatabaseTransactionError)
+    async def database_transaction_handler(
+        _request: Request,
+        exc: DatabaseTransactionError,
+    ) -> JSONResponse:
+        logger = get_logger(__name__)
+        logger.warning(
+            "database_transaction_failure",
+            extra={
+                "event": "database_transaction_failure",
+                "failure_kind": exc.failure.kind.value,
+                "sqlstate": exc.failure.sqlstate,
+                "attempts": exc.attempts,
+            },
+        )
+        if exc.failure.kind is DatabaseFailureKind.INTEGRITY_VIOLATION:
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={"detail": "integrity_failure"},
+            )
+        if exc.failure.kind is DatabaseFailureKind.AMBIGUOUS_COMMIT:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": "ambiguous_commit_retry_same_idempotency_key"},
+            )
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": "temporarily_unavailable"},
+        )
+
+    @app.exception_handler(SQLAlchemyError)
+    async def database_error_handler(
+        _request: Request,
+        exc: SQLAlchemyError,
+    ) -> JSONResponse:
+        failure = classify_database_failure(exc, phase=DatabaseFailurePhase.UNKNOWN)
+        logger = get_logger(__name__)
+        logger.warning(
+            "database_failure",
+            extra={
+                "event": "database_failure",
+                "failure_kind": failure.kind.value,
+                "sqlstate": failure.sqlstate,
+            },
+        )
+        if failure.kind is DatabaseFailureKind.INTEGRITY_VIOLATION:
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={"detail": "integrity_failure"},
+            )
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": "temporarily_unavailable"},
         )
 
     @app.get("/health", tags=["system"])
