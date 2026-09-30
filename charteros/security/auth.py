@@ -235,7 +235,10 @@ class JwksKeyCache:
             for existing, expires_at in self._negative_keys.items()
             if expires_at > now
         }
-        if key_id not in self._negative_keys and len(self._negative_keys) >= self._max_negative_keys:
+        if (
+            key_id not in self._negative_keys
+            and len(self._negative_keys) >= self._max_negative_keys
+        ):
             oldest = next(iter(self._negative_keys))
             del self._negative_keys[oldest]
         self._negative_keys[key_id] = now + self._unknown_key_ttl_seconds
