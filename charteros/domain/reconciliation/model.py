@@ -96,7 +96,8 @@ def _required_text(value: str, *, field_name: str, max_length: int) -> str:
         max_length=max_length,
         required=True,
     )
-    assert normalized is not None
+    if normalized is None:
+        raise DomainValidationError(f"{field_name} is required")
     return normalized
 
 
