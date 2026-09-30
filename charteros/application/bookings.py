@@ -137,13 +137,9 @@ class BookingService:
             lock_catalog=True,
         )
         if feasibility.candidate.operator_id != target_rfq.operator_id:
-            raise EntityConflictError(
-                "quoted aircraft no longer belongs to the quoted operator"
-            )
+            raise EntityConflictError("quoted aircraft no longer belongs to the quoted operator")
         if not feasibility.feasible:
-            reasons = ",".join(
-                reason.value for reason in feasibility.evaluation.rejection_reasons
-            )
+            reasons = ",".join(reason.value for reason in feasibility.evaluation.rejection_reasons)
             raise EntityConflictError(
                 f"quoted aircraft is no longer feasible for award ({reasons})"
             )
@@ -159,16 +155,13 @@ class BookingService:
         )
         if (
             capacity_plan.reference_profile_id != draft.reference_profile.id.value
-            or capacity_plan.reference_profile_recorded_at
-            != draft.reference_profile.recorded_at
+            or capacity_plan.reference_profile_recorded_at != draft.reference_profile.recorded_at
             or capacity_plan.route_distance_tenths_nm != draft.route_distance_tenths_nm
             or capacity_plan.route_minutes != draft.route_minutes
             or capacity_plan.turnaround_buffer_minutes
             != draft.reference_profile.turnaround_buffer_minutes
         ):
-            raise EntityConflictError(
-                "award feasibility and capacity evidence are inconsistent"
-            )
+            raise EntityConflictError("award feasibility and capacity evidence are inconsistent")
         if self._capacity_reservations.has_reserved_overlap(
             aircraft_id=target.aircraft_id,
             interval=capacity_plan.interval,
