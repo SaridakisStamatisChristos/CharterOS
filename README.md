@@ -902,7 +902,8 @@ CharterOS/
 │   ├── api/                    # FastAPI delivery + route security
 │   ├── graph_projection/       # rebuild / verify / activate CLI
 │   ├── outbox_worker/          # leased asynchronous delivery worker
-│   └── pricing_intelligence/   # deterministic historical dataset CLI
+│   ├── pricing_intelligence/   # deterministic historical dataset CLI
+│   └── resource_cleanup/       # bounded idempotency/rate-window cleanup CLI
 ├── charteros/
 │   ├── application/            # use cases and application ports
 │   ├── domain/                 # pure business model and invariants
@@ -967,6 +968,7 @@ The ADR history is the detailed design authority for the major subsystems.
 | [0025](docs/adr/0025-audit-evidence-layer.md) | Audit evidence |
 | [0026](docs/adr/0026-auditable-fx-policy.md) | Auditable FX |
 | [0032](docs/adr/0032-transaction-failure-and-ambiguous-commit.md) | Transaction failure and ambiguous-commit semantics |
+| [0033](docs/adr/0033-api-abuse-resource-bounds.md) | API abuse and resource-exhaustion boundaries |
 
 Later hardening is additionally encoded in the implementation, focused documentation, and regression suites for authentication, database evidence integrity, event-ordering assurance, explicit clock authority, deterministic solver tie semantics, and the validated optimizer capacity envelope.
 
