@@ -180,13 +180,24 @@ silently leaking future graph knowledge.
 PR18 is a recommendation/query capability. It does not mutate Mission, Quote, Booking, aircraft,
 Tender, or graph state.
 
-The HTTP endpoint runs in:
+The HTTP endpoint materializes and validates all canonical solver inputs inside a bounded:
 
 ```text
 REPEATABLE READ, READ ONLY
 ```
 
-and exposes bounded limits for structural empty legs and quoted future opportunities.
+transaction. The transaction is then closed before deterministic optimization begins. The detached
+in-memory snapshot contains the graph projection identity/knowledge cutoff, structural empty legs,
+canonical fleet snapshots, eligible Quote opportunities, and referenced airports required by the
+solver. No repository or SQLAlchemy session handle crosses into the CPU optimization phase.
+
+This preserves one coherent no-hindsight database snapshot without holding a pooled connection or
+long MVCC snapshot during worst-case matching work. A future workflow that mutates authoritative
+state from an advisory optimization result must revalidate the relevant canonical versions before
+commit.
+
+The endpoint continues to expose bounded limits for structural empty legs and quoted future
+opportunities.
 
 ### Determinism and evidence
 
