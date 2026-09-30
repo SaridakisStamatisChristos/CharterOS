@@ -10,7 +10,8 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from apps.api.dependencies import get_session
+from apps.api.dependencies import get_clock, get_session
+from charteros.shared.clock import Clock
 from charteros.application.matching import MatchingService
 from charteros.domain.missions import MissionId
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyAirportRepository
@@ -206,8 +207,9 @@ def get_mission_matches(
     session: SessionDep,
     known_as_of: KnownAsOf = None,
     limit: ResultLimit = 20,
-) -> MatchingResponse:
-    cutoff = known_as_of or datetime.now(UTC)
+
+    clock: Clock = Depends(get_clock),) -> MatchingResponse:
+    cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         decision = MatchingService(
