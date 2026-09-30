@@ -56,6 +56,7 @@ from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.ids import CorrelationId
 from charteros.domain.shared.money import Money
 from charteros.domain.shared.time_range import TimeRange
+from charteros.infrastructure.db.transactions import run_transaction
 from charteros.infrastructure.db.repositories import (
     SqlAlchemyAirportRepository,
     SqlAlchemyBookingRepository,
@@ -1080,7 +1081,8 @@ def award_approval(
     typed_buyer = OrganizationId(buyer_id)
     scope = f"POST:/v1/buyer-portal/approvals/{approval_id}/award:{buyer_id}"
     request_hash = canonical_request_hash({})
-    with session.begin():
+
+    def action() -> AwardResponse:
         idempotency = SqlAlchemyIdempotencyRepository(session)
         idempotency.lock(scope, idempotency_key)
         stored = _stored_response(
@@ -1109,7 +1111,22 @@ def award_approval(
             status_code=status.HTTP_201_CREATED,
             response_body=response.model_dump(mode="json"),
         )
-    return response
+        return response
+
+    def reconcile() -> AwardResponse | None:
+        idempotency = SqlAlchemyIdempotencyRepository(session)
+        idempotency.lock(scope, idempotency_key)
+        stored = _stored_response(
+            idempotency,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+        )
+        if stored is None:
+            return None
+        return AwardResponse.model_validate(stored.response_body)
+
+    return run_transaction(session, action, reconcile_ambiguous=reconcile)
 
 
 @router.get(
