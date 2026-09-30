@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
+from charteros.application.completeness import BoundedInputOverflowError
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.graph_queries import (
     MAX_EMPTY_LEG_WINDOW,
@@ -134,12 +135,21 @@ class RepositioningService:
                 f"opportunity_limit must be between 1 and {MAX_QUOTED_FUTURE_LEGS}"
             )
 
-        graph_items = self._graph.empty_leg_candidates(
-            window_start=start,
-            window_end=end,
-            limit=empty_leg_limit,
-            operator_id=operator_id.value if operator_id is not None else None,
-        )
+        try:
+            graph_items = self._graph.empty_leg_candidates(
+                window_start=start,
+                window_end=end,
+                limit=empty_leg_limit,
+                operator_id=operator_id.value if operator_id is not None else None,
+                require_complete=True,
+            )
+        except BoundedInputOverflowError as exc:
+            raise _optimizer_universe_overflow(
+                exc,
+                universe="structural",
+                requested_limit=empty_leg_limit,
+                validated_limit=MAX_STRUCTURAL_EMPTY_LEGS,
+            ) from exc
         projection_version = self._graph.projection_version
         graph_knowledge_cutoff = self._graph.knowledge_cutoff
         if evaluated < graph_knowledge_cutoff:
@@ -219,14 +229,22 @@ class RepositioningService:
                     "Charter Graph empty-leg operator conflicts with canonical aircraft ownership"
                 )
 
-        opportunities = self._opportunities.list_quoted_future_legs(
-            aircraft_ids=aircraft_ids,
-            operator_ids=operator_ids,
-            window_start=start,
-            window_end=end,
-            evaluated_at=evaluated,
-            limit=opportunity_limit,
-        )
+        try:
+            opportunities = self._opportunities.list_quoted_future_legs(
+                aircraft_ids=aircraft_ids,
+                operator_ids=operator_ids,
+                window_start=start,
+                window_end=end,
+                evaluated_at=evaluated,
+                limit=opportunity_limit,
+            )
+        except BoundedInputOverflowError as exc:
+            raise _optimizer_universe_overflow(
+                exc,
+                universe="quoted_opportunity",
+                requested_limit=opportunity_limit,
+                validated_limit=MAX_QUOTED_FUTURE_LEGS,
+            ) from exc
 
         airport_ids: set[AirportId] = (
             {AirportId(item.previous_origin_airport_id) for item in structural}
@@ -289,6 +307,25 @@ class RepositioningService:
                 )
             result[airport_id] = airport
         return result
+
+
+def _optimizer_universe_overflow(
+    exc: BoundedInputOverflowError,
+    *,
+    universe: str,
+    requested_limit: int,
+    validated_limit: int,
+) -> EntityConflictError:
+    capacity_kind = "validated" if requested_limit == validated_limit else "requested"
+    reason = f"{universe}_universe_exceeds_{capacity_kind}_capacity"
+    return EntityConflictError(
+        "reposition optimization input universe is incomplete; "
+        f"policy_version={POLICY_VERSION}; "
+        f"validated_{universe}_limit={validated_limit}; "
+        f"requested_{universe}_limit={requested_limit}; "
+        f"observed_count_at_least={exc.observed_count_at_least}; "
+        f"reason={reason}"
+    )
 
 
 def optimize_reposition_snapshot(
