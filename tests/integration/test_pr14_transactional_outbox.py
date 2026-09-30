@@ -313,3 +313,137 @@ def test_idempotent_consumer_runner_executes_concurrent_duplicate_once() -> None
             assert len(receipts) == 1
     finally:
         engine.dispose()
+
+
+@pytest.mark.integration
+def test_pr43_consumer_commit_survives_lost_delivery_acknowledgement() -> None:
+    settings = _settings()
+    engine = build_engine(settings)
+    factory = build_session_factory(engine)
+    try:
+        event_id = _seed_event(factory, ordinal=43)
+        repository = SqlAlchemyOutboxDeliveryRepository(factory)
+        first_claim = repository.claim_batch(
+            worker_id="pr43-worker-before-ack-loss",
+            now=BASE + timedelta(minutes=43),
+            batch_size=1,
+            lease_seconds=1,
+            max_attempts=3,
+        )[0]
+        runner = SqlAlchemyIdempotentConsumerRunner(factory)
+        handler_calls: list[UUID] = []
+
+        def handler(session: Session, envelope: OutboxEnvelope) -> None:
+            handler_calls.append(envelope.event_id)
+            row = session.get(OutboxEventRow, envelope.event_id)
+            assert row is not None
+            row.last_error = "pr43-consumer-side-effect"
+
+        assert runner.consume(
+            consumer_name="pr43-durable-consumer",
+            consumer_version=1,
+            envelope=first_claim.envelope,
+            processed_at=BASE + timedelta(minutes=43),
+            handler=handler,
+        )
+
+        # Simulate process death after consumer commit but before delivery acknowledgement.
+        reclaimed = repository.claim_batch(
+            worker_id="pr43-worker-after-ack-loss",
+            now=BASE + timedelta(minutes=43, seconds=2),
+            batch_size=1,
+            lease_seconds=5,
+            max_attempts=3,
+        )
+        assert len(reclaimed) == 1
+        second_claim = reclaimed[0]
+        assert second_claim.envelope.event_id == event_id
+        assert second_claim.lease_token != first_claim.lease_token
+
+        # Redelivery is safe because the durable receipt and side effect committed together.
+        assert not runner.consume(
+            consumer_name="pr43-durable-consumer",
+            consumer_version=1,
+            envelope=second_claim.envelope,
+            processed_at=BASE + timedelta(minutes=43, seconds=2),
+            handler=handler,
+        )
+        assert handler_calls == [event_id]
+
+        with pytest.raises(OutboxLeaseLostError):
+            repository.mark_delivered(
+                event_id=event_id,
+                lease_token=first_claim.lease_token,
+                delivered_at=BASE + timedelta(minutes=43, seconds=2),
+            )
+
+        repository.mark_delivered(
+            event_id=event_id,
+            lease_token=second_claim.lease_token,
+            delivered_at=BASE + timedelta(minutes=43, seconds=2),
+        )
+
+        with factory() as session:
+            row = session.get(OutboxEventRow, event_id)
+            assert row is not None
+            assert row.delivery_status == OutboxDeliveryStatus.DELIVERED.value
+            assert row.last_error == "pr43-consumer-side-effect"
+            receipt = session.get(
+                OutboxConsumerReceiptRow,
+                ("pr43-durable-consumer", event_id),
+            )
+            assert receipt is not None
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_pr43_expired_final_attempt_is_poisoned_without_reclaim_loop() -> None:
+    settings = _settings()
+    engine = build_engine(settings)
+    factory = build_session_factory(engine)
+    try:
+        event_id = _seed_event(factory, ordinal=44)
+        repository = SqlAlchemyOutboxDeliveryRepository(factory)
+        claim = repository.claim_batch(
+            worker_id="pr43-final-attempt",
+            now=BASE + timedelta(minutes=44),
+            batch_size=1,
+            lease_seconds=1,
+            max_attempts=1,
+        )
+        assert len(claim) == 1
+        assert claim[0].attempt == 1
+
+        # Process dies without ack/failure. Once this final lease expires, the next claim pass
+        # deterministically poisons it instead of creating an unbounded retry loop.
+        assert (
+            repository.claim_batch(
+                worker_id="pr43-after-final-expiry",
+                now=BASE + timedelta(minutes=44, seconds=2),
+                batch_size=1,
+                lease_seconds=1,
+                max_attempts=1,
+            )
+            == ()
+        )
+        assert (
+            repository.claim_batch(
+                worker_id="pr43-after-poison",
+                now=BASE + timedelta(minutes=44, seconds=3),
+                batch_size=1,
+                lease_seconds=1,
+                max_attempts=1,
+            )
+            == ()
+        )
+
+        with factory() as session:
+            row = session.get(OutboxEventRow, event_id)
+            assert row is not None
+            assert row.delivery_status == OutboxDeliveryStatus.POISONED.value
+            assert row.delivery_attempts == 1
+            assert row.poisoned_at == BASE + timedelta(minutes=44, seconds=2)
+            assert row.last_error == "delivery lease expired after the final allowed attempt"
+    finally:
+        engine.dispose()
