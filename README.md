@@ -735,6 +735,11 @@ Important settings include:
 | --- | --- |
 | `CHARTEROS_DATABASE_URL` | Required PostgreSQL SQLAlchemy URL |
 | `CHARTEROS_DATABASE_RUNTIME_ROLE` | Optional non-owner runtime role |
+| `CHARTEROS_DATABASE_POOL_SIZE` | Bounded persistent connection pool size |
+| `CHARTEROS_DATABASE_MAX_OVERFLOW` | Bounded overflow connections |
+| `CHARTEROS_DATABASE_POOL_TIMEOUT_SECONDS` | Maximum pool checkout wait |
+| `CHARTEROS_DATABASE_POOL_RECYCLE_SECONDS` | Connection recycle interval |
+| `CHARTEROS_DATABASE_CONNECT_TIMEOUT_SECONDS` | PostgreSQL connect timeout |
 | `CHARTEROS_ENVIRONMENT` | development / test / staging / production |
 | `CHARTEROS_API_HOST` / `PORT` | API bind configuration |
 | `CHARTEROS_AUTH_ISSUER` | OIDC issuer |
@@ -803,14 +808,15 @@ The repository's GitHub Actions pipeline executes the following gate on pull req
 11. Alembic migration smoke;
 12. Alembic schema-drift check;
 13. full pytest suite against PostgreSQL 17;
-14. reposition solver benchmark;
-15. API boot smoke;
-16. pinned Trivy installation with checksum verification;
-17. repository secret scan;
-18. hardened container image build;
-19. read-only/capability-dropped runtime smoke;
-20. HIGH/CRITICAL container vulnerability scan;
-21. CycloneDX SBOM generation and validation.
+14. PostgreSQL restart / stale-connection recovery smoke;
+15. reposition solver benchmark;
+16. API boot smoke;
+17. pinned Trivy installation with checksum verification;
+18. repository secret scan;
+19. hardened container image build;
+20. read-only/capability-dropped runtime smoke;
+21. HIGH/CRITICAL container vulnerability scan;
+22. CycloneDX SBOM generation and validation.
 
 Run the primary developer gate locally:
 
@@ -914,6 +920,7 @@ The ADR history is the detailed design authority for the major subsystems.
 | [0024](docs/adr/0024-financial-reconciliation.md) | Financial reconciliation |
 | [0025](docs/adr/0025-audit-evidence-layer.md) | Audit evidence |
 | [0026](docs/adr/0026-auditable-fx-policy.md) | Auditable FX |
+| [0032](docs/adr/0032-transaction-failure-and-ambiguous-commit.md) | Transaction failure and ambiguous-commit semantics |
 
 Later hardening is additionally encoded in the implementation, focused documentation, and regression suites for authentication, database evidence integrity, event-ordering assurance, explicit clock authority, deterministic solver tie semantics, and the validated optimizer capacity envelope.
 
