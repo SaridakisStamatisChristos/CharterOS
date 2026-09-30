@@ -60,6 +60,7 @@ The result is an auditable core that can support portals, integrations, optimiza
 | Audit evidence | Deterministic evidence reconstruction with policy/version provenance |
 | FX | Bitemporal immutable rate evidence and short-lived executable buyer FX locks |
 | Security | Deny-by-default OIDC/JWT capability authorization with exhaustive route policy |
+| Abuse resistance | Bounded bodies/queries, shared expensive-work budgets, JWKS storm suppression and replay-state retention |
 | Evidence integrity | PostgreSQL-enforced immutability plus deterministic hash-chained integrity streams |
 | Event delivery | Transactional outbox, fenced leases, retry/poison handling and durable deduplication |
 
@@ -594,6 +595,30 @@ In non-production environments, `/docs` and `/openapi.json` are enabled. Product
 If OIDC configuration is absent, the protected API fails closed. There is no production header or environment-variable authentication bypass.
 
 See [authentication and authorization](docs/authentication-authorization.md).
+
+---
+
+## API abuse and resource bounds
+
+CharterOS separates **general edge rate limiting** from **application-owned computation bounds**.
+
+Staging and production require trusted ingress/API-gateway rate limiting for general and anonymous traffic. The application does not pretend a process-local counter would be correct across replicas.
+
+Inside CharterOS, PostgreSQL-backed fixed-window budgets are shared across API replicas for matching, reposition optimization / optimized empty-leg visibility, evidence reconstruction, and Charter Graph queries. Budget identity is SHA-256-derived from the verified principal plus validated tenant selector; raw principal/tenant identifiers are not persisted in the limiter table.
+
+Additional hard bounds include:
+
+- 1 MiB default request body;
+- JSON nesting depth 32;
+- 10-second request-body receive timeout;
+- bounded Pydantic collection counts and item lengths;
+- 366-day fleet/calendar query windows;
+- 31-day optimization/empty-leg windows;
+- JWKS document/key/refresh bounds and short unknown-key negative caching;
+- 256 KiB database-enforced idempotency response storage;
+- 90-day default idempotency replay-retention policy with bounded cleanup batches.
+
+See [ADR 0033](docs/adr/0033-api-abuse-resource-bounds.md).
 
 ---
 
