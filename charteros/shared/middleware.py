@@ -37,14 +37,13 @@ class RequestBodyLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
-        content_length = self._content_length(scope)
+        try:
+            content_length = self._content_length(scope)
+        except ValueError:
+            await self._reject(send, 400, "invalid_content_length")
+            return
         if content_length is not None and content_length > self._max_body_bytes:
             await self._reject(send, 413, "request_too_large")
-            return
-
-        method = str(scope.get("method", "")).upper()
-        if method in {"GET", "HEAD", "OPTIONS"} and content_length in {None, 0}:
-            await self.app(scope, receive, send)
             return
 
         body = bytearray()
@@ -99,7 +98,8 @@ class RequestBodyLimitMiddleware:
     def _is_json(scope: Scope) -> bool:
         for raw_name, raw_value in scope.get("headers", []):
             if raw_name.lower() == b"content-type":
-                return raw_value.split(b";", 1)[0].strip().lower() == b"application/json"
+                media_type = raw_value.split(b";", 1)[0].strip().lower()
+                return media_type == b"application/json" or media_type.endswith(b"+json")
         return False
 
     @staticmethod
