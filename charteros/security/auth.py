@@ -179,7 +179,13 @@ class JwksKeyCache:
             current = self._key_set
             if current is None or now >= current.expires_at:
                 refreshed = self._refresh(now)
-                return self._require_key(refreshed, key_id, now)
+                key = refreshed.keys.get(key_id)
+                if key is not None:
+                    self._negative_keys.pop(key_id, None)
+                    return key
+                self._last_unknown_refresh_at = now
+                self._remember_unknown(key_id, now)
+                raise AuthenticationError("token signing key is unknown")
 
             key = current.keys.get(key_id)
             if force_refresh:
