@@ -46,6 +46,12 @@ from charteros.application.operator_portal import (
 )
 from charteros.application.quotes import QuoteService
 from charteros.application.repositioning import RepositioningService
+from charteros.application.resource_limits import (
+    MAX_CALENDAR_WINDOW,
+    MAX_OPTIMIZATION_WINDOW,
+    MAX_TIMELINE_WINDOW,
+    validate_bounded_window,
+)
 from charteros.application.rfqs import RfqService
 from charteros.application.tenders import TenderService
 from charteros.domain.aircraft import (
@@ -553,6 +559,12 @@ def get_aircraft_availability(
     at: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> TimelineResponse:
+    validate_bounded_window(
+        start=from_time,
+        end=to_time,
+        maximum=MAX_TIMELINE_WINDOW,
+        name="operator fleet timeline window",
+    )
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         _portal(session).aircraft(
@@ -624,7 +636,10 @@ def record_aircraft_availability(
 def rfq_inbox(
     session: SessionDep,
     operator_id: OperatorContext,
-    rfq_status: Annotated[list[RfqStatus] | None, Query(alias="status")] = None,
+    rfq_status: Annotated[
+        list[RfqStatus] | None,
+        Query(alias="status", max_length=16),
+    ] = None,
     limit: PageLimit = 50,
     cursor: UUID | None = None,
 ) -> PortalRfqPageResponse:
@@ -1047,10 +1062,19 @@ def mission_calendar(
     operator_id: OperatorContext,
     window_start: datetime,
     window_end: datetime,
-    booking_state: Annotated[list[BookingState] | None, Query(alias="state")] = None,
+    booking_state: Annotated[
+        list[BookingState] | None,
+        Query(alias="state", max_length=16),
+    ] = None,
     limit: PageLimit = 100,
     cursor: UUID | None = None,
 ) -> PortalCalendarResponse:
+    validate_bounded_window(
+        start=window_start,
+        end=window_end,
+        maximum=MAX_CALENDAR_WINDOW,
+        name="operator calendar window",
+    )
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         page = _portal(session).mission_calendar(
@@ -1082,6 +1106,12 @@ def empty_leg_visibility(
     empty_leg_limit: Annotated[int, Query(ge=1, le=100)] = 100,
     opportunity_limit: Annotated[int, Query(ge=1, le=2000)] = 2000,
 ) -> PortalEmptyLegVisibilityResponse:
+    validate_bounded_window(
+        start=window_start,
+        end=window_end,
+        maximum=MAX_OPTIMIZATION_WINDOW,
+        name="operator empty-leg window",
+    )
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         _portal(session).assert_operator(OperatorId(operator_id))
@@ -1128,7 +1158,10 @@ def empty_leg_visibility(
 def list_bookings(
     session: SessionDep,
     operator_id: OperatorContext,
-    booking_state: Annotated[list[BookingState] | None, Query(alias="state")] = None,
+    booking_state: Annotated[
+        list[BookingState] | None,
+        Query(alias="state", max_length=16),
+    ] = None,
     limit: PageLimit = 50,
     cursor: UUID | None = None,
 ) -> PortalBookingPageResponse:
