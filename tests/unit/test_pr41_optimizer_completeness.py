@@ -174,4 +174,4 @@ def test_optimizer_overflow_error_is_deterministic_and_policy_versioned() -> Non
     assert f"policy_version={POLICY_VERSION}" in str(first)
     assert "validated_structural_limit=100" in str(first)
     assert "observed_count_at_least=101" in str(first)
-    assert "reason=structural_universe_exceeds_validated_capacity" in str(first)
+    assert "reason=structural_candidate_universe_exceeds_validated_capacity" in str(first)
