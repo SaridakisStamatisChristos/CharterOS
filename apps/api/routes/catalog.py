@@ -77,10 +77,16 @@ class OperatorCreate(BaseModel):
 
     organization_id: UUID
     aoc_reference: str = Field(min_length=1, max_length=80)
-    operating_regions: list[str] = Field(min_length=1, max_length=64)
+    operating_regions: list[Annotated[str, Field(min_length=1, max_length=64)]] = Field(
+        min_length=1,
+        max_length=64,
+    )
     verification_status: VerificationStatus = VerificationStatus.PENDING
     insurance_status: InsuranceStatus = InsuranceStatus.UNKNOWN
-    safety_documents: list[str] = Field(default_factory=list, max_length=128)
+    safety_documents: list[Annotated[str, Field(min_length=1, max_length=500)]] = Field(
+        default_factory=list,
+        max_length=128,
+    )
     commercial_status: CommercialStatus = CommercialStatus.ACTIVE
 
 
@@ -106,7 +112,10 @@ class AirportCreate(BaseModel):
     timezone: str = Field(min_length=1, max_length=64)
     runway_metadata: dict[str, object] = Field(default_factory=dict)
     curfew_metadata: dict[str, object] = Field(default_factory=dict)
-    operational_flags: list[str] = Field(default_factory=list, max_length=128)
+    operational_flags: list[Annotated[str, Field(min_length=1, max_length=64)]] = Field(
+        default_factory=list,
+        max_length=128,
+    )
 
 
 class AirportResponse(BaseModel):
