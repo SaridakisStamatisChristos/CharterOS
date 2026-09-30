@@ -317,7 +317,11 @@ def _optimizer_universe_overflow(
     validated_limit: int,
 ) -> EntityConflictError:
     capacity_kind = "validated" if requested_limit == validated_limit else "requested"
-    reason = f"{universe}_universe_exceeds_{capacity_kind}_capacity"
+    reason_prefix = {
+        "structural": "structural_candidate_universe",
+        "quoted_opportunity": "quoted_future_leg_universe",
+    }.get(universe, f"{universe}_universe")
+    reason = f"{reason_prefix}_exceeds_{capacity_kind}_capacity"
     return EntityConflictError(
         "reposition optimization input universe is incomplete; "
         f"policy_version={POLICY_VERSION}; "
