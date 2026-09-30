@@ -1,4 +1,5 @@
 from dataclasses import replace
+from itertools import product
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -305,3 +306,107 @@ def test_min_cost_flow_matching_beats_local_greedy_choice() -> None:
         (_id(1002), _id(5001)),
     }
     assert sum(item.margin.amount_minor for item in selected) == 197
+
+
+
+def _assignment_key(item: FeasibleInsertion) -> tuple[UUID, UUID]:
+    return (
+        item.empty_leg.structural.previous_booking_id,
+        item.opportunity.mission_id.value,
+    )
+
+
+def _encoded_score(
+    selected: tuple[FeasibleInsertion, ...],
+    ordered: tuple[FeasibleInsertion, ...],
+) -> int:
+    left_count = len(
+        {
+            (
+                item.empty_leg.structural.previous_booking_id,
+                item.empty_leg.structural.next_booking_id,
+            )
+            for item in ordered
+        }
+    )
+    right_count = len({item.opportunity.mission_id.value for item in ordered})
+    tie_scale = min(left_count, right_count) * len(ordered) + 1
+    index_by_key = {_assignment_key(item): index for index, item in enumerate(ordered)}
+    return sum(
+        item.margin.amount_minor * tie_scale - index_by_key[_assignment_key(item)]
+        for item in selected
+    )
+
+
+def _brute_force_encoded_score(
+    ordered: tuple[FeasibleInsertion, ...],
+    *,
+    left_count: int,
+    right_count: int,
+) -> int:
+    by_left: dict[int, tuple[FeasibleInsertion, ...]] = {}
+    for left in range(1, left_count + 1):
+        by_left[left] = tuple(
+            item
+            for item in ordered
+            if item.empty_leg.structural.previous_booking_id == _id(1000 + left)
+        )
+
+    best = 0
+
+    def search(left: int, used_missions: set[UUID], selected: list[FeasibleInsertion]) -> None:
+        nonlocal best
+        if left > left_count:
+            best = max(best, _encoded_score(tuple(selected), ordered))
+            return
+        search(left + 1, used_missions, selected)
+        for item in by_left[left]:
+            mission_id = item.opportunity.mission_id.value
+            if mission_id in used_missions:
+                continue
+            used_missions.add(mission_id)
+            selected.append(item)
+            search(left + 1, used_missions, selected)
+            selected.pop()
+            used_missions.remove(mission_id)
+
+    search(1, set(), [])
+    return best
+
+
+def test_assignment_solver_matches_bruteforce_encoded_objective() -> None:
+    for left_count, right_count in product(range(1, 5), repeat=2):
+        candidates = tuple(
+            _solver_candidate(
+                empty_seed=left,
+                mission_seed=mission,
+                margin_minor=1 + ((left * 17 + mission * 31 + left_count * right_count) % 23),
+            )
+            for left in range(1, left_count + 1)
+            for mission in range(1, right_count + 1)
+            if (left * 7 + mission * 11 + left_count + right_count) % 5 != 0
+        )
+        if not candidates:
+            continue
+
+        selected = maximum_margin_matching(candidates)
+
+        assert _encoded_score(selected, candidates) == _brute_force_encoded_score(
+            candidates,
+            left_count=left_count,
+            right_count=right_count,
+        )
+
+
+def test_assignment_solver_is_deterministic_under_equal_margin_pressure() -> None:
+    candidates = tuple(
+        _solver_candidate(empty_seed=left, mission_seed=mission, margin_minor=100)
+        for left in range(1, 5)
+        for mission in range(1, 5)
+    )
+
+    expected = maximum_margin_matching(candidates)
+
+    assert len(expected) == 4
+    for _ in range(10):
+        assert maximum_margin_matching(candidates) == expected
