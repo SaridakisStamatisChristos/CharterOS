@@ -3,8 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from charteros.application.capacity import AircraftCapacityPolicy
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
+from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.ports.bookings import BookingRepository
+from charteros.application.ports.capacity import AircraftCapacityReservationRepository
 from charteros.application.ports.catalog import (
     AircraftRepository,
     DomainEventRepository,
@@ -16,7 +19,7 @@ from charteros.application.ports.fleet import FleetTimelineRepository
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
-from charteros.domain.aircraft import AircraftId, AircraftStatus, AvailabilityStatus
+from charteros.domain.aircraft import AircraftId
 from charteros.domain.bookings import Booking, BookingId, BookingState
 from charteros.domain.disruptions import (
     Disruption,
@@ -34,7 +37,7 @@ from charteros.domain.disruptions import (
     ReplacementProposal,
 )
 from charteros.domain.missions import Mission
-from charteros.domain.operators import CommercialStatus, OperatorId
+from charteros.domain.operators import OperatorId
 from charteros.domain.organizations import OrganizationId, OrganizationStatus
 from charteros.domain.quotes import Quote, QuoteStatus
 from charteros.domain.quotes.normalization import normalize_quote
@@ -96,6 +99,9 @@ class DisruptionService:
         operators: OperatorRepository,
         aircraft: AircraftRepository,
         fleet_timeline: FleetTimelineRepository,
+        feasibility: AircraftMissionFeasibilityService,
+        capacity_policy: AircraftCapacityPolicy,
+        capacity_reservations: AircraftCapacityReservationRepository,
         events: DomainEventRepository,
     ) -> None:
         self._disruptions = disruptions
@@ -107,6 +113,9 @@ class DisruptionService:
         self._operators = operators
         self._aircraft = aircraft
         self._fleet_timeline = fleet_timeline
+        self._feasibility = feasibility
+        self._capacity_policy = capacity_policy
+        self._capacity_reservations = capacity_reservations
         self._events = events
 
     def create(
@@ -201,34 +210,33 @@ class DisruptionService:
             )
 
         operator = self._operators.get(target_operator)
-        if operator is None or operator.commercial_status is not CommercialStatus.ACTIVE:
-            raise EntityConflictError("replacement operator is not operationally eligible")
+        if operator is None:
+            raise EntityConflictError("replacement operator does not exist")
         aircraft = self._aircraft.get(target_aircraft)
-        if (
-            aircraft is None
-            or aircraft.operator_id != target_operator
-            or aircraft.status is not AircraftStatus.ACTIVE
-        ):
+        if aircraft is None or aircraft.operator_id != target_operator:
             raise EntityConflictError(
-                "replacement aircraft is not active canonical fleet of the booking operator"
+                "replacement aircraft is not canonical fleet of the booking operator"
             )
 
-        availability = None
-        if target_aircraft != context.booking.aircraft_id:
-            event_time = (
-                departure_window.start
-                if departure_window is not None
-                else context.mission.departure_window.start
-            )
-            availability = self._fleet_timeline.availability_at(
-                target_aircraft,
-                event_time=event_time,
+        feasibility = None
+        is_operational_change = (
+            target_aircraft != context.booking.aircraft_id or departure_window is not None
+        )
+        if is_operational_change:
+            feasibility = self._assert_replacement_feasible(
+                context=context,
+                aircraft_id=target_aircraft,
+                operator_id=target_operator,
+                departure_window=departure_window,
                 known_as_of=when,
             )
-            if availability is None or availability.status is not AvailabilityStatus.AVAILABLE:
-                raise EntityConflictError(
-                    "replacement aircraft lacks authoritative available state at proposal time"
-                )
+
+        availability = (
+            feasibility.candidate.availability if feasibility is not None else None
+        )
+        draft = feasibility.evaluation.draft if feasibility is not None else None
+        if feasibility is not None and draft is None:
+            raise RuntimeError("accepted replacement feasibility is missing its canonical draft")
 
         current = self._disruptions.get_current_proposal_for_update(disruption.id)
         proposal = ReplacementProposal(
@@ -246,6 +254,43 @@ class DisruptionService:
                 availability.recorded_at if availability is not None else None
             ),
             departure_window=departure_window,
+            feasibility_policy_version=(
+                feasibility.policy_version if feasibility is not None else None
+            ),
+            feasibility_known_as_of=(
+                feasibility.known_as_of if feasibility is not None else None
+            ),
+            position_observation_id=(
+                draft.position.id if draft is not None else None
+            ),
+            position_event_time=(
+                draft.position.event_time if draft is not None else None
+            ),
+            position_recorded_at=(
+                draft.position.recorded_at if draft is not None else None
+            ),
+            reference_profile_id=(
+                draft.reference_profile.id.value if draft is not None else None
+            ),
+            reference_profile_recorded_at=(
+                draft.reference_profile.recorded_at if draft is not None else None
+            ),
+            route_distance_tenths_nm=(
+                draft.route_distance_tenths_nm if draft is not None else None
+            ),
+            required_range_nm=(
+                draft.required_range_nm if draft is not None else None
+            ),
+            reposition_distance_tenths_nm=(
+                draft.reposition_distance_tenths_nm if draft is not None else None
+            ),
+            route_minutes=(draft.route_minutes if draft is not None else None),
+            reposition_minutes=(
+                draft.reposition_minutes if draft is not None else None
+            ),
+            timing_buffer_minutes=(
+                draft.timing_buffer_minutes if draft is not None else None
+            ),
             requires_buyer_decision=(
                 target_operator != context.booking.operator_id
                 or target_aircraft != context.booking.aircraft_id
@@ -439,6 +484,17 @@ class DisruptionService:
             raise EntityConflictError("resolution targets a stale disruption proposal")
         if proposal.proposed_operator_id != context.booking.operator_id:
             raise EntityConflictError("resolution cannot create an alternate operator award")
+        if (
+            proposal.proposed_aircraft_id != context.booking.aircraft_id
+            or proposal.departure_window is not None
+        ):
+            self._assert_replacement_feasible(
+                context=context,
+                aircraft_id=proposal.proposed_aircraft_id,
+                operator_id=proposal.proposed_operator_id,
+                departure_window=proposal.departure_window,
+                known_as_of=when,
+            )
         commercial = self._disruptions.get_current_commercial_change_for_update(proposal.id)
 
         buyer_required = proposal.requires_buyer_decision or commercial is not None
@@ -473,6 +529,55 @@ class DisruptionService:
         self._disruptions.save(disruption, expected_version=expected_version)
         self._events.add_aggregate_events(disruption)
         return disruption
+
+    def _assert_replacement_feasible(
+        self,
+        *,
+        context: _BookingContext,
+        aircraft_id: AircraftId,
+        operator_id: OperatorId,
+        departure_window: TimeRange | None,
+        known_as_of: datetime,
+    ):
+        result = self._feasibility.evaluate(
+            mission=context.mission,
+            aircraft_id=aircraft_id,
+            known_as_of=known_as_of,
+            departure_window=departure_window,
+        )
+        if result.candidate.operator_id != operator_id:
+            raise EntityConflictError(
+                "replacement aircraft/operator snapshot lineage is inconsistent"
+            )
+        if not result.feasible:
+            reasons = ",".join(reason.value for reason in result.evaluation.rejection_reasons)
+            raise EntityConflictError(
+                f"replacement aircraft is not canonically feasible for the mission ({reasons})"
+            )
+        draft = result.evaluation.draft
+        if draft is None:
+            raise RuntimeError("feasible replacement is missing its canonical matching draft")
+
+        capacity_plan = self._capacity_policy.derive(
+            mission=context.mission,
+            aircraft_id=aircraft_id,
+            operator_id=operator_id,
+            known_as_of=known_as_of,
+            departure_window=result.departure_window,
+        )
+        if capacity_plan.reference_profile_id != draft.reference_profile.id.value:
+            raise EntityConflictError(
+                "replacement capacity and feasibility reference evidence disagree"
+            )
+        if self._capacity_reservations.has_reserved_overlap(
+            aircraft_id=aircraft_id,
+            interval=capacity_plan.interval,
+            exclude_booking_id=context.booking.id,
+        ):
+            raise EntityConflictError(
+                "replacement aircraft has overlapping committed CharterOS capacity"
+            )
+        return result
 
     def _locked_disruption(self, disruption_id: DisruptionId) -> Disruption:
         disruption = self._disruptions.get_for_update(disruption_id)
