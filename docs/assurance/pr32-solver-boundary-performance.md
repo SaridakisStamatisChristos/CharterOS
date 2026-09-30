@@ -79,6 +79,37 @@ Unit assurance preserves the existing greedy-counterexample regression and adds:
 - equal-margin contention repeated ten times to verify deterministic output; and
 - an explicit route regression proving the CPU solver observes no active database transaction.
 
+### PR32.1 tie-break correction
+
+The original PR32 implementation preserved the PR18 scalar objective:
+
+1. maximize aggregate continuity-adjusted margin; then
+2. minimize the aggregate candidate-index penalty.
+
+That scalar objective is not a strict total order. Different feasible assignment sets can have the
+same total margin and the same sum of candidate indices. In those cases the legacy residual-flow
+solver and the PR32 Hungarian solver could select different plans even though both were exactly
+optimal under the documented scalar objective.
+
+`reposition-v2` makes the final tie explicit and solver-independent:
+
+3. among equal scalar objectives, choose the lexicographically smallest mission-rank vector over
+   sorted structural empty-leg keys; an unmatched row is ordered after every real Mission.
+
+Mission rank is the index in the existing sorted Mission UUID key order. The implementation encodes
+this lexicographic component in a mixed-radix integer whose total range is strictly smaller than one
+unit of the existing scalar objective. It therefore cannot change margin economics or the existing
+candidate-index penalty.
+
+The policy version is bumped from `reposition-v1` to `reposition-v2` because exact-tie plan
+selection is observable output semantics. Historical evidence recorded under v1 remains v1; a replay
+under v2 may intentionally differ only for previously under-specified exact ties.
+
+A checked-in golden fixture,
+`tests/golden/reposition_solver_tie_break_v2.json`, captures a minimal collision where two plans
+have equal margin and equal scalar tie penalty. The test locks the canonical v2 plan and verifies
+that input candidate permutation cannot change it.
+
 The complete repository suite remains the authority for PR18 feasibility, economics, graph
 knowledge-time behavior, API output, and integration semantics.
 
