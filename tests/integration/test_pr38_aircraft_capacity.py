@@ -271,34 +271,45 @@ def test_pr38_overlapping_cross_mission_awards_have_exactly_one_winner() -> None
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            assert connection.execute(
-                text(
-                    "SELECT count(*) FROM bookings "
-                    "WHERE mission_id IN (:mission_a, :mission_b)"
-                ),
-                {"mission_a": UUID(mission_a), "mission_b": UUID(mission_b)},
-            ).scalar_one() == 1
-            assert connection.execute(
-                text(
-                    "SELECT count(*) FROM aircraft_capacity_reservations "
-                    "WHERE mission_id = :mission_id"
-                ),
-                {"mission_id": UUID(loser_mission)},
-            ).scalar_one() == 0
-            assert connection.execute(
-                text(
-                    "SELECT count(*) FROM outbox_events "
-                    "WHERE aggregate_id = :quote_id AND event_type = 'QUOTE_ACCEPTED'"
-                ),
-                {"quote_id": UUID(loser_quote)},
-            ).scalar_one() == 0
-            assert connection.execute(
-                text(
-                    "SELECT count(*) FROM outbox_events "
-                    "WHERE aggregate_id = :mission_id AND event_type = 'MISSION_SELECTED'"
-                ),
-                {"mission_id": UUID(loser_mission)},
-            ).scalar_one() == 0
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM bookings WHERE mission_id IN (:mission_a, :mission_b)"
+                    ),
+                    {"mission_a": UUID(mission_a), "mission_b": UUID(mission_b)},
+                ).scalar_one()
+                == 1
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM aircraft_capacity_reservations "
+                        "WHERE mission_id = :mission_id"
+                    ),
+                    {"mission_id": UUID(loser_mission)},
+                ).scalar_one()
+                == 0
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM outbox_events "
+                        "WHERE aggregate_id = :quote_id AND event_type = 'QUOTE_ACCEPTED'"
+                    ),
+                    {"quote_id": UUID(loser_quote)},
+                ).scalar_one()
+                == 0
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM outbox_events "
+                        "WHERE aggregate_id = :mission_id AND event_type = 'MISSION_SELECTED'"
+                    ),
+                    {"mission_id": UUID(loser_mission)},
+                ).scalar_one()
+                == 0
+            )
     finally:
         engine.dispose()
 
@@ -374,26 +385,35 @@ def test_pr38_sequential_conflict_is_fully_atomic() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            assert connection.execute(
-                text("SELECT count(*) FROM bookings WHERE mission_id = :mission_id"),
-                {"mission_id": UUID(mission_b)},
-            ).scalar_one() == 0
-            assert connection.execute(
-                text(
-                    "SELECT count(*) FROM aircraft_capacity_reservations "
-                    "WHERE mission_id = :mission_id"
-                ),
-                {"mission_id": UUID(mission_b)},
-            ).scalar_one() == 0
-            assert connection.execute(
-                text(
-                    "SELECT count(*) FROM outbox_events "
-                    "WHERE aggregate_id IN (:mission_id, :quote_id) "
-                    "AND event_type IN ('MISSION_SELECTED','QUOTE_ACCEPTED','BOOKING_CREATED',"
-                    "'AIRCRAFT_CAPACITY_RESERVED')"
-                ),
-                {"mission_id": UUID(mission_b), "quote_id": UUID(quote_b)},
-            ).scalar_one() == 0
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM bookings WHERE mission_id = :mission_id"),
+                    {"mission_id": UUID(mission_b)},
+                ).scalar_one()
+                == 0
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM aircraft_capacity_reservations "
+                        "WHERE mission_id = :mission_id"
+                    ),
+                    {"mission_id": UUID(mission_b)},
+                ).scalar_one()
+                == 0
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM outbox_events "
+                        "WHERE aggregate_id IN (:mission_id, :quote_id) "
+                        "AND event_type IN ('MISSION_SELECTED','QUOTE_ACCEPTED','BOOKING_CREATED',"
+                        "'AIRCRAFT_CAPACITY_RESERVED')"
+                    ),
+                    {"mission_id": UUID(mission_b), "quote_id": UUID(quote_b)},
+                ).scalar_one()
+                == 0
+            )
     finally:
         engine.dispose()
 
@@ -421,17 +441,23 @@ def test_pr38_missing_reference_profile_fails_closed_without_partial_award() -> 
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            assert connection.execute(
-                text("SELECT count(*) FROM bookings WHERE mission_id = :mission_id"),
-                {"mission_id": UUID(mission_id)},
-            ).scalar_one() == 0
-            assert connection.execute(
-                text(
-                    "SELECT count(*) FROM aircraft_capacity_reservations "
-                    "WHERE mission_id = :mission_id"
-                ),
-                {"mission_id": UUID(mission_id)},
-            ).scalar_one() == 0
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM bookings WHERE mission_id = :mission_id"),
+                    {"mission_id": UUID(mission_id)},
+                ).scalar_one()
+                == 0
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM aircraft_capacity_reservations "
+                        "WHERE mission_id = :mission_id"
+                    ),
+                    {"mission_id": UUID(mission_id)},
+                ).scalar_one()
+                == 0
+            )
     finally:
         engine.dispose()
 
