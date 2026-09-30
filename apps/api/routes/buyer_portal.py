@@ -56,7 +56,6 @@ from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.ids import CorrelationId
 from charteros.domain.shared.money import Money
 from charteros.domain.shared.time_range import TimeRange
-from charteros.infrastructure.db.transactions import run_transaction
 from charteros.infrastructure.db.repositories import (
     SqlAlchemyAirportRepository,
     SqlAlchemyBookingRepository,
@@ -76,6 +75,7 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyRfqRepository,
     SqlAlchemyTenderRepository,
 )
+from charteros.infrastructure.db.transactions import run_transaction
 from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1/buyer-portal", tags=["buyer-portal"])
