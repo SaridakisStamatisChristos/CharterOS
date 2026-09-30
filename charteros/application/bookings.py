@@ -407,7 +407,9 @@ class BookingService:
             or reservation.aircraft_id != booking.aircraft_id
             or reservation.operator_id != booking.operator_id
         ):
-            raise EntityConflictError("booking capacity reservation identity does not match booking")
+            raise EntityConflictError(
+                "booking capacity reservation identity does not match booking"
+            )
         if reservation.status is not AircraftCapacityReservationStatus.RESERVED:
             raise EntityConflictError("booking aircraft capacity is already released")
 
@@ -473,14 +475,14 @@ class BookingService:
         elif reason is BookingTerminationReason.DEPOSIT_TIMEOUT:
             if booking.state is not BookingState.PAYMENT_PENDING:
                 raise EntityConflictError("deposit_timeout requires payment_pending")
-        elif reason is BookingTerminationReason.COMMERCIAL_EXPIRY:
-            if booking.state not in (
-                BookingState.PENDING_CONTRACT,
-                BookingState.PAYMENT_PENDING,
-            ):
-                raise EntityConflictError(
-                    "commercial_expiry requires pending_contract or payment_pending"
-                )
+        elif (
+            reason is BookingTerminationReason.COMMERCIAL_EXPIRY
+            and booking.state
+            not in (BookingState.PENDING_CONTRACT, BookingState.PAYMENT_PENDING)
+        ):
+            raise EntityConflictError(
+                "commercial_expiry requires pending_contract or payment_pending"
+            )
 
     def _lock_booking(self, booking_id: BookingId, *, expected_state: BookingState) -> Booking:
         booking = self._bookings.get_for_update(booking_id)
