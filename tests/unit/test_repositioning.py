@@ -308,7 +308,6 @@ def test_min_cost_flow_matching_beats_local_greedy_choice() -> None:
     assert sum(item.margin.amount_minor for item in selected) == 197
 
 
-
 def _assignment_key(item: FeasibleInsertion) -> tuple[UUID, UUID]:
     return (
         item.empty_leg.structural.previous_booking_id,
