@@ -94,6 +94,43 @@ class DisruptionProposalRow(Base):
             name="ck_disruption_proposals_availability_evidence",
         ),
         CheckConstraint(
+            "("
+            "feasibility_policy_version IS NULL AND feasibility_known_as_of IS NULL "
+            "AND position_observation_id IS NULL AND position_event_time IS NULL "
+            "AND position_recorded_at IS NULL AND reference_profile_id IS NULL "
+            "AND reference_profile_recorded_at IS NULL "
+            "AND route_distance_tenths_nm IS NULL AND required_range_nm IS NULL "
+            "AND reposition_distance_tenths_nm IS NULL AND route_minutes IS NULL "
+            "AND reposition_minutes IS NULL AND timing_buffer_minutes IS NULL"
+            ") OR ("
+            "feasibility_policy_version IS NOT NULL AND feasibility_known_as_of IS NOT NULL "
+            "AND position_observation_id IS NOT NULL AND position_event_time IS NOT NULL "
+            "AND position_recorded_at IS NOT NULL AND reference_profile_id IS NOT NULL "
+            "AND reference_profile_recorded_at IS NOT NULL "
+            "AND route_distance_tenths_nm IS NOT NULL AND required_range_nm IS NOT NULL "
+            "AND reposition_distance_tenths_nm IS NOT NULL AND route_minutes IS NOT NULL "
+            "AND reposition_minutes IS NOT NULL AND timing_buffer_minutes IS NOT NULL"
+            ")",
+            name="ck_disruption_proposals_feasibility_evidence_complete",
+        ),
+        CheckConstraint(
+            "(route_distance_tenths_nm IS NULL OR route_distance_tenths_nm >= 0) AND "
+            "(required_range_nm IS NULL OR required_range_nm >= 0) AND "
+            "(reposition_distance_tenths_nm IS NULL OR reposition_distance_tenths_nm >= 0) AND "
+            "(route_minutes IS NULL OR route_minutes >= 0) AND "
+            "(reposition_minutes IS NULL OR reposition_minutes >= 0) AND "
+            "(timing_buffer_minutes IS NULL OR timing_buffer_minutes >= 0)",
+            name="ck_disruption_proposals_feasibility_nonnegative",
+        ),
+        CheckConstraint(
+            "feasibility_known_as_of IS NULL OR "
+            "(feasibility_known_as_of <= proposed_at "
+            "AND position_event_time <= feasibility_known_as_of "
+            "AND position_recorded_at <= feasibility_known_as_of "
+            "AND reference_profile_recorded_at <= feasibility_known_as_of)",
+            name="ck_disruption_proposals_feasibility_temporal",
+        ),
+        CheckConstraint(
             "(departure_start IS NULL AND departure_end IS NULL) OR "
             "(departure_start IS NOT NULL AND departure_end IS NOT NULL "
             "AND departure_start < departure_end)",
@@ -143,6 +180,25 @@ class DisruptionProposalRow(Base):
         ForeignKey("aircraft_availability_records.id", ondelete="RESTRICT"),
     )
     availability_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    feasibility_policy_version: Mapped[str | None] = mapped_column(String(64))
+    feasibility_known_as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    position_observation_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("aircraft_position_observations.id", ondelete="RESTRICT"),
+    )
+    position_event_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    position_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reference_profile_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("matching_reference_profiles.id", ondelete="RESTRICT"),
+    )
+    reference_profile_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    route_distance_tenths_nm: Mapped[int | None] = mapped_column(Integer)
+    required_range_nm: Mapped[int | None] = mapped_column(Integer)
+    reposition_distance_tenths_nm: Mapped[int | None] = mapped_column(Integer)
+    route_minutes: Mapped[int | None] = mapped_column(Integer)
+    reposition_minutes: Mapped[int | None] = mapped_column(Integer)
+    timing_buffer_minutes: Mapped[int | None] = mapped_column(Integer)
     departure_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     departure_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     requires_buyer_decision: Mapped[bool] = mapped_column(Boolean, nullable=False)

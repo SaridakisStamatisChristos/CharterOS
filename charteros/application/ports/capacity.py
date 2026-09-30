@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol
 
-from charteros.domain.aircraft import AircraftTypeId
+from charteros.domain.aircraft import AircraftId, AircraftTypeId
 from charteros.domain.bookings import BookingId
 from charteros.domain.capacity_reservations import AircraftCapacityReservation
+from charteros.domain.shared.time_range import TimeRange
 from charteros.matching import MatchingReferenceProfile
 
 
@@ -18,6 +19,14 @@ class AircraftCapacityReservationRepository(Protocol):
         self,
         booking_id: BookingId,
     ) -> AircraftCapacityReservation | None: ...
+
+    def has_reserved_overlap(
+        self,
+        *,
+        aircraft_id: AircraftId,
+        interval: TimeRange,
+        exclude_booking_id: BookingId | None = None,
+    ) -> bool: ...
 
     def save(
         self,

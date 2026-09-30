@@ -184,6 +184,16 @@ class MatchingCandidateSnapshot:
     position: PositionSnapshot | None
     availability: AvailabilitySnapshot | None
     reference_profile: MatchingReferenceProfile | None
+    aircraft_version: int = 0
+    operator_version: int = 0
+
+    def __post_init__(self) -> None:
+        for field_name, version in (
+            ("aircraft_version", self.aircraft_version),
+            ("operator_version", self.operator_version),
+        ):
+            if not isinstance(version, int) or isinstance(version, bool) or version < 0:
+                raise DomainValidationError(f"{field_name} must be a non-negative integer")
 
 
 @dataclass(frozen=True, slots=True)

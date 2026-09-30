@@ -10,8 +10,10 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
+from charteros.application.capacity import AircraftCapacityPolicy
 from charteros.application.disruptions import DisruptionPartyContext, DisruptionService
 from charteros.application.exceptions import EntityConflictError
+from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.idempotency import (
     IdempotencyRepository,
     StoredResponse,
@@ -37,18 +39,21 @@ from charteros.domain.shared.currency import Currency
 from charteros.domain.shared.ids import CorrelationId
 from charteros.domain.shared.time_range import TimeRange
 from charteros.infrastructure.db.repositories import (
+    SqlAlchemyAircraftCapacityReservationRepository,
     SqlAlchemyAircraftRepository,
+    SqlAlchemyAirportRepository,
     SqlAlchemyBookingRepository,
+    SqlAlchemyCapacityReferenceRepository,
     SqlAlchemyDisruptionRepository,
     SqlAlchemyDomainEventRepository,
     SqlAlchemyIdempotencyRepository,
+    SqlAlchemyMatchingSnapshotRepository,
     SqlAlchemyMissionRepository,
     SqlAlchemyOperatorRepository,
     SqlAlchemyOrganizationRepository,
     SqlAlchemyQuoteRepository,
     SqlAlchemyRfqRepository,
 )
-from charteros.infrastructure.db.repositories.fleet import SqlAlchemyFleetTimelineRepository
 from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["disruptions"])
@@ -156,6 +161,19 @@ class ReplacementProposalResponse(BaseModel):
     proposed_aircraft_version: int
     availability_record_id: UUID | None
     availability_recorded_at: datetime | None
+    feasibility_policy_version: str | None
+    feasibility_known_as_of: datetime | None
+    position_observation_id: UUID | None
+    position_event_time: datetime | None
+    position_recorded_at: datetime | None
+    reference_profile_id: UUID | None
+    reference_profile_recorded_at: datetime | None
+    route_distance_tenths_nm: int | None
+    required_range_nm: int | None
+    reposition_distance_tenths_nm: int | None
+    route_minutes: int | None
+    reposition_minutes: int | None
+    timing_buffer_minutes: int | None
     departure_window: DepartureWindowRequest | None
     requires_buyer_decision: bool
     source: str
@@ -203,6 +221,17 @@ class BuyerDecisionResponse(BaseModel):
 
 
 def _service(session: Session) -> DisruptionService:
+    aircraft = SqlAlchemyAircraftRepository(session)
+    airports = SqlAlchemyAirportRepository(session)
+    feasibility = AircraftMissionFeasibilityService(
+        airports=airports,
+        snapshots=SqlAlchemyMatchingSnapshotRepository(session),
+    )
+    capacity_policy = AircraftCapacityPolicy(
+        aircraft=aircraft,
+        airports=airports,
+        references=SqlAlchemyCapacityReferenceRepository(session),
+    )
     return DisruptionService(
         disruptions=SqlAlchemyDisruptionRepository(session),
         bookings=SqlAlchemyBookingRepository(session),
@@ -211,8 +240,10 @@ def _service(session: Session) -> DisruptionService:
         rfqs=SqlAlchemyRfqRepository(session),
         organizations=SqlAlchemyOrganizationRepository(session),
         operators=SqlAlchemyOperatorRepository(session),
-        aircraft=SqlAlchemyAircraftRepository(session),
-        fleet_timeline=SqlAlchemyFleetTimelineRepository(session),
+        aircraft=aircraft,
+        feasibility=feasibility,
+        capacity_policy=capacity_policy,
+        capacity_reservations=SqlAlchemyAircraftCapacityReservationRepository(session),
         events=SqlAlchemyDomainEventRepository(session),
     )
 
@@ -319,6 +350,23 @@ def _proposal_response(proposal: ReplacementProposal) -> ReplacementProposalResp
             else None
         ),
         availability_recorded_at=proposal.availability_recorded_at,
+        feasibility_policy_version=proposal.feasibility_policy_version,
+        feasibility_known_as_of=proposal.feasibility_known_as_of,
+        position_observation_id=(
+            proposal.position_observation_id.value
+            if proposal.position_observation_id is not None
+            else None
+        ),
+        position_event_time=proposal.position_event_time,
+        position_recorded_at=proposal.position_recorded_at,
+        reference_profile_id=proposal.reference_profile_id,
+        reference_profile_recorded_at=proposal.reference_profile_recorded_at,
+        route_distance_tenths_nm=proposal.route_distance_tenths_nm,
+        required_range_nm=proposal.required_range_nm,
+        reposition_distance_tenths_nm=proposal.reposition_distance_tenths_nm,
+        route_minutes=proposal.route_minutes,
+        reposition_minutes=proposal.reposition_minutes,
+        timing_buffer_minutes=proposal.timing_buffer_minutes,
         departure_window=window,
         requires_buyer_decision=proposal.requires_buyer_decision,
         source=proposal.source,
