@@ -106,6 +106,26 @@ class SqlAlchemyAircraftCapacityReservationRepository:
         )
         return _to_domain(row) if row is not None else None
 
+    def has_reserved_overlap(
+        self,
+        *,
+        aircraft_id: AircraftId,
+        interval: TimeRange,
+        exclude_booking_id: BookingId | None = None,
+    ) -> bool:
+        statement = select(AircraftCapacityReservationRow.id).where(
+            AircraftCapacityReservationRow.aircraft_id == aircraft_id.value,
+            AircraftCapacityReservationRow.status
+            == AircraftCapacityReservationStatus.RESERVED.value,
+            AircraftCapacityReservationRow.starts_at < interval.end,
+            AircraftCapacityReservationRow.ends_at > interval.start,
+        )
+        if exclude_booking_id is not None:
+            statement = statement.where(
+                AircraftCapacityReservationRow.booking_id != exclude_booking_id.value
+            )
+        return self._session.scalar(statement.limit(1)) is not None
+
     def save(
         self,
         reservation: AircraftCapacityReservation,
