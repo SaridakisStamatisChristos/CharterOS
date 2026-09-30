@@ -25,7 +25,6 @@ def load_models() -> None:
         EvidenceIntegrityEntryRow,
     )
     from charteros.infrastructure.db.models.fleet import (
-        ApiRateLimitWindowRow,
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
     )
@@ -57,6 +56,7 @@ def load_models() -> None:
     )
 
     _ = (
+        ApiRateLimitWindowRow,
         AircraftAvailabilityRecordRow,
         AircraftPositionObservationRow,
         AircraftRow,
