@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     outbox_backoff_max_seconds: int = Field(default=300, ge=1, le=86400)
 
     @model_validator(mode="after")
-    def validate_deployment_security(self) -> "Settings":
+    def validate_deployment_security(self) -> Settings:
         try:
             database = make_url(self.database_url)
         except ArgumentError as exc:
