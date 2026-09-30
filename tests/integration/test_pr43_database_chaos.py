@@ -18,6 +18,12 @@ from charteros.infrastructure.db.transactions import run_transaction
 from charteros.shared.config import Settings
 
 
+class _SqlStateError(Exception):
+    def __init__(self, sqlstate: str) -> None:
+        super().__init__(sqlstate)
+        self.sqlstate = sqlstate
+
+
 def _settings() -> Settings:
     database_url = os.environ.get("CHARTEROS_DATABASE_URL")
     if not database_url:
