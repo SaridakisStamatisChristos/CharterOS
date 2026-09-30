@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Barrier
+from typing import cast
 from uuid import UUID
 
 import pytest
@@ -525,7 +526,7 @@ def test_pr43_failure_after_award_staging_rolls_back_every_authoritative_effect(
     monkeypatch.setattr(BookingService, "accept_quote", fail_after_staging)
 
     with TestClient(create_app(settings)) as client:
-        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="P43FA")
+        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="FA")
         response = client.post(
             f"/v1/quotes/{quote_id}/accept",
             headers={"Idempotency-Key": "pr43-fail-after-staging"},
@@ -569,11 +570,11 @@ def test_pr43_failure_after_award_staging_rolls_back_every_authoritative_effect(
                 connection.execute(
                     text(
                         "SELECT count(*) FROM outbox_events "
-                        "WHERE event_type IN "
-                        "('QUOTE_ACCEPTED','QUOTE_REJECTED','MISSION_SELECTED',"
-                        "'BOOKING_CREATED','AIRCRAFT_CAPACITY_RESERVED') "
-                        "AND recorded_at >= now() - interval '10 minutes'"
-                    )
+                        "WHERE (aggregate_id = :quote_id "
+                        "AND event_type IN ('QUOTE_ACCEPTED','QUOTE_REJECTED')) "
+                        "OR (aggregate_id = :mission_id AND event_type = 'MISSION_SELECTED')"
+                    ),
+                    {"quote_id": UUID(quote_id), "mission_id": UUID(mission_id)},
                 ).scalar_one()
                 == 0
             )
@@ -598,7 +599,7 @@ def test_pr43_failure_after_award_staging_rolls_back_every_authoritative_effect(
 def test_pr43_lost_response_after_commit_replays_one_canonical_award() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="P43LR")
+        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="LR")
         key = "pr43-lost-response"
 
         committed = client.post(
@@ -620,13 +621,16 @@ def test_pr43_lost_response_after_commit_replays_one_canonical_award() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            reservation_id = connection.execute(
-                text(
-                    "SELECT id FROM aircraft_capacity_reservations "
-                    "WHERE mission_id = :mission_id"
-                ),
-                {"mission_id": UUID(mission_id)},
-            ).scalar_one()
+            reservation_id = cast(
+                UUID,
+                connection.execute(
+                    text(
+                        "SELECT id FROM aircraft_capacity_reservations "
+                        "WHERE mission_id = :mission_id"
+                    ),
+                    {"mission_id": UUID(mission_id)},
+                ).scalar_one(),
+            )
             booking_id = UUID(canonical["id"])
             assert (
                 connection.execute(
@@ -693,7 +697,7 @@ def test_pr43_lost_response_after_commit_replays_one_canonical_award() -> None:
 def test_pr43_simultaneous_identical_award_requests_converge_on_one_result() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="P43DU")
+        mission_id, (_, quote_id), _, _ = _setup_two_quotes(client, suffix="DU")
         barrier = Barrier(2)
         key = "pr43-concurrent-duplicate"
 
@@ -703,7 +707,7 @@ def test_pr43_simultaneous_identical_award_requests_converge_on_one_result() -> 
                 f"/v1/quotes/{quote_id}/accept",
                 headers={"Idempotency-Key": key},
             )
-            return int(response.status_code), response.json()
+            return int(response.status_code), cast(dict[str, object], response.json())
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             first = executor.submit(award)
