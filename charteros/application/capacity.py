@@ -53,8 +53,10 @@ class AircraftCapacityPolicy:
         aircraft_id: AircraftId,
         operator_id: OperatorId,
         known_as_of: datetime,
+        departure_window: TimeRange | None = None,
     ) -> AircraftCapacityPlan:
         decision_time = _utc(known_as_of, field_name="known_as_of")
+        window = departure_window or mission.departure_window
         aircraft = self._aircraft.get(aircraft_id)
         if aircraft is None:
             raise EntityNotFoundError("quoted aircraft does not exist")
@@ -82,11 +84,11 @@ class AircraftCapacityPolicy:
             destination.longitude,
         )
         route_minutes = flight_minutes(route_distance, profile.cruise_speed_kts)
-        capacity_end = mission.departure_window.end + timedelta(
+        capacity_end = window.end + timedelta(
             minutes=route_minutes + profile.turnaround_buffer_minutes
         )
         return AircraftCapacityPlan(
-            interval=TimeRange(mission.departure_window.start, capacity_end),
+            interval=TimeRange(window.start, capacity_end),
             policy_version=CAPACITY_POLICY_VERSION,
             reference_profile_id=profile.id.value,
             reference_profile_recorded_at=profile.recorded_at,
