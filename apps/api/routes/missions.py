@@ -66,7 +66,10 @@ class MissionCreate(BaseModel):
     departure_window: TimeWindowRequest
     passenger_count: int = Field(gt=0)
     max_budget: MoneyRequest | None = None
-    special_requirements: list[str] = Field(default_factory=list, max_length=64)
+    special_requirements: list[Annotated[str, Field(min_length=1, max_length=500)]] = Field(
+        default_factory=list,
+        max_length=64,
+    )
 
 
 class TimeWindowResponse(BaseModel):
