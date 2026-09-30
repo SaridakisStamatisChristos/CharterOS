@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+
 from charteros.application.exceptions import EntityConflictError
 
 
