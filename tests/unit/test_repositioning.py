@@ -415,7 +415,6 @@ def test_assignment_solver_is_deterministic_under_equal_margin_pressure() -> Non
         assert maximum_margin_matching(candidates) == expected
 
 
-
 class _GoldenCandidate(TypedDict):
     empty_seed: int
     mission_seed: int
