@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
-from charteros.shared.clock import Clock
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
 from charteros.application.fx import FxService
 from charteros.application.idempotency import (
@@ -26,9 +25,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyFxRateRepository,
     SqlAlchemyIdempotencyRepository,
 )
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1/fx", tags=["fx"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -123,7 +124,8 @@ def create_rate(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> FxRateResponse:
+    clock: ClockDep,
+) -> FxRateResponse:
     scope = "POST:/v1/fx/rates"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -173,7 +175,8 @@ def correct_rate(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> FxRateResponse:
+    clock: ClockDep,
+) -> FxRateResponse:
     scope = f"POST:/v1/fx/rates/{rate_id}/corrections"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
