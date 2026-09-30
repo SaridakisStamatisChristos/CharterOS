@@ -4,6 +4,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Barrier
+from typing import cast
 from uuid import UUID
 
 import pytest
@@ -261,7 +262,7 @@ def test_pr38_overlapping_cross_mission_awards_have_exactly_one_winner() -> None
     assert len(rows) == 1
     assert rows[0]["status"] == "reserved"
     assert rows[0]["policy_version"] == "aircraft-capacity-v1"
-    assert rows[0]["route_minutes"] > 0
+    assert cast(int, rows[0]["route_minutes"]) > 0
     assert rows[0]["turnaround_buffer_minutes"] == 45
 
     loser_quote = next(
@@ -346,7 +347,7 @@ def test_pr38_non_overlapping_same_aircraft_awards_both_succeed() -> None:
     rows = _reservation_rows(settings, shared["aircraft_id"])
     assert len(rows) == 2
     assert all(row["status"] == "reserved" for row in rows)
-    assert rows[0]["ends_at"] <= rows[1]["starts_at"]
+    assert cast(datetime, rows[0]["ends_at"]) <= cast(datetime, rows[1]["starts_at"])
 
 
 @pytest.mark.integration
@@ -468,16 +469,18 @@ def test_pr38_postgresql_exclusion_constraint_is_present() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            definition = connection.execute(
-                text(
-                    """
-                    SELECT pg_get_constraintdef(oid)
-                    FROM pg_constraint
-                    WHERE conname = 'ex_aircraft_capacity_reservations_reserved_overlap'
-                    """
-                )
-            ).scalar_one()
-        normalized = " ".join(str(definition).split()).lower()
+            definition: str = str(
+                connection.execute(
+                    text(
+                        """
+                        SELECT pg_get_constraintdef(oid)
+                        FROM pg_constraint
+                        WHERE conname = 'ex_aircraft_capacity_reservations_reserved_overlap'
+                        """
+                    )
+                ).scalar_one()
+            )
+        normalized = " ".join(definition.split()).lower()
         assert "exclude using gist" in normalized
         assert "aircraft_id with =" in normalized
         assert "occupied_range with &&" in normalized

@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from apps.api.capacity import build_capacity_policy, build_capacity_reservations
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from apps.api.routes.catalog import AircraftTypeCreate
 from apps.api.routes.fleet import (
@@ -280,6 +281,8 @@ def _tender_service(session: Session) -> TenderService:
         quotes=SqlAlchemyQuoteRepository(session),
         aircraft=SqlAlchemyAircraftRepository(session),
         bookings=SqlAlchemyBookingRepository(session),
+        capacity_policy=build_capacity_policy(session),
+        capacity_reservations=build_capacity_reservations(session),
         events=SqlAlchemyDomainEventRepository(session),
     )
 
