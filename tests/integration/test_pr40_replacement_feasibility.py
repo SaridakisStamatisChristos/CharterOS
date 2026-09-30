@@ -153,7 +153,7 @@ def _propose(
 
 
 @pytest.mark.integration
-def test_pr40_feasible_same_operator_replacement_captures_reproducible_evidence_without_hold() -> None:
+def test_pr40_feasible_replacement_captures_evidence_without_hold() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
         setup = _booked_operation(client, suffix="F1")
@@ -399,7 +399,7 @@ def test_pr40_replacement_rejects_reposition_too_far_and_too_late() -> None:
 
 
 @pytest.mark.integration
-def test_pr40_late_availability_correction_preserves_proposal_evidence_and_blocks_resolution() -> None:
+def test_pr40_late_availability_correction_blocks_resolution_without_rewriting_evidence() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
         setup = _booked_operation(client, suffix="H1")
