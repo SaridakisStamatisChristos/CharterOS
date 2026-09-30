@@ -28,7 +28,6 @@ from apps.api.routes.quotes import _response as quote_response
 from apps.api.routes.quotes import _terms as quote_terms
 from apps.api.routes.repositioning import RepositionOptimizationResponse
 from apps.api.routes.repositioning import _response as repositioning_response
-from charteros.shared.clock import Clock
 from charteros.application.catalog import AircraftTypeSpec, CatalogService
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.graph_queries import EmptyLegCandidate, GraphQueryService
@@ -77,9 +76,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1/operator-portal", tags=["operator-portal"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 OperatorContext = Annotated[UUID, Header(alias="X-Operator-Id")]
@@ -539,7 +540,8 @@ def get_aircraft_availability(
     at: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
 
-    clock: Clock = Depends(get_clock),) -> TimelineResponse:
+    clock: ClockDep,
+) -> TimelineResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         _portal(session).aircraft(
@@ -674,7 +676,8 @@ def acknowledge_rfq(
     idempotency_key: IdempotencyKeyDep,
     invitation_id: TenderCapability = None,
 
-    clock: Clock = Depends(get_clock),) -> PortalRfqResponse:
+    clock: ClockDep,
+) -> PortalRfqResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/acknowledge"
 
     def action() -> PortalRfqResponse:
@@ -725,7 +728,8 @@ def decline_rfq(
     idempotency_key: IdempotencyKeyDep,
     invitation_id: TenderCapability = None,
 
-    clock: Clock = Depends(get_clock),) -> PortalRfqResponse:
+    clock: ClockDep,
+) -> PortalRfqResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/decline"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
 
@@ -778,7 +782,8 @@ def _submit_quote_for_context(
     body: QuoteTermsRequest,
     correlation_id: CorrelationId,
 
-    clock: Clock,) -> QuoteResponse:
+    clock: Clock,
+) -> QuoteResponse:
     item = _portal(session).rfq(
         operator_id=OperatorId(operator_id),
         rfq_id=rfq_id,
@@ -834,7 +839,8 @@ def submit_quote(
     idempotency_key: IdempotencyKeyDep,
     invitation_id: TenderCapability = None,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/quotes"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -884,7 +890,8 @@ def _revise_quote_for_context(
     body: QuoteTermsRequest,
     correlation_id: CorrelationId,
 
-    clock: Clock,) -> QuoteResponse:
+    clock: Clock,
+) -> QuoteResponse:
     context = _portal(session).quote_context(
         operator_id=OperatorId(operator_id),
         quote_id=quote_id,
@@ -958,7 +965,8 @@ def revise_quote(
     idempotency_key: IdempotencyKeyDep,
     invitation_id: TenderCapability = None,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/quotes/{quote_id}/revise"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -990,7 +998,8 @@ def withdraw_quote(
     idempotency_key: IdempotencyKeyDep,
     invitation_id: TenderCapability = None,
 
-    clock: Clock = Depends(get_clock),) -> QuoteResponse:
+    clock: ClockDep,
+) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/quotes/{quote_id}/withdraw"
 
     def action() -> QuoteResponse:
