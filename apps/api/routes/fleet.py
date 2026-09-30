@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
-from charteros.shared.clock import Clock
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.fleet import AircraftTimeline, FleetTimelineService
 from charteros.application.idempotency import (
@@ -36,9 +35,11 @@ from charteros.infrastructure.db.repositories.fleet import (
     SqlAlchemyFleetAircraftRepository,
     SqlAlchemyFleetTimelineRepository,
 )
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["fleet-timeline"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -325,7 +326,8 @@ def get_timeline(
     at: Annotated[datetime | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
 
-    clock: Clock = Depends(get_clock),) -> TimelineResponse:
+    clock: ClockDep,
+) -> TimelineResponse:
     timeline = _service(session).get_timeline(
         aircraft_id=AircraftId(aircraft_id),
         from_time=from_time,
