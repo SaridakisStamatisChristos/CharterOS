@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String
+from sqlalchemy import CheckConstraint, DateTime, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from charteros.infrastructure.db.base import Base
@@ -12,6 +12,7 @@ class ApiRateLimitWindowRow(Base):
     __tablename__ = "api_rate_limit_windows"
     __table_args__ = (
         CheckConstraint("request_count > 0", name="ck_api_rate_limit_windows_count"),
+        Index("ix_api_rate_limit_windows_started_at", "window_started_at"),
     )
 
     budget: Mapped[str] = mapped_column(String(32), primary_key=True)
