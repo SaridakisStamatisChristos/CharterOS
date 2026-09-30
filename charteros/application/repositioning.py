@@ -243,7 +243,10 @@ class RepositioningService:
             structural=structural,
             candidates=candidates,
             opportunities=opportunities,
-            airports=tuple(airports[key] for key in sorted(airports, key=lambda value: value.value.hex)),
+            airports=tuple(
+                airports[key]
+                for key in sorted(airports, key=lambda value: value.value.hex)
+            ),
         )
 
     def optimize(
