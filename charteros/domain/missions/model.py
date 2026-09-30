@@ -102,6 +102,7 @@ class Mission(AggregateRoot[MissionId]):
         destination_airport_id: AirportId,
         departure_window: TimeRange,
         passenger_count: int,
+        recorded_at: datetime,
         max_budget: Money | None = None,
         special_requirements: tuple[str, ...] = (),
         correlation_id: CorrelationId | None = None,
@@ -135,27 +136,34 @@ class Mission(AggregateRoot[MissionId]):
                 "special_requirements": mission.special_requirements,
                 "status": mission.status.value,
             },
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
         return mission
 
-    def open(self, *, correlation_id: CorrelationId | None = None) -> None:
+    def open(
+        self, *, recorded_at: datetime, correlation_id: CorrelationId | None = None
+    ) -> None:
         if self.status is not MissionStatus.DRAFT:
             raise DomainValidationError("only draft missions can be opened")
         self.status = MissionStatus.OPEN
         self._record_event(
             "MISSION_OPENED",
             {"status": self.status.value},
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
 
-    def start_sourcing(self, *, correlation_id: CorrelationId | None = None) -> None:
+    def start_sourcing(
+        self, *, recorded_at: datetime, correlation_id: CorrelationId | None = None
+    ) -> None:
         if self.status is not MissionStatus.OPEN:
             raise DomainValidationError("only open missions can enter sourcing")
         self.status = MissionStatus.SOURCING
         self._record_event(
             "MISSION_SOURCING",
             {"status": self.status.value},
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
 
@@ -180,6 +188,7 @@ class Mission(AggregateRoot[MissionId]):
                 "MISSION_QUOTED",
                 {"status": self.status.value},
                 correlation_id=correlation_id,
+                recorded_at=when,
                 occurred_at=when,
             )
         self.status = MissionStatus.SELECTED
@@ -192,6 +201,7 @@ class Mission(AggregateRoot[MissionId]):
                 "selected_at": _iso(when),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -273,5 +283,6 @@ class Mission(AggregateRoot[MissionId]):
                 "transitioned_at": _iso(when),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )

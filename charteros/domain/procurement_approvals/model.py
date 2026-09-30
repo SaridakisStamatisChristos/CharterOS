@@ -139,6 +139,7 @@ class ProcurementApproval(AggregateRoot[ProcurementApprovalId]):
             },
             actor_id=buyer_id,
             correlation_id=correlation_id,
+            recorded_at=approval.approved_at,
             occurred_at=approval.approved_at,
         )
         return approval
@@ -167,6 +168,7 @@ class ProcurementApproval(AggregateRoot[ProcurementApprovalId]):
             },
             actor_id=self.buyer_id,
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -193,5 +195,6 @@ class ProcurementApproval(AggregateRoot[ProcurementApprovalId]):
             },
             actor_id=self.buyer_id,
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )

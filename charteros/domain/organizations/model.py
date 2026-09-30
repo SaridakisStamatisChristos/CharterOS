@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 
 from charteros.domain.shared.aggregate import AggregateRoot
@@ -49,6 +50,7 @@ class Organization(AggregateRoot[OrganizationId]):
         organization_id: OrganizationId,
         *,
         organization_type: OrganizationType,
+        recorded_at: datetime,
         legal_name: str,
         trading_name: str | None,
         country: str,
@@ -92,6 +94,7 @@ class Organization(AggregateRoot[OrganizationId]):
                 "country": organization.country,
                 "status": organization.status.value,
             },
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
         return organization

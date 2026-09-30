@@ -99,6 +99,7 @@ class Booking(AggregateRoot[BookingId]):
                 "created_at": _iso(booking.created_at),
             },
             correlation_id=correlation_id,
+            recorded_at=booking.created_at,
             occurred_at=booking.created_at,
         )
         return booking
@@ -229,5 +230,6 @@ class Booking(AggregateRoot[BookingId]):
                 "transitioned_at": _iso(when),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )

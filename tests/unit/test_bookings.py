@@ -50,6 +50,7 @@ def test_booking_creation_is_minimal_and_emits_creation_event() -> None:
                 NOW + timedelta(days=2, hours=2),
             ),
             passenger_count=20,
+            recorded_at=NOW,
         ).id,
         accepted_quote_id=_quote().id,
         operator_id=OperatorId(_id(13)),
@@ -113,9 +114,10 @@ def test_mission_selection_preserves_explicit_quoted_then_selected_transitions()
             NOW + timedelta(days=2, hours=2),
         ),
         passenger_count=20,
+        recorded_at=NOW,
     )
-    mission.open()
-    mission.start_sourcing()
+    mission.open(recorded_at=NOW)
+    mission.start_sourcing(recorded_at=NOW)
     mission.select_quote(
         quote_id=str(_id(43)),
         booking_id=str(_id(44)),

@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -12,6 +13,8 @@ from charteros.domain.organizations import (
 )
 from charteros.domain.shared.exceptions import DomainValidationError
 
+NOW = datetime(2026, 9, 30, 10, 0, tzinfo=UTC)
+
 
 def test_organization_is_canonical_and_emits_creation_event() -> None:
     organization = Organization.create(
@@ -20,6 +23,7 @@ def test_organization_is_canonical_and_emits_creation_event() -> None:
         trading_name="Aegean",
         country="gr",
         status=OrganizationStatus.ACTIVE,
+        recorded_at=NOW,
     )
 
     assert organization.legal_name == "Aegean Charter"
@@ -34,11 +38,13 @@ def test_operator_normalizes_aoc_and_regions() -> None:
         legal_name="Aegean Charter",
         trading_name=None,
         country="GR",
+        recorded_at=NOW,
     )
     operator = Operator.create(
         organization_id=organization.id,
         aoc_reference=" gr-123 ",
         operating_regions=("eu", "EU", "med"),
+        recorded_at=NOW,
     )
 
     assert operator.aoc_reference == "GR-123"
@@ -52,6 +58,7 @@ def test_airport_validates_coordinates_and_timezone() -> None:
         latitude=Decimal("37.9364"),
         longitude=Decimal("23.9445"),
         timezone="Europe/Athens",
+        recorded_at=NOW,
     )
     assert airport.icao == "LGAV"
     assert airport.iata == "ATH"
@@ -63,6 +70,7 @@ def test_airport_validates_coordinates_and_timezone() -> None:
             latitude=Decimal("91"),
             longitude=Decimal("23"),
             timezone="Europe/Athens",
+            recorded_at=NOW,
         )
 
 
@@ -72,11 +80,13 @@ def test_aircraft_capacity_must_fit_reference_type() -> None:
         legal_name="Operator",
         trading_name=None,
         country="GR",
+        recorded_at=NOW,
     )
     operator = Operator.create(
         organization_id=organization.id,
         aoc_reference="GR-456",
         operating_regions=("EU",),
+        recorded_at=NOW,
     )
     airport = Airport.create(
         icao="LGAV",
@@ -84,6 +94,7 @@ def test_aircraft_capacity_must_fit_reference_type() -> None:
         latitude=Decimal("37.9364"),
         longitude=Decimal("23.9445"),
         timezone="Europe/Athens",
+        recorded_at=NOW,
     )
     aircraft_type = AircraftType.create(
         manufacturer="Airbus",
@@ -103,6 +114,7 @@ def test_aircraft_capacity_must_fit_reference_type() -> None:
         range_nm=3200,
         home_base_id=airport.id,
         status=AircraftStatus.ACTIVE,
+        recorded_at=NOW,
     )
     assert aircraft.registration == "SX-ABC"
     assert aircraft.pending_events[0].event_type == "AIRCRAFT_REGISTERED"
@@ -116,4 +128,5 @@ def test_aircraft_capacity_must_fit_reference_type() -> None:
             cargo_capacity=Decimal("1500"),
             range_nm=3200,
             home_base_id=airport.id,
+            recorded_at=NOW,
         )

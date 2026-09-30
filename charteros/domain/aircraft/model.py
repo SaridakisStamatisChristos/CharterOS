@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING
@@ -143,6 +144,7 @@ class Aircraft(AggregateRoot[AircraftId]):
         cargo_capacity: Decimal,
         range_nm: int,
         home_base_id: AirportId,
+        recorded_at: datetime,
         status: AircraftStatus = AircraftStatus.ACTIVE,
         correlation_id: CorrelationId | None = None,
     ) -> Aircraft:
@@ -170,6 +172,7 @@ class Aircraft(AggregateRoot[AircraftId]):
                 "home_base_id": str(aircraft.home_base_id),
                 "status": aircraft.status.value,
             },
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
         )
         return aircraft
@@ -186,6 +189,7 @@ class Aircraft(AggregateRoot[AircraftId]):
             "AIRCRAFT_POSITION_RECORDED",
             observation.event_payload(),
             correlation_id=correlation_id,
+            recorded_at=observation.recorded_at,
             occurred_at=observation.recorded_at,
         )
 
@@ -201,5 +205,6 @@ class Aircraft(AggregateRoot[AircraftId]):
             "AIRCRAFT_AVAILABILITY_CHANGED",
             record.event_payload(),
             correlation_id=correlation_id,
+            recorded_at=record.recorded_at,
             occurred_at=record.recorded_at,
         )

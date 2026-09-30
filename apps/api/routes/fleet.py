@@ -230,6 +230,7 @@ def record_position(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> PositionResponse:
     scope = f"POST:/v1/aircraft/{aircraft_id}/positions"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -251,6 +252,7 @@ def record_position(
             latitude=body.lat,
             longitude=body.lon,
             event_time=body.event_time,
+            recorded_at=clock.now(),
             source=body.source,
             provenance=body.provenance,
             correlation_id=correlation_id,
@@ -277,6 +279,7 @@ def record_availability(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> AvailabilityResponse:
     scope = f"POST:/v1/aircraft/{aircraft_id}/availability"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -303,6 +306,7 @@ def record_availability(
             supersedes_id=(
                 AvailabilityRecordId(body.supersedes_id) if body.supersedes_id is not None else None
             ),
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _availability_response(record, aircraft_version=aircraft_version)

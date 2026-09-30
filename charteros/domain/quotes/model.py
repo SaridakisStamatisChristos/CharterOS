@@ -352,6 +352,7 @@ class Quote(AggregateRoot[QuoteId]):
             "QUOTE_SUBMITTED",
             quote._event_payload(),
             correlation_id=correlation_id,
+            recorded_at=quote.submitted_at,
             occurred_at=quote.submitted_at,
         )
         return quote
@@ -400,6 +401,7 @@ class Quote(AggregateRoot[QuoteId]):
             "QUOTE_REVISED",
             quote._event_payload(),
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
         return quote
@@ -425,6 +427,7 @@ class Quote(AggregateRoot[QuoteId]):
             "QUOTE_SUPERSEDED",
             {"replacement_quote_id": str(replacement_quote_id)},
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -452,6 +455,7 @@ class Quote(AggregateRoot[QuoteId]):
                 "accepted_at": when.isoformat().replace("+00:00", "Z"),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -479,6 +483,7 @@ class Quote(AggregateRoot[QuoteId]):
                 "rejected_at": when.isoformat().replace("+00:00", "Z"),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -502,6 +507,7 @@ class Quote(AggregateRoot[QuoteId]):
             "QUOTE_WITHDRAWN",
             {"withdrawn_at": when.isoformat().replace("+00:00", "Z")},
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -523,6 +529,7 @@ class Quote(AggregateRoot[QuoteId]):
             "QUOTE_EXPIRED",
             {"expired_at": when.isoformat().replace("+00:00", "Z")},
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 

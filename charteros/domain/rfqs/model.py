@@ -168,6 +168,7 @@ class Rfq(AggregateRoot[RfqId]):
             "RFQ_CREATED",
             {"mission_id": str(mission_id), "operator_id": str(operator_id)},
             correlation_id=correlation_id,
+            recorded_at=created,
             occurred_at=created,
         )
         return rfq
@@ -192,6 +193,7 @@ class Rfq(AggregateRoot[RfqId]):
             "RFQ_SENT",
             {"response_deadline": deadline.isoformat().replace("+00:00", "Z")},
             correlation_id=correlation_id,
+            recorded_at=sent,
             occurred_at=sent,
         )
 
@@ -215,6 +217,7 @@ class Rfq(AggregateRoot[RfqId]):
             "RFQ_ACKNOWLEDGED",
             {"acknowledged_at": when.isoformat().replace("+00:00", "Z")},
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -243,6 +246,7 @@ class Rfq(AggregateRoot[RfqId]):
                 "reason": self.decline_reason,
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -266,6 +270,7 @@ class Rfq(AggregateRoot[RfqId]):
             "RFQ_EXPIRED",
             {"expired_at": when.isoformat().replace("+00:00", "Z")},
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )
 
@@ -294,5 +299,6 @@ class Rfq(AggregateRoot[RfqId]):
                 "quoted_at": when.isoformat().replace("+00:00", "Z"),
             },
             correlation_id=correlation_id,
+            recorded_at=when,
             occurred_at=when,
         )

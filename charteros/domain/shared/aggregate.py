@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import ClassVar
 
 from charteros.domain.shared.events import DomainEvent
@@ -64,13 +64,13 @@ class AggregateRoot[IdT: TypedId]:
         event_type: str,
         payload: Mapping[str, object] | None = None,
         *,
+        recorded_at: datetime,
+        occurred_at: datetime | None = None,
         event_version: int = 1,
         actor_id: TypedId | None = None,
         correlation_id: CorrelationId | None = None,
         causation_id: EventId | None = None,
-        occurred_at: datetime | None = None,
     ) -> DomainEvent:
-        now = datetime.now(UTC)
         event = DomainEvent(
             event_id=EventId.new(),
             aggregate_type=self.aggregate_type,
@@ -78,8 +78,8 @@ class AggregateRoot[IdT: TypedId]:
             aggregate_version=self._version + 1,
             event_type=event_type,
             event_version=event_version,
-            occurred_at=occurred_at or now,
-            recorded_at=now,
+            occurred_at=recorded_at if occurred_at is None else occurred_at,
+            recorded_at=recorded_at,
             actor_id=actor_id,
             correlation_id=correlation_id,
             causation_id=causation_id,
