@@ -31,17 +31,21 @@ def _reservation_for_booking(settings: Settings, booking_id: str) -> dict[str, o
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            row = connection.execute(
-                text(
-                    """
+            row = (
+                connection.execute(
+                    text(
+                        """
                     SELECT id, version, aircraft_id, booking_id, mission_id, status,
                            released_at, release_reason
                     FROM aircraft_capacity_reservations
                     WHERE booking_id = :booking_id
                     """
-                ),
-                {"booking_id": UUID(booking_id)},
-            ).mappings().one()
+                    ),
+                    {"booking_id": UUID(booking_id)},
+                )
+                .mappings()
+                .one()
+            )
             return dict(row)
     finally:
         engine.dispose()
@@ -149,27 +153,39 @@ def test_pr39_contracted_buyer_cancel_is_atomic_with_capacity_release() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            booking_events = connection.execute(
-                text(
-                    "SELECT event_type FROM outbox_events WHERE aggregate_id = :id "
-                    "AND event_type = 'BOOKING_CANCELLED'"
-                ),
-                {"id": UUID(booking_id)},
-            ).scalars().all()
-            mission_events = connection.execute(
-                text(
-                    "SELECT event_type FROM outbox_events WHERE aggregate_id = :id "
-                    "AND event_type = 'MISSION_CANCELLED'"
-                ),
-                {"id": UUID(mission_id)},
-            ).scalars().all()
-            reservation_events = connection.execute(
-                text(
-                    "SELECT event_type FROM outbox_events WHERE aggregate_id = :id "
-                    "AND event_type = 'AIRCRAFT_CAPACITY_RELEASED'"
-                ),
-                {"id": reservation["id"]},
-            ).scalars().all()
+            booking_events = (
+                connection.execute(
+                    text(
+                        "SELECT event_type FROM outbox_events WHERE aggregate_id = :id "
+                        "AND event_type = 'BOOKING_CANCELLED'"
+                    ),
+                    {"id": UUID(booking_id)},
+                )
+                .scalars()
+                .all()
+            )
+            mission_events = (
+                connection.execute(
+                    text(
+                        "SELECT event_type FROM outbox_events WHERE aggregate_id = :id "
+                        "AND event_type = 'MISSION_CANCELLED'"
+                    ),
+                    {"id": UUID(mission_id)},
+                )
+                .scalars()
+                .all()
+            )
+            reservation_events = (
+                connection.execute(
+                    text(
+                        "SELECT event_type FROM outbox_events WHERE aggregate_id = :id "
+                        "AND event_type = 'AIRCRAFT_CAPACITY_RELEASED'"
+                    ),
+                    {"id": reservation["id"]},
+                )
+                .scalars()
+                .all()
+            )
             assert booking_events == ["BOOKING_CANCELLED"]
             assert mission_events == ["MISSION_CANCELLED"]
             assert reservation_events == ["AIRCRAFT_CAPACITY_RELEASED"]

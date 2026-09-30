@@ -475,10 +475,9 @@ class BookingService:
         elif reason is BookingTerminationReason.DEPOSIT_TIMEOUT:
             if booking.state is not BookingState.PAYMENT_PENDING:
                 raise EntityConflictError("deposit_timeout requires payment_pending")
-        elif (
-            reason is BookingTerminationReason.COMMERCIAL_EXPIRY
-            and booking.state
-            not in (BookingState.PENDING_CONTRACT, BookingState.PAYMENT_PENDING)
+        elif reason is BookingTerminationReason.COMMERCIAL_EXPIRY and booking.state not in (
+            BookingState.PENDING_CONTRACT,
+            BookingState.PAYMENT_PENDING,
         ):
             raise EntityConflictError(
                 "commercial_expiry requires pending_contract or payment_pending"

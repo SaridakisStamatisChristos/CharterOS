@@ -94,14 +94,10 @@ class Booking(AggregateRoot[BookingId]):
         if self.state_changed_at < self.created_at:
             raise DomainValidationError("state_changed_at cannot precede booking creation")
         self.termination_reason = (
-            BookingTerminationReason(termination_reason)
-            if termination_reason is not None
-            else None
+            BookingTerminationReason(termination_reason) if termination_reason is not None else None
         )
         self.termination_source = (
-            BookingTerminationSource(termination_source)
-            if termination_source is not None
-            else None
+            BookingTerminationSource(termination_source) if termination_source is not None else None
         )
         is_terminal = self.state in (BookingState.CANCELLED, BookingState.EXPIRED)
         if is_terminal != (

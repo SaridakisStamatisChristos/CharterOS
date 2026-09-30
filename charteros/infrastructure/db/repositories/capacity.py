@@ -128,9 +128,7 @@ class SqlAlchemyAircraftCapacityReservationRepository:
         )
         updated_id = self._session.scalar(statement)
         if updated_id is None:
-            raise OptimisticConcurrencyError(
-                "aircraft capacity reservation changed concurrently"
-            )
+            raise OptimisticConcurrencyError("aircraft capacity reservation changed concurrently")
         self._session.flush()
 
 
