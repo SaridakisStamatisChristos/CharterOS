@@ -514,7 +514,6 @@ def _submit_terms(
     correlation_id: CorrelationId,
     best_and_final: bool,
     quote_id: UUID | None = None,
-
     clock: Clock,
 ) -> QuoteResponse:
     aircraft_id, base_price, components, repositioning = quote_terms(body)
