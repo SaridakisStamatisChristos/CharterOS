@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Uuid,
@@ -43,6 +44,18 @@ class MissionRow(Base):
             "status IN ('draft','open','sourcing','quoted','selected','contracting','booked',"
             "'operating','completed','cancelled','expired','failed')",
             name="ck_missions_status",
+        ),
+        Index(
+            "ix_missions_buyer_status_departure",
+            "buyer_id",
+            "status",
+            "departure_from",
+        ),
+        Index(
+            "ix_missions_route_departure",
+            "origin_airport_id",
+            "destination_airport_id",
+            "departure_from",
         ),
     )
 
