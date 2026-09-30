@@ -27,6 +27,7 @@ def _create_operator_and_aircraft(
     suffix: str,
     ordinal: int,
     home_base: str,
+    departure: datetime,
 ) -> tuple[str, str]:
     organization = client.post(
         "/v1/organizations",
@@ -98,8 +99,8 @@ def _create_operator_and_aircraft(
         f"/v1/aircraft/{aircraft_id}/availability",
         headers={"Idempotency-Key": f"pr11-availability-{suffix}-{ordinal}"},
         json={
-            "valid_from": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
-            "valid_to": (datetime.now(UTC) + timedelta(days=30)).isoformat(),
+            "valid_from": (departure - timedelta(hours=3)).isoformat(),
+            "valid_to": (departure + timedelta(hours=6)).isoformat(),
             "status": "available",
             "source": "pr11-award-fixture",
             "provenance": {"fixture": "pr11"},
@@ -193,6 +194,7 @@ def _setup_two_quotes(
             suffix=suffix,
             ordinal=ordinal,
             home_base=str(origin.json()["id"]),
+            departure=departure,
         )
         rfq = client.post(
             f"/v1/missions/{mission_id}/rfqs",
