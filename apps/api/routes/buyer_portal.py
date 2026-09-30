@@ -578,6 +578,7 @@ def create_mission(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> BuyerMissionResponse:
     typed_buyer = OrganizationId(buyer_id)
     scope = f"POST:/v1/buyer-portal/missions:{buyer_id}"
@@ -612,6 +613,7 @@ def create_mission(
             passenger_count=body.passenger_count,
             max_budget=budget,
             special_requirements=tuple(body.special_requirements),
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _mission_response(mission)
@@ -646,6 +648,7 @@ def open_mission(
     correlation_id: CorrelationIdDep,
     buyer_id: BuyerIdDep,
     idempotency_key: IdempotencyKeyDep,
+    clock: ClockDep,
 ) -> BuyerMissionResponse:
     typed_buyer = OrganizationId(buyer_id)
     scope = f"POST:/v1/buyer-portal/missions/{mission_id}/open:{buyer_id}"
@@ -667,6 +670,7 @@ def open_mission(
             return BuyerMissionResponse.model_validate(stored.response_body)
         mission = _mission_service(session).open_mission(
             mission_id=MissionId(mission_id),
+            recorded_at=clock.now(),
             correlation_id=correlation_id,
         )
         response = _mission_response(mission)
