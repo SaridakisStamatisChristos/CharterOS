@@ -41,6 +41,7 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.infrastructure.db.transactions import run_transaction
 from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["bookings"])
@@ -191,8 +192,23 @@ def accept_quote(
 ) -> BookingResponse:
     scope = f"POST:/v1/quotes/{quote_id}/accept"
     request_hash = canonical_request_hash({})
-    with session.begin():
-        return _run_idempotent(
+
+    def reconcile() -> BookingResponse | None:
+        idempotency = SqlAlchemyIdempotencyRepository(session)
+        idempotency.lock(scope, idempotency_key)
+        stored = _stored_response(
+            idempotency,
+            scope=scope,
+            key=idempotency_key,
+            request_hash=request_hash,
+        )
+        if stored is None:
+            return None
+        return BookingResponse.model_validate(stored.response_body)
+
+    return run_transaction(
+        session,
+        lambda: _run_idempotent(
             session=session,
             scope=scope,
             key=idempotency_key,
@@ -203,7 +219,9 @@ def accept_quote(
                 now=clock.now(),
                 correlation_id=correlation_id,
             ),
-        )
+        ),
+        reconcile_ambiguous=reconcile,
+    )
 
 
 @router.post("/bookings/{booking_id}/mark-contracted", response_model=BookingResponse)

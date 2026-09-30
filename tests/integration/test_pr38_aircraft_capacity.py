@@ -3,15 +3,21 @@ from __future__ import annotations
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
-from threading import Barrier
+from threading import Barrier, Lock
 from typing import cast
 from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 
 from apps.api.main import create_app
+from charteros.application.bookings import BookingService
+from charteros.domain.bookings import Booking
+from charteros.domain.quotes import QuoteId
+from charteros.domain.shared.ids import CorrelationId
+from charteros.domain.tenders import TenderId
 from charteros.shared.config import Settings
 from tests.integration.capacity_support import seed_capacity_reference_profile
 
@@ -21,6 +27,12 @@ def _settings() -> Settings:
     if not database_url:
         pytest.skip("CHARTEROS_DATABASE_URL is required")
     return Settings(environment="test", database_url=database_url, _env_file=None)
+
+
+class _SyntheticSqlStateError(Exception):
+    def __init__(self, sqlstate: str) -> None:
+        super().__init__(sqlstate)
+        self.sqlstate = sqlstate
 
 
 def _setup_shared_aircraft(
@@ -509,5 +521,118 @@ def test_pr38_postgresql_exclusion_constraint_is_present() -> None:
         assert "aircraft_id with =" in normalized
         assert "occupied_range with &&" in normalized
         assert "status" in normalized and "reserved" in normalized
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.concurrency
+def test_pr43_cross_mission_overlap_with_transient_deadlock_still_has_one_winner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = _settings()
+    original = BookingService.accept_quote
+    guard = Lock()
+    injected = False
+
+    def flaky_accept(
+        service: BookingService,
+        *,
+        quote_id: QuoteId,
+        now: datetime,
+        correlation_id: CorrelationId,
+        tender_id: TenderId | None = None,
+    ) -> Booking:
+        nonlocal injected
+        booking = original(
+            service,
+            quote_id=quote_id,
+            now=now,
+            correlation_id=correlation_id,
+            tender_id=tender_id,
+        )
+        with guard:
+            if not injected:
+                injected = True
+                raise OperationalError(
+                    "synthetic deadlock after award staging",
+                    {},
+                    _SyntheticSqlStateError("40P01"),
+                )
+        return booking
+
+    monkeypatch.setattr(BookingService, "accept_quote", flaky_accept)
+
+    departure = datetime.now(UTC) + timedelta(days=12)
+    with TestClient(create_app(settings)) as client:
+        shared = _setup_shared_aircraft(client, suffix="TR")
+        mission_a, quote_a = _create_quote(
+            client,
+            shared=shared,
+            suffix="T1",
+            departure=departure,
+        )
+        mission_b, quote_b = _create_quote(
+            client,
+            shared=shared,
+            suffix="T2",
+            departure=departure + timedelta(minutes=20),
+        )
+        barrier = Barrier(2)
+
+        def award(quote_id: str, key: str) -> int:
+            barrier.wait()
+            response = client.post(
+                f"/v1/quotes/{quote_id}/accept",
+                headers={"Idempotency-Key": key},
+            )
+            return int(response.status_code)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first = executor.submit(award, quote_a, "pr43-transient-overlap-a")
+            second = executor.submit(award, quote_b, "pr43-transient-overlap-b")
+            statuses = sorted((first.result(), second.result()))
+
+        assert injected is True
+        assert statuses == [201, 409]
+        quote_states = {
+            quote_a: client.get(f"/v1/quotes/{quote_a}").json()["status"],
+            quote_b: client.get(f"/v1/quotes/{quote_b}").json()["status"],
+        }
+        mission_states = {
+            mission_a: client.get(f"/v1/missions/{mission_a}").json()["status"],
+            mission_b: client.get(f"/v1/missions/{mission_b}").json()["status"],
+        }
+        assert sorted(quote_states.values()) == ["accepted", "submitted"]
+        assert sorted(mission_states.values()) == ["selected", "sourcing"]
+
+    rows = _reservation_rows(settings, shared["aircraft_id"])
+    assert len(rows) == 1
+
+    loser_mission = next(
+        mission_id for mission_id, state in mission_states.items() if state == "sourcing"
+    )
+    engine = create_engine(settings.database_url)
+    try:
+        with engine.connect() as connection:
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM bookings WHERE mission_id IN (:mission_a, :mission_b)"
+                    ),
+                    {"mission_a": UUID(mission_a), "mission_b": UUID(mission_b)},
+                ).scalar_one()
+                == 1
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM aircraft_capacity_reservations "
+                        "WHERE mission_id = :mission_id"
+                    ),
+                    {"mission_id": UUID(loser_mission)},
+                ).scalar_one()
+                == 0
+            )
     finally:
         engine.dispose()

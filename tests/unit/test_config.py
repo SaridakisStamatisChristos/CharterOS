@@ -16,6 +16,28 @@ def test_settings_accept_valid_environment(monkeypatch: pytest.MonkeyPatch) -> N
     assert settings.environment == "test"
     assert settings.api_port == 9000
     assert settings.api_host == "127.0.0.1"
+    assert settings.database_pool_size == 10
+    assert settings.database_max_overflow == 10
+    assert settings.database_pool_timeout_seconds == 5.0
+    assert settings.database_pool_recycle_seconds == 1800
+    assert settings.database_connect_timeout_seconds == 5
+
+
+def test_database_pool_bounds_are_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CHARTEROS_DATABASE_URL", TEST_DATABASE_URL)
+    monkeypatch.setenv("CHARTEROS_DATABASE_POOL_SIZE", "7")
+    monkeypatch.setenv("CHARTEROS_DATABASE_MAX_OVERFLOW", "3")
+    monkeypatch.setenv("CHARTEROS_DATABASE_POOL_TIMEOUT_SECONDS", "0.25")
+    monkeypatch.setenv("CHARTEROS_DATABASE_POOL_RECYCLE_SECONDS", "900")
+    monkeypatch.setenv("CHARTEROS_DATABASE_CONNECT_TIMEOUT_SECONDS", "2")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.database_pool_size == 7
+    assert settings.database_max_overflow == 3
+    assert settings.database_pool_timeout_seconds == 0.25
+    assert settings.database_pool_recycle_seconds == 900
+    assert settings.database_connect_timeout_seconds == 2
 
 
 def test_settings_require_explicit_database_url(monkeypatch: pytest.MonkeyPatch) -> None:

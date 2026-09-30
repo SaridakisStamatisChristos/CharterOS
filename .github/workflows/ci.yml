@@ -98,6 +98,77 @@ jobs:
       - name: Tests
         run: uv run pytest
 
+      - name: PostgreSQL restart recovery smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f /tmp/pr43-db-connection-ready /tmp/pr43-db-restarted
+
+          uv run python - <<'PY' &
+          import time
+          from pathlib import Path
+
+          from sqlalchemy import text
+          from sqlalchemy.exc import SQLAlchemyError
+
+          from charteros.infrastructure.db.engine import build_engine
+          from charteros.shared.config import Settings
+
+          settings = Settings(_env_file=None)
+          engine = build_engine(settings)
+          connection = engine.connect()
+          try:
+              assert connection.execute(text("SELECT 1")).scalar_one() == 1
+              Path("/tmp/pr43-db-connection-ready").touch()
+
+              deadline = time.monotonic() + 30
+              while not Path("/tmp/pr43-db-restarted").exists():
+                  if time.monotonic() >= deadline:
+                      raise SystemExit("database restart signal was not received")
+                  time.sleep(0.05)
+
+              try:
+                  connection.execute(text("SELECT 1")).scalar_one()
+              except SQLAlchemyError:
+                  pass
+              else:
+                  raise SystemExit("checked-out pre-restart connection unexpectedly survived restart")
+          finally:
+              connection.close()
+
+          deadline = time.monotonic() + 30
+          while time.monotonic() < deadline:
+              try:
+                  with engine.connect() as recovered:
+                      if recovered.execute(text("SELECT 1")).scalar_one() == 1:
+                          break
+              except SQLAlchemyError:
+                  time.sleep(0.25)
+          else:
+              raise SystemExit("fresh connection did not recover after PostgreSQL restart")
+
+          engine.dispose()
+          PY
+          probe_pid=$!
+
+          for attempt in $(seq 1 100); do
+            if [ -f /tmp/pr43-db-connection-ready ]; then
+              break
+            fi
+            if ! kill -0 "$probe_pid" 2>/dev/null; then
+              wait "$probe_pid"
+              exit 1
+            fi
+            sleep 0.05
+          done
+          test -f /tmp/pr43-db-connection-ready
+
+          postgres_id="$(docker ps --filter "publish=5432" --format '{{.ID}}' | head -n1)"
+          test -n "$postgres_id"
+          docker restart "$postgres_id" >/dev/null
+          touch /tmp/pr43-db-restarted
+          wait "$probe_pid"
+
       - name: Reposition solver benchmark
         run: uv run python tools/benchmark_reposition_solver.py
 
