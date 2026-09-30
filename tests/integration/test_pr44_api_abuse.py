@@ -5,7 +5,8 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Barrier
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,7 +27,7 @@ from charteros.security.auth import (
 from charteros.shared.config import Settings
 
 
-def _settings(**overrides: object) -> Settings:
+def _settings(**overrides: Any) -> Settings:
     database_url = os.environ.get("CHARTEROS_DATABASE_URL")
     if not database_url:
         pytest.skip("CHARTEROS_DATABASE_URL is required")
@@ -82,11 +83,21 @@ def test_pr44_postgresql_rate_budget_is_atomic_across_independent_pools() -> Non
 @pytest.mark.integration
 def test_pr44_expensive_budget_is_shared_across_api_replicas() -> None:
     settings = _settings(api_matching_requests_per_window=2)
+    principal = AuthenticatedPrincipal(
+        subject=f"pr44-admin-{uuid4()}",
+        principal_type=PrincipalType.ADMINISTRATOR,
+        permissions=frozenset({Permission.DOMAIN_READ}),
+        buyer_ids=frozenset(),
+        operator_ids=frozenset(),
+        issuer="pytest-pr44",
+        key_id="pytest-pr44",
+    )
+    backend = _StaticAuthenticationBackend(principal)
     mission_id = uuid4()
 
     with (
-        TestClient(create_app(settings)) as first,
-        TestClient(create_app(settings)) as second,
+        TestClient(create_app(settings, auth_backend=backend)) as first,
+        TestClient(create_app(settings, auth_backend=backend)) as second,
     ):
         one = first.get(f"/v1/missions/{mission_id}/matches")
         two = second.get(f"/v1/missions/{mission_id}/matches")
