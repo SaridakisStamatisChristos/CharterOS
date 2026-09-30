@@ -143,6 +143,25 @@ class DisruptionProposalRow(Base):
         ForeignKey("aircraft_availability_records.id", ondelete="RESTRICT"),
     )
     availability_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    feasibility_policy_version: Mapped[str | None] = mapped_column(String(64))
+    feasibility_known_as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    position_observation_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("aircraft_position_observations.id", ondelete="RESTRICT"),
+    )
+    position_event_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    position_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reference_profile_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("matching_reference_profiles.id", ondelete="RESTRICT"),
+    )
+    reference_profile_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    route_distance_tenths_nm: Mapped[int | None] = mapped_column(Integer)
+    required_range_nm: Mapped[int | None] = mapped_column(Integer)
+    reposition_distance_tenths_nm: Mapped[int | None] = mapped_column(Integer)
+    route_minutes: Mapped[int | None] = mapped_column(Integer)
+    reposition_minutes: Mapped[int | None] = mapped_column(Integer)
+    timing_buffer_minutes: Mapped[int | None] = mapped_column(Integer)
     departure_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     departure_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     requires_buyer_decision: Mapped[bool] = mapped_column(Boolean, nullable=False)
