@@ -536,11 +536,10 @@ def get_aircraft_availability(
     operator_id: OperatorContext,
     from_time: Annotated[datetime, Query(alias="from")],
     to_time: Annotated[datetime, Query(alias="to")],
+    clock: ClockDep,
     known_as_of: datetime | None = None,
     at: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
-
-    clock: ClockDep,
 ) -> TimelineResponse:
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
@@ -674,9 +673,8 @@ def acknowledge_rfq(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-    invitation_id: TenderCapability = None,
-
     clock: ClockDep,
+    invitation_id: TenderCapability = None,
 ) -> PortalRfqResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/acknowledge"
 
@@ -726,9 +724,8 @@ def decline_rfq(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-    invitation_id: TenderCapability = None,
-
     clock: ClockDep,
+    invitation_id: TenderCapability = None,
 ) -> PortalRfqResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/decline"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -837,9 +834,8 @@ def submit_quote(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-    invitation_id: TenderCapability = None,
-
     clock: ClockDep,
+    invitation_id: TenderCapability = None,
 ) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/rfqs/{rfq_id}/quotes"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -963,9 +959,8 @@ def revise_quote(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-    invitation_id: TenderCapability = None,
-
     clock: ClockDep,
+    invitation_id: TenderCapability = None,
 ) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/quotes/{quote_id}/revise"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
@@ -996,9 +991,8 @@ def withdraw_quote(
     operator_id: OperatorContext,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-    invitation_id: TenderCapability = None,
-
     clock: ClockDep,
+    invitation_id: TenderCapability = None,
 ) -> QuoteResponse:
     scope = f"POST:/v1/operator-portal/{operator_id}/quotes/{quote_id}/withdraw"
 
