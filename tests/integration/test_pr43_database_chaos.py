@@ -4,6 +4,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from time import monotonic
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -11,6 +12,7 @@ from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.orm import Session
 
 from charteros.infrastructure.db.engine import build_engine, build_session_factory
+from charteros.infrastructure.db.models.catalog import IdempotencyRecordRow
 from charteros.infrastructure.db.failures import DatabaseFailureKind, DatabaseTransactionError
 from charteros.infrastructure.db.transactions import run_transaction
 from charteros.shared.config import Settings
@@ -161,4 +163,66 @@ def test_pr43_pool_exhaustion_fails_within_configured_checkout_timeout() -> None
         assert elapsed < 1.0
     finally:
         held.close()
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_pr43_commit_success_with_lost_commit_response_reconciles_canonical_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = _settings()
+    engine = build_engine(settings)
+    factory = build_session_factory(engine)
+    scope = "pr43:ambiguous-commit"
+    key = str(uuid4())
+    try:
+        with factory() as session:
+            original_commit = session.commit
+            commit_calls = 0
+
+            def commit_then_lose_response() -> None:
+                nonlocal commit_calls
+                commit_calls += 1
+                original_commit()
+                if commit_calls == 1:
+                    raise OperationalError(
+                        "COMMIT",
+                        {},
+                        _SqlStateError("08006"),
+                        connection_invalidated=True,
+                    )
+
+            monkeypatch.setattr(session, "commit", commit_then_lose_response)
+
+            def action() -> str:
+                session.add(
+                    IdempotencyRecordRow(
+                        scope=scope,
+                        key=key,
+                        request_hash="a" * 64,
+                        status_code=201,
+                        response_body={"result": "canonical"},
+                    )
+                )
+                return "unobserved-original-response"
+
+            def reconcile() -> str | None:
+                row = session.get(IdempotencyRecordRow, (scope, key))
+                if row is None:
+                    return None
+                return str(row.response_body["result"])
+
+            result = run_transaction(
+                session,
+                action,
+                reconcile_ambiguous=reconcile,
+            )
+
+        assert result == "canonical"
+        assert commit_calls == 2
+        with factory() as verification:
+            row = verification.get(IdempotencyRecordRow, (scope, key))
+            assert row is not None
+            assert row.response_body == {"result": "canonical"}
+    finally:
         engine.dispose()
