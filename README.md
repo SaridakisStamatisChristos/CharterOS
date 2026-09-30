@@ -33,7 +33,7 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy apps charteros tests tools
 uv run bandit -q -r apps charteros tools
-uv run pip-audit --strict --skip-editable
+uv export --frozen --no-dev --no-emit-project --no-hashes --format requirements-txt --output-file /tmp/runtime-requirements.txt\nuv run pip-audit --strict --no-deps -r /tmp/runtime-requirements.txt
 uv run pytest
 uv run python tools/app_boot_smoke.py
 docker compose config
