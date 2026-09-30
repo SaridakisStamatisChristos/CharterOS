@@ -119,6 +119,31 @@ jobs:
       - name: Build hardened image
         run: docker build --tag charteros:ci .
 
+      - name: Hardened image runtime smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name charteros-api-smoke --network host \
+            --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+            --tmpfs /tmp:rw,nosuid,size=64m \
+            -e CHARTEROS_ENVIRONMENT=test \
+            -e CHARTEROS_API_HOST=127.0.0.1 \
+            -e CHARTEROS_DATABASE_URL="$CHARTEROS_DATABASE_URL" \
+            charteros:ci
+          trap 'docker logs charteros-api-smoke; docker rm -f charteros-api-smoke' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:8000/ready; then
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' charteros-api-smoke)" != "true" ]; then
+              echo "Hardened API container exited before readiness"
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "Hardened API container failed readiness within 30 checks"
+          exit 1
+
       - name: Download vulnerability database
         shell: bash
         run: |
