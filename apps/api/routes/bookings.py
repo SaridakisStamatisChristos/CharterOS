@@ -155,7 +155,6 @@ def accept_quote(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> BookingResponse:
     scope = f"POST:/v1/quotes/{quote_id}/accept"
@@ -181,7 +180,6 @@ def mark_contracted(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
@@ -203,7 +201,6 @@ def mark_payment_pending(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
@@ -225,7 +222,6 @@ def confirm_booking(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
@@ -247,7 +243,6 @@ def enter_pre_operation(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
@@ -269,7 +264,6 @@ def start_operation(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
@@ -291,7 +285,6 @@ def complete_booking(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> BookingResponse:
     return _run_workflow_command(
