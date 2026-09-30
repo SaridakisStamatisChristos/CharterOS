@@ -564,13 +564,15 @@ class SqlAlchemyEvidenceRepository:
                 raise EntityNotFoundError("evidence subject does not exist")
             return
 
-        assert party.operator_id is not None
+        operator_id = party.operator_id
+        if operator_id is None:
+            raise EntityNotFoundError("evidence subject does not exist")
         if subject_type is EvidenceSubjectType.MISSION:
             raise EntityNotFoundError("mission evidence requires buyer context")
         if target_booking_id is None:
             raise EntityNotFoundError("evidence subject does not exist")
         booking = self._session.get(BookingRow, target_booking_id)
-        if booking is None or booking.operator_id != party.operator_id:
+        if booking is None or booking.operator_id != operator_id:
             raise EntityNotFoundError("evidence subject does not exist")
 
     @staticmethod
