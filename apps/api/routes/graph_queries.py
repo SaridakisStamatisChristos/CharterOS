@@ -11,7 +11,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_session
-from charteros.shared.clock import Clock
 from charteros.application.graph_queries import GraphQueryService, HistoricalPosition
 from charteros.application.matching import MatchingService
 from charteros.application.tender_visibility import TenderVisibilityPolicy
@@ -26,8 +25,10 @@ from charteros.infrastructure.db.repositories.missions import SqlAlchemyMissionR
 from charteros.infrastructure.db.repositories.quotes import SqlAlchemyQuoteRepository
 from charteros.infrastructure.db.repositories.tenders import SqlAlchemyTenderRepository
 from charteros.matching import MatchReasonCode
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1/graph", tags=["graph-queries"])
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 KnownAsOf = Annotated[
     datetime | None,
@@ -213,7 +214,8 @@ def aircraft_near_airport(
     radius_nm: Annotated[Decimal, Query(gt=0, le=5000)] = Decimal("100"),
     limit: ResultLimit = 20,
 
-    clock: Clock = Depends(get_clock),) -> NearbyAircraftResponse:
+    clock: ClockDep,
+) -> NearbyAircraftResponse:
     knowledge_cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
@@ -254,7 +256,8 @@ def historical_aircraft_position(
     at: Annotated[datetime, Query(description="UTC event-time cutoff")],
     known_as_of: KnownAsOf = None,
 
-    clock: Clock = Depends(get_clock),) -> HistoricalPositionResponse:
+    clock: ClockDep,
+) -> HistoricalPositionResponse:
     knowledge_cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
@@ -276,7 +279,8 @@ def feasible_aircraft_for_mission(
     known_as_of: KnownAsOf = None,
     limit: ResultLimit = 20,
 
-    clock: Clock = Depends(get_clock),) -> FeasibleAircraftResponse:
+    clock: ClockDep,
+) -> FeasibleAircraftResponse:
     cutoff = known_as_of or clock.now()
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
