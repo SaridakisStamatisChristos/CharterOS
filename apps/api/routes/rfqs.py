@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
-from charteros.shared.clock import Clock
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -30,9 +29,11 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["rfqs"])
 
+ClockDep = Annotated[Clock, Depends(get_clock)]
 SessionDep = Annotated[Session, Depends(get_session)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
 IdempotencyKeyDep = Annotated[
@@ -158,7 +159,8 @@ def create_rfq(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> RfqResponse:
+    clock: ClockDep,
+) -> RfqResponse:
     scope = f"POST:/v1/missions/{mission_id}/rfqs"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -208,7 +210,8 @@ def acknowledge_rfq(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> RfqResponse:
+    clock: ClockDep,
+) -> RfqResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/acknowledge"
     request_hash = canonical_request_hash({})
     with session.begin():
@@ -233,7 +236,8 @@ def decline_rfq(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> RfqResponse:
+    clock: ClockDep,
+) -> RfqResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/decline"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
     with session.begin():
@@ -258,7 +262,8 @@ def expire_rfq(
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
 
-    clock: Clock = Depends(get_clock),) -> RfqResponse:
+    clock: ClockDep,
+) -> RfqResponse:
     scope = f"POST:/v1/rfqs/{rfq_id}/expire"
     request_hash = canonical_request_hash({})
     with session.begin():
