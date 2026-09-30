@@ -3,17 +3,30 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 Environment = Literal["development", "test", "staging", "production"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+
+_INSECURE_DATABASE_PASSWORDS = frozenset(
+    {
+        "charteros",
+        "change-me",
+        "changeme",
+        "password",
+        "replace-with-random-local-password",
+    }
+)
 
 
 class Settings(BaseSettings):
     """Validated process configuration.
 
-    Environment variables use the CHARTEROS_ prefix. No secrets are given source-code defaults.
+    Environment variables use the CHARTEROS_ prefix. Database credentials are always explicit;
+    staging and production additionally require a complete external OIDC configuration.
     """
 
     model_config = SettingsConfigDict(
@@ -27,15 +40,12 @@ class Settings(BaseSettings):
     environment: Environment = "development"
     service_name: str = Field(default="charteros-api", min_length=1, max_length=64)
     log_level: LogLevel = "INFO"
-    database_url: str = Field(
-        default="postgresql+psycopg://charteros:charteros@localhost:5432/charteros",
-        min_length=1,
-    )
+    database_url: str = Field(min_length=1, repr=False)
     database_runtime_role: str | None = Field(
         default=None,
         pattern=r"^[A-Za-z_][A-Za-z0-9_]{0,62}$",
     )
-    api_host: str = Field(default="0.0.0.0", min_length=1)
+    api_host: str = Field(default="127.0.0.1", min_length=1)
     api_port: int = Field(default=8000, ge=1, le=65535)
     auth_issuer: str | None = None
     auth_audience: str | None = None
@@ -51,6 +61,38 @@ class Settings(BaseSettings):
     outbox_max_attempts: int = Field(default=8, ge=1, le=100)
     outbox_backoff_base_seconds: int = Field(default=1, ge=1, le=3600)
     outbox_backoff_max_seconds: int = Field(default=300, ge=1, le=86400)
+
+    @model_validator(mode="after")
+    def validate_deployment_security(self) -> "Settings":
+        try:
+            database = make_url(self.database_url)
+        except ArgumentError as exc:
+            raise ValueError("CHARTEROS_DATABASE_URL must be a valid SQLAlchemy URL") from exc
+
+        if not database.drivername.startswith("postgresql"):
+            raise ValueError("CHARTEROS_DATABASE_URL must use PostgreSQL")
+
+        auth_values = (self.auth_issuer, self.auth_audience, self.auth_jwks_url)
+        if any(value is not None for value in auth_values) and not all(
+            value is not None for value in auth_values
+        ):
+            raise ValueError(
+                "OIDC configuration is atomic: issuer, audience, and JWKS URL must be set together"
+            )
+
+        if self.environment in {"staging", "production"}:
+            if not all(value is not None for value in auth_values):
+                raise ValueError(
+                    "staging/production require CHARTEROS_AUTH_ISSUER, "
+                    "CHARTEROS_AUTH_AUDIENCE, and CHARTEROS_AUTH_JWKS_URL"
+                )
+            password = database.password
+            if password is not None and password.casefold() in _INSECURE_DATABASE_PASSWORDS:
+                raise ValueError("staging/production reject known development database passwords")
+            if self.environment == "production" and self.log_level == "DEBUG":
+                raise ValueError("production log level must not be DEBUG")
+
+        return self
 
 
 @lru_cache(maxsize=1)
