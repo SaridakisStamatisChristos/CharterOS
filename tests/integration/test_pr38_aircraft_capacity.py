@@ -610,9 +610,7 @@ def test_pr43_cross_mission_overlap_with_transient_deadlock_still_has_one_winner
     assert len(rows) == 1
 
     loser_mission = next(
-        mission_id
-        for mission_id, state in mission_states.items()
-        if state == "sourcing"
+        mission_id for mission_id, state in mission_states.items() if state == "sourcing"
     )
     engine = create_engine(settings.database_url)
     try:
@@ -620,8 +618,7 @@ def test_pr43_cross_mission_overlap_with_transient_deadlock_still_has_one_winner
             assert (
                 connection.execute(
                     text(
-                        "SELECT count(*) FROM bookings "
-                        "WHERE mission_id IN (:mission_a, :mission_b)"
+                        "SELECT count(*) FROM bookings WHERE mission_id IN (:mission_a, :mission_b)"
                     ),
                     {"mission_a": UUID(mission_a), "mission_b": UUID(mission_b)},
                 ).scalar_one()
