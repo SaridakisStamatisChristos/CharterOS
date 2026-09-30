@@ -1,7 +1,10 @@
+import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from itertools import product
+from pathlib import Path
+from typing import TypedDict, cast
 from uuid import UUID
 
 from charteros.domain.aircraft import AircraftId, AircraftStatus, AircraftTypeId
@@ -25,6 +28,7 @@ from charteros.matching import (
     MatchingReferenceProfile,
 )
 from charteros.repositioning import (
+    POLICY_VERSION,
     BaselineEmptyLeg,
     FeasibleInsertion,
     QuotedFutureLeg,
@@ -409,3 +413,69 @@ def test_assignment_solver_is_deterministic_under_equal_margin_pressure() -> Non
     assert len(expected) == 4
     for _ in range(10):
         assert maximum_margin_matching(candidates) == expected
+
+
+
+class _GoldenCandidate(TypedDict):
+    empty_seed: int
+    mission_seed: int
+    margin_minor: int
+
+
+class _GoldenPair(TypedDict):
+    previous_booking_id_int: int
+    mission_id_int: int
+
+
+class _GoldenTieBreak(TypedDict):
+    policy_version: str
+    description: str
+    candidates: list[_GoldenCandidate]
+    expected_candidate_indices: list[int]
+    equal_scalar_alternative_candidate_indices: list[int]
+    expected_pairs: list[_GoldenPair]
+    equal_scalar_alternative_pairs: list[_GoldenPair]
+
+
+def _load_solver_tie_break_golden() -> _GoldenTieBreak:
+    path = Path(__file__).resolve().parents[1] / "golden" / "reposition_solver_tie_break_v2.json"
+    return cast(_GoldenTieBreak, json.loads(path.read_text(encoding="utf-8")))
+
+
+def _golden_pairs(items: list[_GoldenPair]) -> tuple[tuple[UUID, UUID], ...]:
+    return tuple(
+        (
+            _id(item["previous_booking_id_int"]),
+            _id(item["mission_id_int"]),
+        )
+        for item in items
+    )
+
+
+def test_solver_tie_break_v2_matches_golden_plan_and_is_input_order_invariant() -> None:
+    golden = _load_solver_tie_break_golden()
+    assert POLICY_VERSION == golden["policy_version"]
+
+    candidates = tuple(_solver_candidate(**item) for item in golden["candidates"])
+    expected = tuple(candidates[index] for index in golden["expected_candidate_indices"])
+    alternative = tuple(
+        candidates[index] for index in golden["equal_scalar_alternative_candidate_indices"]
+    )
+
+    # This is the precise PR32 ambiguity: the prior scalar objective cannot distinguish the plans.
+    assert _encoded_score(expected, candidates) == _encoded_score(alternative, candidates)
+
+    expected_pairs = _golden_pairs(golden["expected_pairs"])
+    alternative_pairs = _golden_pairs(golden["equal_scalar_alternative_pairs"])
+    assert tuple(_assignment_key(item) for item in expected) == expected_pairs
+    assert tuple(_assignment_key(item) for item in alternative) == alternative_pairs
+    assert expected_pairs != alternative_pairs
+
+    variants = (
+        candidates,
+        tuple(reversed(candidates)),
+        candidates[1:] + candidates[:1],
+    )
+    for variant in variants:
+        selected = maximum_margin_matching(variant)
+        assert tuple(_assignment_key(item) for item in selected) == expected_pairs
