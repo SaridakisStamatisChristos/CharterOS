@@ -146,7 +146,6 @@ def create_contract(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> ContractResponse:
     scope = f"POST:/v1/bookings/{booking_id}/contract"
@@ -178,7 +177,6 @@ def accept_contract_buyer(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> ContractResponse:
     scope = f"POST:/v1/contracts/{contract_id}/accept/buyer"
@@ -207,7 +205,6 @@ def accept_contract_operator(
     session: SessionDep,
     correlation_id: CorrelationIdDep,
     idempotency_key: IdempotencyKeyDep,
-
     clock: ClockDep,
 ) -> ContractResponse:
     scope = f"POST:/v1/contracts/{contract_id}/accept/operator"
