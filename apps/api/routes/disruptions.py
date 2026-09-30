@@ -10,7 +10,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
+from charteros.application.capacity import AircraftCapacityPolicy
 from charteros.application.disruptions import DisruptionPartyContext, DisruptionService
+from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.exceptions import EntityConflictError
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -37,11 +39,15 @@ from charteros.domain.shared.currency import Currency
 from charteros.domain.shared.ids import CorrelationId
 from charteros.domain.shared.time_range import TimeRange
 from charteros.infrastructure.db.repositories import (
+    SqlAlchemyAircraftCapacityReservationRepository,
     SqlAlchemyAircraftRepository,
+    SqlAlchemyAirportRepository,
     SqlAlchemyBookingRepository,
+    SqlAlchemyCapacityReferenceRepository,
     SqlAlchemyDisruptionRepository,
     SqlAlchemyDomainEventRepository,
     SqlAlchemyIdempotencyRepository,
+    SqlAlchemyMatchingSnapshotRepository,
     SqlAlchemyMissionRepository,
     SqlAlchemyOperatorRepository,
     SqlAlchemyOrganizationRepository,
@@ -216,6 +222,17 @@ class BuyerDecisionResponse(BaseModel):
 
 
 def _service(session: Session) -> DisruptionService:
+    aircraft = SqlAlchemyAircraftRepository(session)
+    airports = SqlAlchemyAirportRepository(session)
+    feasibility = AircraftMissionFeasibilityService(
+        airports=airports,
+        snapshots=SqlAlchemyMatchingSnapshotRepository(session),
+    )
+    capacity_policy = AircraftCapacityPolicy(
+        aircraft=aircraft,
+        airports=airports,
+        references=SqlAlchemyCapacityReferenceRepository(session),
+    )
     return DisruptionService(
         disruptions=SqlAlchemyDisruptionRepository(session),
         bookings=SqlAlchemyBookingRepository(session),
@@ -224,8 +241,11 @@ def _service(session: Session) -> DisruptionService:
         rfqs=SqlAlchemyRfqRepository(session),
         organizations=SqlAlchemyOrganizationRepository(session),
         operators=SqlAlchemyOperatorRepository(session),
-        aircraft=SqlAlchemyAircraftRepository(session),
+        aircraft=aircraft,
         fleet_timeline=SqlAlchemyFleetTimelineRepository(session),
+        feasibility=feasibility,
+        capacity_policy=capacity_policy,
+        capacity_reservations=SqlAlchemyAircraftCapacityReservationRepository(session),
         events=SqlAlchemyDomainEventRepository(session),
     )
 
