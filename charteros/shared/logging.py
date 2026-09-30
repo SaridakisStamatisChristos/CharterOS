@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -35,6 +36,28 @@ _RESERVED_LOG_RECORD_FIELDS = frozenset(
         "taskName",
     }
 )
+_SENSITIVE_KEY_FRAGMENTS = (
+    "authorization",
+    "bearer",
+    "credential",
+    "database_url",
+    "dsn",
+    "password",
+    "secret",
+    "token",
+)
+_REDACTED = "[REDACTED]"
+
+
+def _redact(key: str, value: Any) -> Any:
+    normalized = key.casefold().replace("-", "_")
+    if any(fragment in normalized for fragment in _SENSITIVE_KEY_FRAGMENTS):
+        return _REDACTED
+    if isinstance(value, Mapping):
+        return {str(child_key): _redact(str(child_key), child) for child_key, child in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [_redact(key, item) for item in value]
+    return value
 
 
 class JsonFormatter(logging.Formatter):
@@ -59,7 +82,7 @@ class JsonFormatter(logging.Formatter):
 
         for key, value in record.__dict__.items():
             if key not in _RESERVED_LOG_RECORD_FIELDS and key not in payload:
-                payload[key] = value
+                payload[key] = _redact(key, value)
 
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
