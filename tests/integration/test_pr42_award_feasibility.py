@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import UTC, datetime, timedelta
+from typing import cast
 from uuid import UUID
 
 import pytest
@@ -26,9 +27,12 @@ def _settings() -> Settings:
 
 
 def _award(client: TestClient, quote_id: str, suffix: str) -> Response:
-    return client.post(
-        f"/v1/quotes/{quote_id}/accept",
-        headers={"Idempotency-Key": f"pr42-award-{suffix}"},
+    return cast(
+        Response,
+        client.post(
+            f"/v1/quotes/{quote_id}/accept",
+            headers={"Idempotency-Key": f"pr42-award-{suffix}"},
+        ),
     )
 
 
