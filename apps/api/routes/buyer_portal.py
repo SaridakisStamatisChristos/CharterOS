@@ -19,6 +19,7 @@ from charteros.application.evidence import (
     supplier_selection_evidence,
 )
 from charteros.application.exceptions import EntityConflictError
+from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.fx import FxService
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -394,6 +395,11 @@ def _approval_service(session: Session) -> ProcurementApprovalService:
         bookings=SqlAlchemyBookingRepository(session),
         capacity_policy=build_capacity_policy(session),
         capacity_reservations=build_capacity_reservations(session),
+        feasibility=AircraftMissionFeasibilityService(
+            airports=SqlAlchemyAirportRepository(session),
+            snapshots=SqlAlchemyMatchingSnapshotRepository(session),
+        ),
+        decision_evidence=SqlAlchemyDecisionEvidenceRepository(session),
         contracts=SqlAlchemyContractRepository(session),
         tenders=SqlAlchemyTenderRepository(session),
         fx_locks=SqlAlchemyFxLockRepository(session),
