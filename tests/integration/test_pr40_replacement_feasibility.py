@@ -1,5 +1,6 @@
 import os
 from datetime import UTC, datetime, timedelta
+from typing import cast
 from uuid import UUID
 
 import pytest
@@ -138,13 +139,16 @@ def _propose(
             "start": departure_window[0].isoformat(),
             "end": departure_window[1].isoformat(),
         }
-    return client.post(
-        f"/v1/disruptions/{disruption_id}/replacement-options",
-        headers={
-            "X-Operator-Id": operator_id,
-            "Idempotency-Key": f"pr40-proposal-{suffix}",
-        },
-        json=body,
+    return cast(
+        Response,
+        client.post(
+            f"/v1/disruptions/{disruption_id}/replacement-options",
+            headers={
+                "X-Operator-Id": operator_id,
+                "Idempotency-Key": f"pr40-proposal-{suffix}",
+            },
+            json=body,
+        ),
     )
 
 
@@ -188,7 +192,7 @@ def test_pr40_feasible_replacement_captures_evidence_without_hold() -> None:
     engine = create_engine(settings.database_url)
     try:
         with engine.connect() as connection:
-            held = connection.execute(
+            held: int = connection.execute(
                 text(
                     "SELECT count(*) FROM aircraft_capacity_reservations "
                     "WHERE aircraft_id = :aircraft_id"
