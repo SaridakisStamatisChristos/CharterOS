@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKeyConstraint,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -150,6 +151,22 @@ class GraphEdgeRow(Base):
         CheckConstraint(
             "source_aggregate_version > 0",
             name="ck_graph_edge_source_version",
+        ),
+        Index(
+            "ix_charter_graph_edges_source",
+            "projection_name",
+            "projection_version",
+            "source_type",
+            "source_id",
+            "edge_type",
+        ),
+        Index(
+            "ix_charter_graph_edges_target",
+            "projection_name",
+            "projection_version",
+            "target_type",
+            "target_id",
+            "edge_type",
         ),
     )
 
