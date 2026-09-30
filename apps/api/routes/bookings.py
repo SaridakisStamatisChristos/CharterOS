@@ -13,6 +13,7 @@ from apps.api.capacity import build_capacity_policy, build_capacity_reservations
 from apps.api.dependencies import get_clock, get_correlation_id, get_session
 from charteros.application.bookings import BookingService
 from charteros.application.exceptions import EntityConflictError
+from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.idempotency import (
     IdempotencyRepository,
     StoredResponse,
@@ -28,9 +29,12 @@ from charteros.domain.bookings import (
 from charteros.domain.quotes import QuoteId
 from charteros.domain.shared.ids import CorrelationId
 from charteros.infrastructure.db.repositories import (
+    SqlAlchemyAirportRepository,
     SqlAlchemyBookingRepository,
     SqlAlchemyContractRepository,
+    SqlAlchemyDecisionEvidenceRepository,
     SqlAlchemyDomainEventRepository,
+    SqlAlchemyMatchingSnapshotRepository,
     SqlAlchemyMissionRepository,
     SqlAlchemyQuoteRepository,
     SqlAlchemyRfqRepository,
@@ -77,6 +81,11 @@ def _service(session: Session) -> BookingService:
         bookings=SqlAlchemyBookingRepository(session),
         capacity_policy=build_capacity_policy(session),
         capacity_reservations=build_capacity_reservations(session),
+        feasibility=AircraftMissionFeasibilityService(
+            airports=SqlAlchemyAirportRepository(session),
+            snapshots=SqlAlchemyMatchingSnapshotRepository(session),
+        ),
+        decision_evidence=SqlAlchemyDecisionEvidenceRepository(session),
         quotes=SqlAlchemyQuoteRepository(session),
         rfqs=SqlAlchemyRfqRepository(session),
         missions=SqlAlchemyMissionRepository(session),
