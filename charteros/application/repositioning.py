@@ -244,8 +244,7 @@ class RepositioningService:
             candidates=candidates,
             opportunities=opportunities,
             airports=tuple(
-                airports[key]
-                for key in sorted(airports, key=lambda value: value.value.hex)
+                airports[key] for key in sorted(airports, key=lambda value: value.value.hex)
             ),
         )
 
@@ -312,9 +311,7 @@ def optimize_reposition_snapshot(
             currency_plans=(),
         )
 
-    candidate_by_aircraft = {
-        item.aircraft_id.value: item for item in snapshot.candidates
-    }
+    candidate_by_aircraft = {item.aircraft_id.value: item for item in snapshot.candidates}
     airports = {item.id: item for item in snapshot.airports}
 
     evaluations: list[BaselineEvaluation | InsertionEvaluation] = []
@@ -324,9 +321,7 @@ def optimize_reposition_snapshot(
         baseline_eval = evaluate_baseline(
             structural=structural_item,
             candidate=candidate,
-            previous_origin_airport=airports[
-                AirportId(structural_item.previous_origin_airport_id)
-            ],
+            previous_origin_airport=airports[AirportId(structural_item.previous_origin_airport_id)],
             from_airport=airports[AirportId(structural_item.from_airport_id)],
             continuity_airport=airports[AirportId(structural_item.to_airport_id)],
         )
