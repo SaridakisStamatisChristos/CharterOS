@@ -128,8 +128,8 @@ def test_pr39_contract_unsigned_expiry_releases_tail_for_overlapping_award() -> 
 def test_pr39_contracted_buyer_cancel_is_atomic_with_capacity_release() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        booking_id, mission_id, _, _ = _setup_booking(client, suffix="RB")
-        _create_accepted_contract(client, booking_id=booking_id, suffix="rb")
+        booking_id, mission_id, _, _ = _setup_booking(client, suffix="ZB")
+        _create_accepted_contract(client, booking_id=booking_id, suffix="zb")
         contracted = client.post(
             f"/v1/bookings/{booking_id}/mark-contracted",
             headers={"Idempotency-Key": "pr39-contract-rb"},
@@ -198,8 +198,8 @@ def test_pr39_contracted_buyer_cancel_is_atomic_with_capacity_release() -> None:
 def test_pr39_payment_timeout_expires_payment_pending_booking() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        booking_id, mission_id, _, _ = _setup_booking(client, suffix="RC")
-        _create_accepted_contract(client, booking_id=booking_id, suffix="rc")
+        booking_id, mission_id, _, _ = _setup_booking(client, suffix="ZC")
+        _create_accepted_contract(client, booking_id=booking_id, suffix="zc")
         assert (
             client.post(
                 f"/v1/bookings/{booking_id}/mark-contracted",
@@ -235,7 +235,7 @@ def test_pr39_payment_timeout_expires_payment_pending_booking() -> None:
 def test_pr39_invalid_reason_state_and_confirmed_release_fail_closed() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        booking_id, _, _, _ = _setup_booking(client, suffix="RD")
+        booking_id, _, _, _ = _setup_booking(client, suffix="ZD")
 
         invalid_timeout = client.post(
             f"/v1/bookings/{booking_id}/expire",
@@ -245,7 +245,7 @@ def test_pr39_invalid_reason_state_and_confirmed_release_fail_closed() -> None:
         assert invalid_timeout.status_code == 409
         assert _reservation_for_booking(settings, booking_id)["status"] == "reserved"
 
-        _create_accepted_contract(client, booking_id=booking_id, suffix="rd")
+        _create_accepted_contract(client, booking_id=booking_id, suffix="zd")
         assert (
             client.post(
                 f"/v1/bookings/{booking_id}/mark-contracted",
@@ -282,7 +282,7 @@ def test_pr39_invalid_reason_state_and_confirmed_release_fail_closed() -> None:
 def test_pr39_competing_terminal_commands_release_capacity_exactly_once() -> None:
     settings = _settings()
     with TestClient(create_app(settings)) as client:
-        booking_id, mission_id, _, _ = _setup_booking(client, suffix="RE")
+        booking_id, mission_id, _, _ = _setup_booking(client, suffix="ZE")
         barrier = Barrier(2)
 
         def invoke(path: str, key: str, reason: str) -> int:
