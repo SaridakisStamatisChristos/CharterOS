@@ -3,7 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from charteros.application.capacity import AircraftCapacityPolicy
+from charteros.application.evidence import DecisionEvidenceWriter
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
+from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.ports.bookings import BookingRepository
 from charteros.application.ports.capacity import AircraftCapacityReservationRepository
 from charteros.application.ports.catalog import DomainEventRepository
@@ -30,6 +32,8 @@ from charteros.domain.shared.exceptions import DomainValidationError
 from charteros.domain.shared.ids import CorrelationId
 from charteros.domain.tenders import TenderId, TenderStatus
 
+AWARD_REVALIDATION_POLICY_VERSION = "award-truth-gate-v1"
+
 
 def _utc(value: datetime, *, field_name: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
@@ -44,6 +48,8 @@ class BookingService:
         bookings: BookingRepository,
         capacity_policy: AircraftCapacityPolicy,
         capacity_reservations: AircraftCapacityReservationRepository,
+        feasibility: AircraftMissionFeasibilityService,
+        decision_evidence: DecisionEvidenceWriter,
         quotes: QuoteRepository,
         rfqs: RfqRepository,
         missions: MissionRepository,
@@ -54,6 +60,8 @@ class BookingService:
         self._bookings = bookings
         self._capacity_policy = capacity_policy
         self._capacity_reservations = capacity_reservations
+        self._feasibility = feasibility
+        self._decision_evidence = decision_evidence
         self._quotes = quotes
         self._rfqs = rfqs
         self._missions = missions
@@ -122,12 +130,45 @@ class BookingService:
         if accepted_at >= target.valid_until:
             raise EntityConflictError("expired quote cannot be accepted")
 
+        feasibility = self._feasibility.evaluate(
+            mission=mission,
+            aircraft_id=target.aircraft_id,
+            known_as_of=accepted_at,
+            lock_catalog=True,
+        )
+        if feasibility.candidate.operator_id != target_rfq.operator_id:
+            raise EntityConflictError("quoted aircraft no longer belongs to the quoted operator")
+        if not feasibility.feasible:
+            reasons = ",".join(reason.value for reason in feasibility.evaluation.rejection_reasons)
+            raise EntityConflictError(
+                f"quoted aircraft is no longer feasible for award ({reasons})"
+            )
+        draft = feasibility.evaluation.draft
+        if draft is None:
+            raise RuntimeError("feasible award candidate is missing its canonical matching draft")
+
         capacity_plan = self._capacity_policy.derive(
             mission=mission,
             aircraft_id=target.aircraft_id,
             operator_id=target_rfq.operator_id,
             known_as_of=accepted_at,
         )
+        if (
+            capacity_plan.reference_profile_id != draft.reference_profile.id.value
+            or capacity_plan.reference_profile_recorded_at != draft.reference_profile.recorded_at
+            or capacity_plan.route_distance_tenths_nm != draft.route_distance_tenths_nm
+            or capacity_plan.route_minutes != draft.route_minutes
+            or capacity_plan.turnaround_buffer_minutes
+            != draft.reference_profile.turnaround_buffer_minutes
+        ):
+            raise EntityConflictError("award feasibility and capacity evidence are inconsistent")
+        if self._capacity_reservations.has_reserved_overlap(
+            aircraft_id=target.aircraft_id,
+            interval=capacity_plan.interval,
+        ):
+            raise EntityConflictError(
+                "aircraft is already committed to overlapping charter capacity"
+            )
         booking = Booking.create(
             mission_id=mission.id,
             accepted_quote_id=target.id,
@@ -154,11 +195,69 @@ class BookingService:
 
         # Flush the Booking first to satisfy the reservation FK, then reserve capacity before any
         # Quote/Mission state mutation. A PostgreSQL exclusion conflict aborts the transaction.
-        self._bookings.add(booking)
-        self._capacity_reservations.add(reservation)
-
         expected_mission_version = mission.version
         expected_quote_versions = {quote.id: quote.version for quote in current_quotes}
+
+        self._bookings.add(booking)
+        self._capacity_reservations.add(reservation)
+        self._decision_evidence.add_snapshot(
+            decision_type="award_commit",
+            subject_type="mission",
+            subject_id=mission.id.value,
+            source_aggregate_type="booking",
+            source_aggregate_id=booking.id.value,
+            decided_at=accepted_at,
+            known_as_of=accepted_at,
+            actor_id=None,
+            correlation_id=correlation_id.value,
+            policy_versions={
+                "award_revalidation": AWARD_REVALIDATION_POLICY_VERSION,
+                "matching": feasibility.policy_version,
+                "capacity": capacity_plan.policy_version,
+            },
+            content={
+                "feasible": True,
+                "mission_id": str(mission.id),
+                "mission_version": expected_mission_version,
+                "quote_id": str(target.id),
+                "quote_version": expected_quote_versions[target.id],
+                "quote_revision_number": target.revision_number,
+                "rfq_id": str(target_rfq.id),
+                "rfq_version": target_rfq.version,
+                "operator_id": str(target_rfq.operator_id),
+                "operator_version": feasibility.candidate.operator_version,
+                "aircraft_id": str(target.aircraft_id),
+                "aircraft_version": feasibility.candidate.aircraft_version,
+                "decision_timestamp": accepted_at,
+                "position": {
+                    "id": str(draft.position.id),
+                    "event_time": draft.position.event_time,
+                    "recorded_at": draft.position.recorded_at,
+                },
+                "availability": {
+                    "id": str(draft.availability.id),
+                    "status": draft.availability.status.value,
+                    "valid_from": draft.availability.interval.start,
+                    "valid_to": draft.availability.interval.end,
+                    "recorded_at": draft.availability.recorded_at,
+                },
+                "reference_profile": {
+                    "id": str(draft.reference_profile.id),
+                    "recorded_at": draft.reference_profile.recorded_at,
+                },
+                "route_distance_tenths_nm": draft.route_distance_tenths_nm,
+                "required_range_nm": draft.required_range_nm,
+                "reposition_distance_tenths_nm": draft.reposition_distance_tenths_nm,
+                "route_minutes": draft.route_minutes,
+                "reposition_minutes": draft.reposition_minutes,
+                "timing_buffer_minutes": draft.timing_buffer_minutes,
+                "reason_codes": [reason.value for reason in draft.reason_codes],
+                "capacity_interval": {
+                    "start": capacity_plan.interval.start,
+                    "end": capacity_plan.interval.end,
+                },
+            },
+        )
 
         target.accept(
             accepted_at=accepted_at,

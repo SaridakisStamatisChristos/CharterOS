@@ -330,7 +330,7 @@ def test_pr25_procurement_evidence_is_deterministic_isolated_and_redacted() -> N
         assert "fx_rate" not in first.text
 
         decisions = {item["decision_type"]: item for item in package["decisions"]}
-        assert set(decisions) == {"supplier_selection", "quote_comparison"}
+        assert set(decisions) == {"supplier_selection", "quote_comparison", "award_commit"}
         supplier = decisions["supplier_selection"]["content"]
         assert supplier["operator_id"] == operator_id
         assert supplier["matching_policy_version"] == "matching-v1"
@@ -345,6 +345,15 @@ def test_pr25_procurement_evidence_is_deterministic_isolated_and_redacted() -> N
         selected = next(item for item in comparison["quotes"] if item["quote_id"] == quote_id)
         assert selected["normalization_version"] == "v1"
         assert selected["decision_eligible"] is True
+
+        award_commit = decisions["award_commit"]
+        assert award_commit["known_as_of"] == award_commit["decided_at"]
+        assert award_commit["policy_versions"]["award_revalidation"] == "award-truth-gate-v1"
+        assert award_commit["policy_versions"]["matching"] == "matching-v1"
+        assert award_commit["policy_versions"]["capacity"] == "aircraft-capacity-v1"
+        assert award_commit["content"]["feasible"] is True
+        assert award_commit["content"]["quote_id"] == quote_id
+        assert award_commit["content"]["aircraft_id"] == aircraft_id
 
         source_types = {item["source_type"] for item in package["sources"]}
         assert {

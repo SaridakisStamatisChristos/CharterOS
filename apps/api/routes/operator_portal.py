@@ -31,6 +31,7 @@ from apps.api.routes.repositioning import RepositionOptimizationResponse
 from apps.api.routes.repositioning import _response as repositioning_response
 from charteros.application.catalog import AircraftTypeSpec, CatalogService
 from charteros.application.exceptions import EntityConflictError
+from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.graph_queries import EmptyLegCandidate, GraphQueryService
 from charteros.application.idempotency import (
     IdempotencyRepository,
@@ -64,6 +65,7 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyAircraftTypeRepository,
     SqlAlchemyAirportRepository,
     SqlAlchemyBookingRepository,
+    SqlAlchemyDecisionEvidenceRepository,
     SqlAlchemyDomainEventRepository,
     SqlAlchemyGraphQueryRepository,
     SqlAlchemyMatchingSnapshotRepository,
@@ -283,6 +285,11 @@ def _tender_service(session: Session) -> TenderService:
         bookings=SqlAlchemyBookingRepository(session),
         capacity_policy=build_capacity_policy(session),
         capacity_reservations=build_capacity_reservations(session),
+        feasibility=AircraftMissionFeasibilityService(
+            airports=SqlAlchemyAirportRepository(session),
+            snapshots=SqlAlchemyMatchingSnapshotRepository(session),
+        ),
+        decision_evidence=SqlAlchemyDecisionEvidenceRepository(session),
         events=SqlAlchemyDomainEventRepository(session),
     )
 

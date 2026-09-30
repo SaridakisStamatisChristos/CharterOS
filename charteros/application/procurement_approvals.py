@@ -4,7 +4,9 @@ from datetime import UTC, datetime
 
 from charteros.application.bookings import BookingService
 from charteros.application.capacity import AircraftCapacityPolicy
+from charteros.application.evidence import DecisionEvidenceWriter
 from charteros.application.exceptions import EntityConflictError, EntityNotFoundError
+from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.ports.bookings import BookingRepository
 from charteros.application.ports.capacity import AircraftCapacityReservationRepository
 from charteros.application.ports.catalog import DomainEventRepository, OrganizationRepository
@@ -50,6 +52,8 @@ class ProcurementApprovalService:
         bookings: BookingRepository,
         capacity_policy: AircraftCapacityPolicy,
         capacity_reservations: AircraftCapacityReservationRepository,
+        feasibility: AircraftMissionFeasibilityService,
+        decision_evidence: DecisionEvidenceWriter,
         contracts: ContractRepository,
         tenders: TenderRepository,
         fx_locks: FxLockRepository,
@@ -63,6 +67,8 @@ class ProcurementApprovalService:
         self._bookings = bookings
         self._capacity_policy = capacity_policy
         self._capacity_reservations = capacity_reservations
+        self._feasibility = feasibility
+        self._decision_evidence = decision_evidence
         self._contracts = contracts
         self._tenders = tenders
         self._fx_locks = fx_locks
@@ -213,6 +219,8 @@ class ProcurementApprovalService:
             bookings=self._bookings,
             capacity_policy=self._capacity_policy,
             capacity_reservations=self._capacity_reservations,
+            feasibility=self._feasibility,
+            decision_evidence=self._decision_evidence,
             quotes=self._quotes,
             rfqs=self._rfqs,
             missions=self._missions,

@@ -111,8 +111,32 @@ def _setup_booking(client: TestClient, *, suffix: str) -> tuple[str, str, str, s
         aircraft.json(),
         source=f"pr12-capacity-{suffix}",
     )
-
+    aircraft_id = str(aircraft.json()["id"])
     departure = datetime.now(UTC) + timedelta(days=7)
+    position = client.post(
+        f"/v1/aircraft/{aircraft_id}/positions",
+        headers={"Idempotency-Key": f"pr12-position-{suffix}"},
+        json={
+            "airport_id": origin.json()["id"],
+            "event_time": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+            "source": "pr12-award-fixture",
+            "provenance": {"fixture": "pr12"},
+        },
+    )
+    assert position.status_code == 201
+    availability = client.post(
+        f"/v1/aircraft/{aircraft_id}/availability",
+        headers={"Idempotency-Key": f"pr12-availability-{suffix}"},
+        json={
+            "valid_from": (departure - timedelta(hours=3)).isoformat(),
+            "valid_to": (departure + timedelta(hours=6)).isoformat(),
+            "status": "available",
+            "source": "pr12-award-fixture",
+            "provenance": {"fixture": "pr12"},
+        },
+    )
+    assert availability.status_code == 201
+
     mission = client.post(
         "/v1/missions",
         headers={"Idempotency-Key": f"pr12-mission-{suffix}"},

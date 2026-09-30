@@ -219,8 +219,8 @@ def test_pr21_operator_portal_isolation_workflows_and_calendar() -> None:
         assert cross_fleet.status_code == 404
 
         availability_body = {
-            "valid_from": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
-            "valid_to": (datetime.now(UTC) + timedelta(days=2)).isoformat(),
+            "valid_from": (datetime.now(UTC) + timedelta(days=19)).isoformat(),
+            "valid_to": (datetime.now(UTC) + timedelta(days=22)).isoformat(),
             "status": "available",
             "source": "operator-portal",
             "reason": "planned availability",
@@ -256,7 +256,19 @@ def test_pr21_operator_portal_isolation_workflows_and_calendar() -> None:
         assert replay.status_code == 201
         assert replay.json() == availability.json()
 
-        departure = datetime.now(UTC) + timedelta(days=10)
+        position = client.post(
+            f"/v1/aircraft/{aircraft_a}/positions",
+            headers={"Idempotency-Key": "pr21-position-a"},
+            json={
+                "airport_id": origin_id,
+                "event_time": datetime.now(UTC).isoformat(),
+                "source": "operator-portal",
+                "provenance": {"source": "pr21-test"},
+            },
+        )
+        assert position.status_code == 201
+
+        departure = datetime.now(UTC) + timedelta(days=20)
         mission_id, rfq_id = _mission_and_rfq(
             client,
             suffix="GEN-A",

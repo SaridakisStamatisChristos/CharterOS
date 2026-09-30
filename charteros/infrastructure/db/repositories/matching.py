@@ -231,6 +231,20 @@ class SqlAlchemyMatchingSnapshotRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def lock_aircraft_and_operator(self, aircraft_id: AircraftId) -> None:
+        self._session.execute(
+            text(
+                """
+                SELECT a.id
+                FROM aircraft AS a
+                JOIN operators AS o ON o.id = a.operator_id
+                WHERE a.id = :aircraft_id
+                FOR UPDATE OF a, o
+                """
+            ),
+            {"aircraft_id": aircraft_id.value},
+        ).scalar_one_or_none()
+
     def load_candidates(
         self,
         *,

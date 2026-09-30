@@ -25,6 +25,7 @@ from apps.api.routes.quotes import (
     _terms as quote_terms,
 )
 from charteros.application.exceptions import EntityConflictError
+from charteros.application.feasibility import AircraftMissionFeasibilityService
 from charteros.application.idempotency import (
     IdempotencyRepository,
     StoredResponse,
@@ -47,8 +48,11 @@ from charteros.domain.tenders import (
 )
 from charteros.infrastructure.db.repositories import (
     SqlAlchemyAircraftRepository,
+    SqlAlchemyAirportRepository,
     SqlAlchemyBookingRepository,
+    SqlAlchemyDecisionEvidenceRepository,
     SqlAlchemyDomainEventRepository,
+    SqlAlchemyMatchingSnapshotRepository,
     SqlAlchemyMissionRepository,
     SqlAlchemyOperatorRepository,
     SqlAlchemyQuoteRepository,
@@ -203,6 +207,11 @@ def _service(session: Session) -> TenderService:
         bookings=SqlAlchemyBookingRepository(session),
         capacity_policy=build_capacity_policy(session),
         capacity_reservations=build_capacity_reservations(session),
+        feasibility=AircraftMissionFeasibilityService(
+            airports=SqlAlchemyAirportRepository(session),
+            snapshots=SqlAlchemyMatchingSnapshotRepository(session),
+        ),
+        decision_evidence=SqlAlchemyDecisionEvidenceRepository(session),
         events=SqlAlchemyDomainEventRepository(session),
     )
 

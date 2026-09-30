@@ -26,6 +26,7 @@ def _operator_aircraft(
     suffix: str,
     ordinal: int,
     home_base: str,
+    departure: datetime,
 ) -> tuple[str, str]:
     organization = client.post(
         "/v1/organizations",
@@ -79,7 +80,31 @@ def _operator_aircraft(
         aircraft.json(),
         source=f"pr17-capacity-{suffix}-{ordinal}",
     )
-    return operator_id, str(aircraft.json()["id"])
+    aircraft_id = str(aircraft.json()["id"])
+    position = client.post(
+        f"/v1/aircraft/{aircraft_id}/positions",
+        headers={"Idempotency-Key": f"pr17-position-{suffix}-{ordinal}"},
+        json={
+            "airport_id": home_base,
+            "event_time": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+            "source": "pr17-award-fixture",
+            "provenance": {"fixture": "pr17"},
+        },
+    )
+    assert position.status_code == 201
+    availability = client.post(
+        f"/v1/aircraft/{aircraft_id}/availability",
+        headers={"Idempotency-Key": f"pr17-availability-{suffix}-{ordinal}"},
+        json={
+            "valid_from": (departure - timedelta(hours=3)).isoformat(),
+            "valid_to": (departure + timedelta(hours=6)).isoformat(),
+            "status": "available",
+            "source": "pr17-award-fixture",
+            "provenance": {"fixture": "pr17"},
+        },
+    )
+    assert availability.status_code == 201
+    return operator_id, aircraft_id
 
 
 def _quote_body(aircraft_id: str, valid_until: datetime, amount_minor: int) -> dict[str, object]:
@@ -177,6 +202,7 @@ def _setup_tender(
             suffix=suffix,
             ordinal=ordinal,
             home_base=str(origin.json()["id"]),
+            departure=departure,
         )
         headers = {"Idempotency-Key": f"pr17-invite-{suffix}-{ordinal}"}
         invited = client.post(

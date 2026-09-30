@@ -117,13 +117,37 @@ def _setup_shared_aircraft(
             aircraft.json(),
             source=f"pr38-capacity-{suffix}",
         )
+    aircraft_id = str(aircraft.json()["id"])
+    position = client.post(
+        f"/v1/aircraft/{aircraft_id}/positions",
+        headers={"Idempotency-Key": f"pr38-position-{suffix}"},
+        json={
+            "airport_id": origin.json()["id"],
+            "event_time": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+            "source": "pr38-award-fixture",
+            "provenance": {"fixture": "pr38"},
+        },
+    )
+    assert position.status_code == 201
+    availability = client.post(
+        f"/v1/aircraft/{aircraft_id}/availability",
+        headers={"Idempotency-Key": f"pr38-availability-{suffix}"},
+        json={
+            "valid_from": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+            "valid_to": (datetime.now(UTC) + timedelta(days=30)).isoformat(),
+            "status": "available",
+            "source": "pr38-award-fixture",
+            "provenance": {"fixture": "pr38"},
+        },
+    )
+    assert availability.status_code == 201
 
     return {
         "buyer_id": str(buyer.json()["id"]),
         "origin_id": str(origin.json()["id"]),
         "destination_id": str(destination.json()["id"]),
         "operator_id": str(operator.json()["id"]),
-        "aircraft_id": str(aircraft.json()["id"]),
+        "aircraft_id": aircraft_id,
     }
 
 

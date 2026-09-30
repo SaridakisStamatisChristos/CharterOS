@@ -61,8 +61,11 @@ class AircraftMissionFeasibilityService:
         aircraft_id: AircraftId,
         known_as_of: datetime,
         departure_window: TimeRange | None = None,
+        lock_catalog: bool = False,
     ) -> AircraftMissionFeasibility:
         decision_time = _utc(known_as_of, field_name="known_as_of")
+        if lock_catalog:
+            self._snapshots.lock_aircraft_and_operator(aircraft_id)
         window = departure_window or mission.departure_window
         position_event_cutoff = min(decision_time, window.start)
 
