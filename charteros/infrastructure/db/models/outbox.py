@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Uuid
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from charteros.infrastructure.db.base import Base
@@ -20,6 +20,7 @@ class OutboxConsumerReceiptRow(Base):
             "consumer_version > 0",
             name="ck_outbox_consumer_receipts_version",
         ),
+        Index("ix_outbox_consumer_receipts_event_id", "event_id"),
     )
 
     consumer_name: Mapped[str] = mapped_column(String(128), primary_key=True)

@@ -65,6 +65,9 @@ jobs:
       - name: Migration smoke
         run: alembic upgrade head
 
+      - name: Alembic schema drift
+        run: alembic check
+
       - name: Tests
         run: pytest
 

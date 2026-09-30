@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Numeric,
     String,
     UniqueConstraint,
@@ -39,6 +40,18 @@ class AircraftPositionObservationRow(Base):
         CheckConstraint(
             "recorded_at >= event_time",
             name="ck_aircraft_positions_recorded_after_event",
+        ),
+        Index(
+            "ix_aircraft_positions_aircraft_event",
+            "aircraft_id",
+            "event_time",
+            "id",
+        ),
+        Index(
+            "ix_aircraft_positions_aircraft_recorded",
+            "aircraft_id",
+            "recorded_at",
+            "event_time",
         ),
     )
 
@@ -73,6 +86,18 @@ class AircraftAvailabilityRecordRow(Base):
             name="ck_aircraft_availability_not_self_superseding",
         ),
         UniqueConstraint("supersedes_id", name="uq_aircraft_availability_supersedes_once"),
+        Index(
+            "ix_aircraft_availability_aircraft_valid",
+            "aircraft_id",
+            "valid_from",
+            "valid_to",
+        ),
+        Index(
+            "ix_aircraft_availability_aircraft_recorded",
+            "aircraft_id",
+            "recorded_at",
+        ),
+        Index("ix_aircraft_availability_supersedes", "supersedes_id"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
