@@ -18,7 +18,6 @@ from charteros.application.ports.catalog import (
     OrganizationRepository,
 )
 from charteros.application.ports.disruptions import DisruptionRepository
-from charteros.application.ports.fleet import FleetTimelineRepository
 from charteros.application.ports.missions import MissionRepository
 from charteros.application.ports.quotes import QuoteRepository
 from charteros.application.ports.rfqs import RfqRepository
@@ -101,7 +100,6 @@ class DisruptionService:
         organizations: OrganizationRepository,
         operators: OperatorRepository,
         aircraft: AircraftRepository,
-        fleet_timeline: FleetTimelineRepository,
         feasibility: AircraftMissionFeasibilityService,
         capacity_policy: AircraftCapacityPolicy,
         capacity_reservations: AircraftCapacityReservationRepository,
@@ -115,7 +113,6 @@ class DisruptionService:
         self._organizations = organizations
         self._operators = operators
         self._aircraft = aircraft
-        self._fleet_timeline = fleet_timeline
         self._feasibility = feasibility
         self._capacity_policy = capacity_policy
         self._capacity_reservations = capacity_reservations
