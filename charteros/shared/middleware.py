@@ -98,7 +98,7 @@ class RequestBodyLimitMiddleware:
     def _is_json(scope: Scope) -> bool:
         for raw_name, raw_value in scope.get("headers", []):
             if raw_name.lower() == b"content-type":
-                media_type = raw_value.split(b";", 1)[0].strip().lower()
+                media_type = bytes(raw_value).split(b";", 1)[0].strip().lower()
                 return media_type == b"application/json" or media_type.endswith(b"+json")
         return False
 
