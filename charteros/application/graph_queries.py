@@ -274,7 +274,7 @@ class GraphQueryService:
                 limit=bounded,
                 reason="structural_candidate_universe_exceeds_requested_capacity",
             )
-        return items
+        return tuple(items[:bounded])
 
     def booking_flight_lineage(self, *, booking_id: UUID) -> BookingFlightLineage:
         item = self._repository.booking_flight_lineage(booking_id=booking_id)
