@@ -9,7 +9,8 @@ from charteros.shared.context import correlation_id_context
 
 
 def get_clock(request: Request) -> Clock:
-    return request.app.state.clock
+    clock: Clock = request.app.state.clock
+    return clock
 
 
 def get_session(request: Request) -> Iterator[Session]:
