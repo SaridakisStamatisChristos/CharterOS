@@ -1,8 +1,11 @@
 # Authentication and authorization boundary
 
 CharterOS protects every `/v1` route with a centralized, deny-by-default authentication and
-capability boundary. `/health` is public. In non-production environments only, `/docs` and
-`/openapi.json` are also public; production disables both documentation and the OpenAPI surface.
+capability boundary. The application-level public runtime endpoints are `/health`, `/ready`, and
+`/metrics`. Production ingress must restrict `/metrics` to the monitoring network or monitoring
+identity; application-public does not mean public-Internet exposure. In non-production environments
+only, `/docs` and `/openapi.json` are also public; production disables both documentation and the
+OpenAPI surface.
 
 ## Identity verification
 
@@ -48,6 +51,19 @@ The major route classes are:
 Legacy APIs that lack a trustworthy tenant selector are deliberately administrator-only. Buyer and
 operator traffic must use the scoped portal surfaces instead of relying on caller-controlled body or
 path IDs as implicit authority.
+
+## Public runtime endpoints
+
+| Endpoint | Purpose | Production exposure |
+| --- | --- | --- |
+| `GET /health` | process health metadata | may be exposed to the platform health plane |
+| `GET /ready` | PostgreSQL-backed readiness | should be limited to the platform/readiness plane |
+| `GET /metrics` | aggregate Prometheus-format operational metrics | restrict to monitoring network/identity |
+| `/docs`, `/openapi.json` | interactive/API schema documentation | disabled in production |
+
+`/metrics` contains bounded aggregate labels only; it must not carry tenant/object UUIDs, aircraft
+registration, JWT subjects, idempotency keys, correlation IDs, or free-form exception text. Network
+restriction and the in-process cardinality/privacy contract are both required.
 
 ## Failure semantics
 
