@@ -25,6 +25,7 @@ class RequestResult:
 
 def _resolve_environment(value: object) -> object:
     if isinstance(value, str):
+
         def replace(match: re.Match[str]) -> str:
             name = match.group(1)
             resolved = os.environ.get(name)
