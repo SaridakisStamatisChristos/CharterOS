@@ -283,11 +283,7 @@ def verify_release_manifest(
             issues.append(f"release gate {gate!r} is not recorded as passed")
 
     tests = _safe_mapping(validation, "tests", issues, prefix="validation")
-    if (
-        tests.get("status") != "passed"
-        or tests.get("failures") != 0
-        or tests.get("errors") != 0
-    ):
+    if tests.get("status") != "passed" or tests.get("failures") != 0 or tests.get("errors") != 0:
         issues.append("release manifest test evidence is not passing")
 
     vulnerability = _safe_mapping(
