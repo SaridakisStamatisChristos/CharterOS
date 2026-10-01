@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Never, cast
 from uuid import UUID
@@ -9,8 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from apps.api.route_security import ResourceRequirement, SelectorRequirement, route_policy
+from charteros.application.resource_limits import AbuseBudget
 from charteros.infrastructure.db.models.missions import MissionRow
 from charteros.infrastructure.db.models.tenders import TenderInvitationRow, TenderRow
+from charteros.infrastructure.db.repositories.abuse import SqlAlchemyRateBudgetRepository
 from charteros.security.auth import (
     AuthenticatedPrincipal,
     AuthenticationBackend,
@@ -138,6 +141,70 @@ def _authorize_resource(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
 
 
+def _budget_limit(settings: Settings, budget: AbuseBudget) -> int:
+    if budget is AbuseBudget.MATCHING:
+        return settings.api_matching_requests_per_window
+    if budget is AbuseBudget.REPOSITIONING:
+        return settings.api_repositioning_requests_per_window
+    if budget is AbuseBudget.EVIDENCE:
+        return settings.api_evidence_requests_per_window
+    return settings.api_graph_requests_per_window
+
+
+def _budget_identity_digest(
+    request: Request,
+    principal: AuthenticatedPrincipal,
+) -> str:
+    buyer_id = request.headers.get("X-Buyer-Id", "")
+    operator_id = request.headers.get("X-Operator-Id", "")
+    material = "\x00".join(
+        (
+            principal.issuer,
+            principal.subject,
+            principal.principal_type.value,
+            buyer_id,
+            operator_id,
+        )
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _enforce_abuse_budget(
+    *,
+    request: Request,
+    principal: AuthenticatedPrincipal,
+    budget: AbuseBudget | None,
+) -> None:
+    if budget is None:
+        return
+    settings = cast(Settings, request.app.state.settings)
+    factory = cast(sessionmaker[Session], request.app.state.session_factory)
+    with factory.begin() as session:
+        decision = SqlAlchemyRateBudgetRepository(session).consume(
+            budget=budget,
+            identity_digest=_budget_identity_digest(request, principal),
+            limit=_budget_limit(settings, budget),
+            window_seconds=settings.api_rate_limit_window_seconds,
+        )
+    if decision.allowed:
+        return
+    logger.warning(
+        "api_resource_budget_exhausted",
+        extra={
+            "event": "api_resource_budget_exhausted",
+            "budget": budget.value,
+            "principal_type": principal.principal_type.value,
+            "method": request.method,
+            "path": request.url.path,
+        },
+    )
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="resource_limit_exceeded",
+        headers={"Retry-After": str(decision.retry_after_seconds)},
+    )
+
+
 def _deny(
     *, request: Request, principal: AuthenticatedPrincipal | None, reason: str, code: int
 ) -> Never:
@@ -230,6 +297,11 @@ def authorize_request(request: Request) -> None:
         )
 
     request.state.authenticated_principal = principal
+    _enforce_abuse_budget(
+        request=request,
+        principal=principal,
+        budget=policy.abuse_budget,
+    )
 
 
 def build_auth_backend(settings: Settings) -> AuthenticationBackend:
@@ -245,11 +317,15 @@ def build_auth_backend(settings: Settings) -> AuthenticationBackend:
     source = HttpJwksSource(
         url=jwks_url,
         timeout_seconds=settings.auth_http_timeout_seconds,
+        max_document_bytes=settings.auth_jwks_max_document_bytes,
     )
     key_cache = JwksKeyCache(
         source=source,
         ttl_seconds=settings.auth_jwks_cache_ttl_seconds,
         max_keys=settings.auth_jwks_max_keys,
+        refresh_min_interval_seconds=settings.auth_jwks_refresh_min_interval_seconds,
+        unknown_key_ttl_seconds=settings.auth_jwks_unknown_key_ttl_seconds,
+        max_negative_keys=settings.auth_jwks_negative_cache_max_keys,
     )
     return OidcJwtAuthenticationBackend(
         issuer=issuer,

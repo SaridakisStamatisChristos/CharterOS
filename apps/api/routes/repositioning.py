@@ -18,6 +18,7 @@ from charteros.application.repositioning import (
     RepositioningService,
     optimize_reposition_snapshot,
 )
+from charteros.application.resource_limits import MAX_OPTIMIZATION_WINDOW, validate_bounded_window
 from charteros.infrastructure.db.repositories import (
     SqlAlchemyAirportRepository,
     SqlAlchemyGraphQueryRepository,
@@ -186,6 +187,12 @@ def optimize_repositioning(
     empty_leg_limit: EmptyLegLimit = MAX_STRUCTURAL_EMPTY_LEGS,
     opportunity_limit: OpportunityLimit = MAX_QUOTED_FUTURE_LEGS,
 ) -> RepositionOptimizationResponse:
+    validate_bounded_window(
+        start=window_start,
+        end=window_end,
+        maximum=MAX_OPTIMIZATION_WINDOW,
+        name="reposition optimization window",
+    )
     with session.begin():
         session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         snapshot = _service(session).materialize_snapshot(

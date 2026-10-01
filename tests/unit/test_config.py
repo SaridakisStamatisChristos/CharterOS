@@ -21,6 +21,10 @@ def test_settings_accept_valid_environment(monkeypatch: pytest.MonkeyPatch) -> N
     assert settings.database_pool_timeout_seconds == 5.0
     assert settings.database_pool_recycle_seconds == 1800
     assert settings.database_connect_timeout_seconds == 5
+    assert settings.api_max_request_body_bytes == 1_048_576
+    assert settings.api_max_json_depth == 32
+    assert settings.api_rate_limit_window_seconds == 60
+    assert settings.idempotency_retention_days == 90
 
 
 def test_database_pool_bounds_are_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -71,6 +75,19 @@ def test_production_requires_complete_oidc(monkeypatch: pytest.MonkeyPatch) -> N
         Settings(_env_file=None)
 
 
+def test_staging_and_production_require_trusted_ingress_rate_limits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CHARTEROS_ENVIRONMENT", "staging")
+    monkeypatch.setenv("CHARTEROS_DATABASE_URL", TEST_DATABASE_URL)
+    monkeypatch.setenv("CHARTEROS_AUTH_ISSUER", "https://id.example.test/")
+    monkeypatch.setenv("CHARTEROS_AUTH_AUDIENCE", "charteros-api")
+    monkeypatch.setenv("CHARTEROS_AUTH_JWKS_URL", "https://id.example.test/.well-known/jwks.json")
+
+    with pytest.raises(ValidationError, match="trusted ingress rate-limit"):
+        Settings(_env_file=None)
+
+
 def test_production_rejects_known_development_database_password(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -97,6 +114,7 @@ def test_production_rejects_debug_logging(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setenv("CHARTEROS_AUTH_AUDIENCE", "charteros-api")
     monkeypatch.setenv("CHARTEROS_AUTH_JWKS_URL", "https://id.example.test/.well-known/jwks.json")
     monkeypatch.setenv("CHARTEROS_LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("CHARTEROS_TRUSTED_INGRESS_RATE_LIMIT_ENFORCED", "true")
 
     with pytest.raises(ValidationError, match="must not be DEBUG"):
         Settings(_env_file=None)

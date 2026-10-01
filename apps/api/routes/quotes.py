@@ -98,8 +98,14 @@ class QuoteTermsRequest(BaseModel):
     base_amount_minor: int = Field(gt=0)
     repositioning_amount_minor: int | None = Field(default=None, ge=0)
     price_components: list[PriceComponentRequest] = Field(default_factory=list, max_length=128)
-    inclusions: list[str] = Field(default_factory=list, max_length=128)
-    exclusions: list[str] = Field(default_factory=list, max_length=128)
+    inclusions: list[Annotated[str, Field(min_length=1, max_length=1000)]] = Field(
+        default_factory=list,
+        max_length=128,
+    )
+    exclusions: list[Annotated[str, Field(min_length=1, max_length=1000)]] = Field(
+        default_factory=list,
+        max_length=128,
+    )
     cancellation_terms: str | None = Field(default=None, max_length=4000)
     payment_terms: str | None = Field(default=None, max_length=4000)
     valid_until: datetime

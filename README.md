@@ -60,6 +60,7 @@ The result is an auditable core that can support portals, integrations, optimiza
 | Audit evidence | Deterministic evidence reconstruction with policy/version provenance |
 | FX | Bitemporal immutable rate evidence and short-lived executable buyer FX locks |
 | Security | Deny-by-default OIDC/JWT capability authorization with exhaustive route policy |
+| Abuse resistance | Bounded bodies/queries, shared expensive-work budgets, JWKS storm suppression and replay-state retention |
 | Evidence integrity | PostgreSQL-enforced immutability plus deterministic hash-chained integrity streams |
 | Event delivery | Transactional outbox, fenced leases, retry/poison handling and durable deduplication |
 
@@ -597,6 +598,30 @@ See [authentication and authorization](docs/authentication-authorization.md).
 
 ---
 
+## API abuse and resource bounds
+
+CharterOS separates **general edge rate limiting** from **application-owned computation bounds**.
+
+Staging and production require trusted ingress/API-gateway rate limiting for general and anonymous traffic. The application does not pretend a process-local counter would be correct across replicas.
+
+Inside CharterOS, PostgreSQL-backed fixed-window budgets are shared across API replicas for matching, reposition optimization / optimized empty-leg visibility, evidence reconstruction, and Charter Graph queries. Budget identity is SHA-256-derived from the verified principal plus validated tenant selector; raw principal/tenant identifiers are not persisted in the limiter table.
+
+Additional hard bounds include:
+
+- 1 MiB default request body;
+- JSON nesting depth 32;
+- 10-second request-body receive timeout;
+- bounded Pydantic collection counts and item lengths;
+- 366-day fleet/calendar query windows;
+- 31-day optimization/empty-leg windows;
+- JWKS document/key/refresh bounds and short unknown-key negative caching;
+- 256 KiB database-enforced idempotency response storage;
+- 90-day default idempotency replay-retention policy with bounded cleanup batches.
+
+See [ADR 0033](docs/adr/0033-api-abuse-resource-bounds.md).
+
+---
+
 ## API surfaces
 
 CharterOS currently exposes these major route families:
@@ -742,16 +767,25 @@ Important settings include:
 | `CHARTEROS_DATABASE_CONNECT_TIMEOUT_SECONDS` | PostgreSQL connect timeout |
 | `CHARTEROS_ENVIRONMENT` | development / test / staging / production |
 | `CHARTEROS_API_HOST` / `PORT` | API bind configuration |
+| `CHARTEROS_API_MAX_REQUEST_BODY_BYTES` | Maximum buffered request body |
+| `CHARTEROS_API_MAX_JSON_DEPTH` | Maximum JSON object/array nesting |
+| `CHARTEROS_API_REQUEST_BODY_READ_TIMEOUT_SECONDS` | Pre-route body receive timeout |
+| `CHARTEROS_TRUSTED_INGRESS_RATE_LIMIT_ENFORCED` | Required staging/production ingress contract |
+| `CHARTEROS_API_*_REQUESTS_PER_WINDOW` | Shared expensive-work request budgets |
 | `CHARTEROS_AUTH_ISSUER` | OIDC issuer |
 | `CHARTEROS_AUTH_AUDIENCE` | OIDC audience |
 | `CHARTEROS_AUTH_JWKS_URL` | JWKS endpoint |
 | `CHARTEROS_AUTH_ALLOWED_ALGORITHMS` | Allowed asymmetric JWT algorithms |
+| `CHARTEROS_AUTH_JWKS_MAX_DOCUMENT_BYTES` | Maximum JWKS document size |
+| `CHARTEROS_AUTH_JWKS_REFRESH_MIN_INTERVAL_SECONDS` | Refresh-storm suppression interval |
+| `CHARTEROS_IDEMPOTENCY_RETENTION_DAYS` | Replay-record retention contract |
+| `CHARTEROS_IDEMPOTENCY_CLEANUP_BATCH_SIZE` | Bounded cleanup work per invocation |
 | `CHARTEROS_OUTBOX_BATCH_SIZE` | Worker claim batch |
 | `CHARTEROS_OUTBOX_LEASE_SECONDS` | Delivery lease duration |
 | `CHARTEROS_OUTBOX_MAX_ATTEMPTS` | Retry budget |
 | `CHARTEROS_OUTBOX_BACKOFF_*` | Deterministic retry policy |
 
-Staging and production require the complete issuer/audience/JWKS tuple. Production rejects DEBUG logging and known development database passwords.
+Staging and production require the complete issuer/audience/JWKS tuple and explicit trusted-ingress rate-limit enforcement. Production rejects DEBUG logging and known development database passwords.
 
 See [.env.example](.env.example).
 
@@ -778,6 +812,18 @@ make graph-status
 make graph-rebuild
 make graph-verify
 ```
+
+### Replay / abuse transient-state cleanup
+
+Run one bounded cleanup batch:
+
+```bash
+make resource-cleanup
+# or
+python -m apps.resource_cleanup.main
+```
+
+Schedule repeated invocations externally. The command deletes only expired idempotency replay records and transient API rate-window rows; it does not delete authoritative business/evidence data.
 
 ### Database runtime role
 
@@ -807,16 +853,17 @@ The repository's GitHub Actions pipeline executes the following gate on pull req
 10. Docker Compose configuration validation;
 11. Alembic migration smoke;
 12. Alembic schema-drift check;
-13. full pytest suite against PostgreSQL 17;
-14. PostgreSQL restart / stale-connection recovery smoke;
-15. reposition solver benchmark;
-16. API boot smoke;
-17. pinned Trivy installation with checksum verification;
-18. repository secret scan;
-19. hardened container image build;
-20. read-only/capability-dropped runtime smoke;
-21. HIGH/CRITICAL container vulnerability scan;
-22. CycloneDX SBOM generation and validation.
+13. bounded resource-cleanup CLI smoke;
+14. full pytest suite against PostgreSQL 17;
+15. PostgreSQL restart / stale-connection recovery smoke;
+16. reposition solver benchmark;
+17. API boot smoke;
+18. pinned Trivy installation with checksum verification;
+19. repository secret scan;
+20. hardened container image build;
+21. read-only/capability-dropped runtime smoke;
+22. HIGH/CRITICAL container vulnerability scan;
+23. CycloneDX SBOM generation and validation.
 
 Run the primary developer gate locally:
 
@@ -856,7 +903,8 @@ CharterOS/
 │   ├── api/                    # FastAPI delivery + route security
 │   ├── graph_projection/       # rebuild / verify / activate CLI
 │   ├── outbox_worker/          # leased asynchronous delivery worker
-│   └── pricing_intelligence/   # deterministic historical dataset CLI
+│   ├── pricing_intelligence/   # deterministic historical dataset CLI
+│   └── resource_cleanup/       # bounded idempotency/rate-window cleanup CLI
 ├── charteros/
 │   ├── application/            # use cases and application ports
 │   ├── domain/                 # pure business model and invariants
@@ -921,6 +969,7 @@ The ADR history is the detailed design authority for the major subsystems.
 | [0025](docs/adr/0025-audit-evidence-layer.md) | Audit evidence |
 | [0026](docs/adr/0026-auditable-fx-policy.md) | Auditable FX |
 | [0032](docs/adr/0032-transaction-failure-and-ambiguous-commit.md) | Transaction failure and ambiguous-commit semantics |
+| [0033](docs/adr/0033-api-abuse-resource-bounds.md) | API abuse and resource-exhaustion boundaries |
 
 Later hardening is additionally encoded in the implementation, focused documentation, and regression suites for authentication, database evidence integrity, event-ordering assurance, explicit clock authority, deterministic solver tie semantics, and the validated optimizer capacity envelope.
 

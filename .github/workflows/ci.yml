@@ -95,6 +95,9 @@ jobs:
       - name: Alembic schema drift
         run: uv run alembic check
 
+      - name: Resource cleanup smoke
+        run: uv run python -m apps.resource_cleanup.main
+
       - name: Tests
         run: uv run pytest
 

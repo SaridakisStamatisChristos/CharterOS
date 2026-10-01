@@ -155,6 +155,13 @@ class AircraftRow(Base):
 
 class IdempotencyRecordRow(Base):
     __tablename__ = "idempotency_records"
+    __table_args__ = (
+        CheckConstraint(
+            "octet_length(response_body::text) <= 262144",
+            name="ck_idempotency_records_response_size",
+        ),
+        Index("ix_idempotency_records_created_at", "created_at"),
+    )
 
     scope: Mapped[str] = mapped_column(String(192), primary_key=True)
     key: Mapped[str] = mapped_column(String(128), primary_key=True)

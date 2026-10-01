@@ -17,6 +17,7 @@ from charteros.application.idempotency import (
     StoredResponse,
     canonical_request_hash,
 )
+from charteros.application.resource_limits import MAX_TIMELINE_WINDOW, validate_bounded_window
 from charteros.domain.aircraft import (
     AircraftAvailabilityRecord,
     AircraftId,
@@ -331,6 +332,12 @@ def get_timeline(
     at: Annotated[datetime | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> TimelineResponse:
+    validate_bounded_window(
+        start=from_time,
+        end=to_time,
+        maximum=MAX_TIMELINE_WINDOW,
+        name="fleet timeline window",
+    )
     timeline = _service(session).get_timeline(
         aircraft_id=AircraftId(aircraft_id),
         from_time=from_time,

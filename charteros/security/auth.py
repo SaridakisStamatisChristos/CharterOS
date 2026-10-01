@@ -13,7 +13,7 @@ from uuid import UUID
 
 import jwt
 from jwt import InvalidSignatureError, InvalidTokenError, PyJWK
-from jwt.exceptions import PyJWKError
+from jwt.exceptions import InvalidKeyError, PyJWKError
 
 
 class PrincipalType(StrEnum):
@@ -86,11 +86,20 @@ class JwksSource(Protocol):
 
 
 class HttpJwksSource:
-    def __init__(self, *, url: str, timeout_seconds: float) -> None:
+    def __init__(
+        self,
+        *,
+        url: str,
+        timeout_seconds: float,
+        max_document_bytes: int = 262_144,
+    ) -> None:
         if not url.startswith("https://"):
             raise ValueError("JWKS URL must use HTTPS")
+        if max_document_bytes < 1:
+            raise ValueError("JWKS document byte bound must be positive")
         self._url = url
         self._timeout_seconds = timeout_seconds
+        self._max_document_bytes = max_document_bytes
 
     def fetch(self) -> Mapping[str, object]:
         request = Request(
@@ -103,7 +112,10 @@ class HttpJwksSource:
             with urlopen(request, timeout=self._timeout_seconds) as response:  # nosec B310
                 if response.status != 200:
                     raise AuthenticationError("identity key endpoint returned a non-success status")
-                payload = json.loads(response.read().decode("utf-8"))
+                raw_payload = response.read(self._max_document_bytes + 1)
+                if len(raw_payload) > self._max_document_bytes:
+                    raise AuthenticationError("identity key document exceeds the size bound")
+                payload = json.loads(raw_payload.decode("utf-8"))
         except (
             HTTPError,
             URLError,
@@ -125,7 +137,7 @@ class _KeySet:
 
 
 class JwksKeyCache:
-    """Bounded-TTL JWKS cache with synchronous forced refresh for unknown/rotated keys."""
+    """Bounded JWKS cache with single-flight refresh and refresh-storm suppression."""
 
     def __init__(
         self,
@@ -133,33 +145,100 @@ class JwksKeyCache:
         source: JwksSource,
         ttl_seconds: float,
         max_keys: int = 64,
+        refresh_min_interval_seconds: float = 5.0,
+        unknown_key_ttl_seconds: float = 5.0,
+        max_negative_keys: int = 128,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         if ttl_seconds <= 0:
             raise ValueError("JWKS cache TTL must be positive")
         if max_keys <= 0:
             raise ValueError("JWKS cache key bound must be positive")
+        if refresh_min_interval_seconds <= 0:
+            raise ValueError("JWKS refresh interval must be positive")
+        if unknown_key_ttl_seconds <= 0:
+            raise ValueError("JWKS unknown-key TTL must be positive")
+        if max_negative_keys <= 0:
+            raise ValueError("JWKS negative-cache bound must be positive")
         self._source = source
         self._ttl_seconds = ttl_seconds
         self._max_keys = max_keys
+        self._refresh_min_interval_seconds = refresh_min_interval_seconds
+        self._unknown_key_ttl_seconds = unknown_key_ttl_seconds
+        self._max_negative_keys = max_negative_keys
         self._monotonic = monotonic
         self._lock = threading.RLock()
         self._key_set: _KeySet | None = None
+        self._negative_keys: dict[str, float] = {}
+        self._last_unknown_refresh_at: float | None = None
+        self._last_forced_refresh_at: float | None = None
 
     def key_for(self, *, key_id: str, force_refresh: bool = False) -> PyJWK:
         now = self._monotonic()
         with self._lock:
             current = self._key_set
-            if not force_refresh and current is not None and now < current.expires_at:
-                key = current.keys.get(key_id)
+            if current is None or now >= current.expires_at:
+                refreshed = self._refresh(now)
+                key = refreshed.keys.get(key_id)
                 if key is not None:
+                    self._negative_keys.pop(key_id, None)
                     return key
+                self._last_unknown_refresh_at = now
+                self._remember_unknown(key_id, now)
+                raise AuthenticationError("token signing key is unknown")
+
+            key = current.keys.get(key_id)
+            if force_refresh:
+                last_forced = self._last_forced_refresh_at
+                if (
+                    last_forced is not None
+                    and now - last_forced < self._refresh_min_interval_seconds
+                ):
+                    if key is None:
+                        self._remember_unknown(key_id, now)
+                        raise AuthenticationError("token signing key is unknown")
+                    return key
+                refreshed = self._refresh(now)
+                self._last_forced_refresh_at = now
+                return self._require_key(refreshed, key_id, now)
+
+            if key is not None:
+                return key
+
+            negative_until = self._negative_keys.get(key_id)
+            if negative_until is not None and now < negative_until:
+                raise AuthenticationError("token signing key is unknown")
+
+            last_unknown = self._last_unknown_refresh_at
+            if last_unknown is not None and now - last_unknown < self._refresh_min_interval_seconds:
+                self._remember_unknown(key_id, now)
+                raise AuthenticationError("token signing key is unknown")
 
             refreshed = self._refresh(now)
-            key = refreshed.keys.get(key_id)
-            if key is None:
-                raise AuthenticationError("token signing key is unknown")
+            self._last_unknown_refresh_at = now
+            return self._require_key(refreshed, key_id, now)
+
+    def _require_key(self, key_set: _KeySet, key_id: str, now: float) -> PyJWK:
+        key = key_set.keys.get(key_id)
+        if key is not None:
+            self._negative_keys.pop(key_id, None)
             return key
+        self._remember_unknown(key_id, now)
+        raise AuthenticationError("token signing key is unknown")
+
+    def _remember_unknown(self, key_id: str, now: float) -> None:
+        self._negative_keys = {
+            existing: expires_at
+            for existing, expires_at in self._negative_keys.items()
+            if expires_at > now
+        }
+        if (
+            key_id not in self._negative_keys
+            and len(self._negative_keys) >= self._max_negative_keys
+        ):
+            oldest = next(iter(self._negative_keys))
+            del self._negative_keys[oldest]
+        self._negative_keys[key_id] = now + self._unknown_key_ttl_seconds
 
     def _refresh(self, now: float) -> _KeySet:
         document = self._source.fetch()
@@ -183,13 +262,15 @@ class JwksKeyCache:
                 raise AuthenticationError("JWKS document contains a duplicate key identifier")
             try:
                 parsed[key_id] = PyJWK.from_dict(cast(dict[str, Any], raw_key))
-            except (InvalidTokenError, PyJWKError, ValueError, TypeError):
+            except (InvalidTokenError, InvalidKeyError, PyJWKError, ValueError, TypeError):
                 continue
 
         if not parsed:
             raise AuthenticationError("JWKS document contains no usable signing keys")
         result = _KeySet(keys=parsed, expires_at=now + self._ttl_seconds)
         self._key_set = result
+        for key_id in parsed:
+            self._negative_keys.pop(key_id, None)
         return result
 
 

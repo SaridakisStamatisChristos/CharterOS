@@ -42,7 +42,7 @@ from charteros.security.auth import AuthenticationBackend
 from charteros.shared.clock import Clock, SystemClock
 from charteros.shared.config import Settings, get_settings
 from charteros.shared.logging import configure_logging, get_logger
-from charteros.shared.middleware import CorrelationIdMiddleware
+from charteros.shared.middleware import CorrelationIdMiddleware, RequestBodyLimitMiddleware
 
 
 @asynccontextmanager
@@ -83,6 +83,12 @@ def create_app(
     app.state.session_factory = build_session_factory(engine)
     app.state.auth_backend = (
         auth_backend if auth_backend is not None else build_auth_backend(resolved_settings)
+    )
+    app.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_body_bytes=resolved_settings.api_max_request_body_bytes,
+        max_json_depth=resolved_settings.api_max_json_depth,
+        body_read_timeout_seconds=resolved_settings.api_request_body_read_timeout_seconds,
     )
     app.add_middleware(CorrelationIdMiddleware)
 
