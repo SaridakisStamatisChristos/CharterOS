@@ -140,9 +140,7 @@ class SqlAlchemyDataGovernanceRepository:
         )
         return self._legal_hold(row) if row is not None else None
 
-    def erasure_dependency_counts(
-        self, tenant_kind: TenantKind, tenant_id: UUID
-    ) -> dict[str, int]:
+    def erasure_dependency_counts(self, tenant_kind: TenantKind, tenant_id: UUID) -> dict[str, int]:
         if tenant_kind is TenantKind.BUYER:
             return self._buyer_dependency_counts(tenant_id)
         return self._operator_dependency_counts(tenant_id)
@@ -315,9 +313,7 @@ class SqlAlchemyDataGovernanceRepository:
         if organization is None:
             raise EntityNotFoundError("operator organization does not exist")
         aircraft = self._session.scalars(
-            select(AircraftRow)
-            .where(AircraftRow.operator_id == tenant_id)
-            .order_by(AircraftRow.id)
+            select(AircraftRow).where(AircraftRow.operator_id == tenant_id).order_by(AircraftRow.id)
         ).all()
         return {
             "organization": self._organization_record(organization),
@@ -347,8 +343,7 @@ class SqlAlchemyDataGovernanceRepository:
         if tenant_kind is TenantKind.BUYER:
             rows = self._session.execute(
                 text(
-                    "SELECT id FROM missions WHERE buyer_id = :tenant_id "
-                    "ORDER BY id LIMIT :limit"
+                    "SELECT id FROM missions WHERE buyer_id = :tenant_id ORDER BY id LIMIT :limit"
                 ),
                 {"tenant_id": tenant_id, "limit": limit},
             ).scalars()
@@ -381,8 +376,7 @@ class SqlAlchemyDataGovernanceRepository:
                 "SELECT count(*) FROM reconciliation_disputes WHERE buyer_id = :tenant_id"
             ),
             "reconciliation_variance_approvals": (
-                "SELECT count(*) FROM reconciliation_variance_approvals "
-                "WHERE buyer_id = :tenant_id"
+                "SELECT count(*) FROM reconciliation_variance_approvals WHERE buyer_id = :tenant_id"
             ),
             "disruption_buyer_decisions": (
                 "SELECT count(*) FROM disruption_buyer_decisions WHERE buyer_id = :tenant_id"
