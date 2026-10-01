@@ -206,3 +206,192 @@ def data_governance_policy() -> dict[str, object]:
 )
 def create_legal_hold(
     tenant_kind: TenantKind,
+    tenant_id: UUID,
+    body: LegalHoldCreate,
+    session: SessionDep,
+    clock: ClockDep,
+    request: Request,
+) -> LegalHoldResponse:
+    with session.begin():
+        hold = DataGovernanceService(SqlAlchemyDataGovernanceRepository(session)).create_legal_hold(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            reason=body.reason,
+            actor_subject_digest=_actor_digest(request),
+            recorded_at=clock.now(),
+        )
+    return _hold_response(hold)
+
+
+@router.get(
+    "/tenants/{tenant_kind}/{tenant_id}/legal-holds",
+    response_model=list[LegalHoldResponse],
+)
+def list_legal_holds(
+    tenant_kind: TenantKind,
+    tenant_id: UUID,
+    session: SessionDep,
+) -> list[LegalHoldResponse]:
+    repository = SqlAlchemyDataGovernanceRepository(session)
+    if not repository.tenant_exists(tenant_kind, tenant_id):
+        raise EntityNotFoundError("tenant does not exist")
+    return [_hold_response(hold) for hold in repository.list_legal_holds(tenant_kind, tenant_id)]
+
+
+@router.post("/legal-holds/{hold_id}/release", response_model=LegalHoldResponse)
+def release_legal_hold(
+    hold_id: UUID,
+    body: LegalHoldRelease,
+    session: SessionDep,
+    clock: ClockDep,
+    request: Request,
+) -> LegalHoldResponse:
+    with session.begin():
+        hold = DataGovernanceService(SqlAlchemyDataGovernanceRepository(session)).release_legal_hold(
+            hold_id=hold_id,
+            reason=body.reason,
+            actor_subject_digest=_actor_digest(request),
+            recorded_at=clock.now(),
+        )
+    return _hold_response(hold)
+
+
+@router.post(
+    "/tenants/{tenant_kind}/{tenant_id}/close",
+    response_model=LifecycleResponse,
+)
+def close_tenant(
+    tenant_kind: TenantKind,
+    tenant_id: UUID,
+    session: SessionDep,
+    correlation_id: CorrelationIdDep,
+    governance_key: GovernanceKeyDep,
+    clock: ClockDep,
+    request: Request,
+) -> LifecycleResponse:
+    request_hash = canonical_request_hash(
+        {"operation": "closure", "tenant_kind": tenant_kind.value, "tenant_id": str(tenant_id)}
+    )
+    with session.begin():
+        outcome = DataGovernanceService(SqlAlchemyDataGovernanceRepository(session)).close_tenant(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            request_key_digest=_request_key_digest(governance_key),
+            request_hash=request_hash,
+            actor_subject_digest=_actor_digest(request),
+            recorded_at=clock.now(),
+            correlation_id=correlation_id,
+        )
+    return _lifecycle_response(outcome)
+
+
+@router.post(
+    "/tenants/{tenant_kind}/{tenant_id}/erase",
+    response_model=LifecycleResponse,
+)
+def erase_tenant(
+    tenant_kind: TenantKind,
+    tenant_id: UUID,
+    session: SessionDep,
+    governance_key: GovernanceKeyDep,
+    clock: ClockDep,
+    request: Request,
+) -> LifecycleResponse:
+    request_hash = canonical_request_hash(
+        {"operation": "erasure", "tenant_kind": tenant_kind.value, "tenant_id": str(tenant_id)}
+    )
+    with session.begin():
+        outcome = DataGovernanceService(SqlAlchemyDataGovernanceRepository(session)).erase_tenant(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            request_key_digest=_request_key_digest(governance_key),
+            request_hash=request_hash,
+            actor_subject_digest=_actor_digest(request),
+            recorded_at=clock.now(),
+        )
+    return _lifecycle_response(outcome)
+
+
+@router.get(
+    "/tenants/{tenant_kind}/{tenant_id}/export",
+    response_model=TenantExportResponse,
+)
+def export_tenant_data(
+    tenant_kind: TenantKind,
+    tenant_id: UUID,
+    session: SessionDep,
+    clock: ClockDep,
+    max_missions: MissionLimit = 100,
+    event_limit: EventLimit = 250,
+) -> TenantExportResponse:
+    repository = SqlAlchemyDataGovernanceRepository(session)
+    generated_at = clock.now()
+    with session.begin():
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        assert_evidence_integrity(session)
+        if not repository.tenant_exists(tenant_kind, tenant_id):
+            raise EntityNotFoundError("tenant does not exist")
+        master_data = repository.export_master_data(tenant_kind, tenant_id)
+        mission_ids = repository.mission_ids_for_tenant(
+            tenant_kind, tenant_id, limit=max_missions + 1
+        )
+        if len(mission_ids) > max_missions:
+            raise EntityConflictError(
+                "tenant export exceeds the requested mission bound; narrow or paginate the export"
+            )
+
+        party = EvidenceParty(
+            buyer_id=tenant_id if tenant_kind is TenantKind.BUYER else None,
+            operator_id=tenant_id if tenant_kind is TenantKind.OPERATOR else None,
+        )
+        evidence_service = EvidenceService(SqlAlchemyEvidenceRepository(session))
+        mission_evidence: list[dict[str, object]] = []
+        for mission_id in mission_ids:
+            package = evidence_service.build(
+                subject_type=EvidenceSubjectType.MISSION,
+                subject_id=mission_id,
+                party=party,
+                event_limit=event_limit,
+            )
+            document = package.to_dict()
+            if document.get("completeness") != "complete":
+                raise EntityConflictError(
+                    "tenant export would be incomplete at the configured event bound"
+                )
+            mission_evidence.append(cast(dict[str, object], document))
+
+    excluded = [
+        "authentication_security_logs",
+        "application_logs",
+        "idempotency_records",
+        "api_rate_limit_windows",
+        "outbox_delivery_internals",
+        "evidence_integrity_internal_ledger",
+    ]
+    source_provenance = [
+        "canonical PostgreSQL tenant master data",
+        "decision/audit evidence reconstructed through EvidenceService",
+        "evidence-integrity verification performed before export",
+    ]
+    digest_document: dict[str, object] = {
+        "schema_version": TENANT_EXPORT_SCHEMA_VERSION,
+        "policy_version": DATA_GOVERNANCE_POLICY_VERSION,
+        "tenant_kind": tenant_kind.value,
+        "tenant_id": str(tenant_id),
+        "master_data": master_data,
+        "mission_evidence": mission_evidence,
+        "excluded_surfaces": excluded,
+        "source_provenance": source_provenance,
+    }
+    return TenantExportResponse(
+        schema_version=TENANT_EXPORT_SCHEMA_VERSION,
+        policy_version=DATA_GOVERNANCE_POLICY_VERSION,
+        tenant_kind=tenant_kind,
+        tenant_id=tenant_id,
+        generated_at=generated_at,
+        source_provenance=source_provenance,
+        master_data=master_data,
+        mission_evidence=mission_evidence,
+        excluded_surfaces=excluded,
+        verification_digest=_export_digest(digest_document),
+    )
