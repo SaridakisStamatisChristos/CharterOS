@@ -341,24 +341,29 @@ class SqlAlchemyDataGovernanceRepository:
         if limit < 1:
             raise ValueError("mission export limit must be positive")
         if tenant_kind is TenantKind.BUYER:
-            rows = self._session.execute(
+            rows: list[UUID] = list(
+                self._session.execute(
+                    text(
+                        "SELECT id FROM missions "
+                        "WHERE buyer_id = :tenant_id ORDER BY id LIMIT :limit"
+                    ),
+                    {"tenant_id": tenant_id, "limit": limit},
+                ).scalars()
+            )
+            return rows
+
+        rows = list(
+            self._session.execute(
                 text(
-                    "SELECT id FROM missions WHERE buyer_id = :tenant_id ORDER BY id LIMIT :limit"
+                    "SELECT mission_id FROM ("
+                    "SELECT mission_id FROM rfqs WHERE operator_id = :tenant_id "
+                    "UNION SELECT mission_id FROM bookings WHERE operator_id = :tenant_id"
+                    ") AS tenant_missions ORDER BY mission_id LIMIT :limit"
                 ),
                 {"tenant_id": tenant_id, "limit": limit},
             ).scalars()
-            return list(rows)
-
-        rows = self._session.execute(
-            text(
-                "SELECT mission_id FROM ("
-                "SELECT mission_id FROM rfqs WHERE operator_id = :tenant_id "
-                "UNION SELECT mission_id FROM bookings WHERE operator_id = :tenant_id"
-                ") AS tenant_missions ORDER BY mission_id LIMIT :limit"
-            ),
-            {"tenant_id": tenant_id, "limit": limit},
-        ).scalars()
-        return list(rows)
+        )
+        return rows
 
     def _buyer_dependency_counts(self, tenant_id: UUID) -> dict[str, int]:
         queries = {
