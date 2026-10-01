@@ -15,6 +15,7 @@ from charteros.application.outbox import (
 )
 from charteros.infrastructure.db.models.catalog import OutboxEventRow
 from charteros.infrastructure.db.models.outbox import OutboxConsumerReceiptRow
+from charteros.observability import get_operational_metrics
 
 ConsumerHandler = Callable[[Session, OutboxEnvelope], None]
 
@@ -256,6 +257,7 @@ class SqlAlchemyIdempotentConsumerRunner:
                 (name, envelope.event_id),
             )
             if receipt is not None:
+                get_operational_metrics().outbox_dedupe_hit()
                 return False
 
             handler(session, envelope)
