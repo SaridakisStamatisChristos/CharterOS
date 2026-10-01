@@ -13,7 +13,7 @@ from uuid import UUID
 
 import jwt
 from jwt import InvalidSignatureError, InvalidTokenError, PyJWK
-from jwt.exceptions import PyJWKError
+from jwt.exceptions import InvalidKeyError, PyJWKError
 
 
 class PrincipalType(StrEnum):
@@ -262,7 +262,7 @@ class JwksKeyCache:
                 raise AuthenticationError("JWKS document contains a duplicate key identifier")
             try:
                 parsed[key_id] = PyJWK.from_dict(cast(dict[str, Any], raw_key))
-            except (InvalidTokenError, PyJWKError, ValueError, TypeError):
+            except (InvalidTokenError, InvalidKeyError, PyJWKError, ValueError, TypeError):
                 continue
 
         if not parsed:
