@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
+from time import perf_counter
 from typing import Annotated, cast
 from uuid import UUID
 
@@ -60,7 +61,9 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
+from charteros.infrastructure.db.failures import DatabaseFailureKind, DatabaseTransactionError
 from charteros.infrastructure.db.transactions import run_transaction
+from charteros.observability import get_operational_metrics
 from charteros.shared.clock import Clock
 
 router = APIRouter(prefix="/v1", tags=["tenders"])
@@ -783,6 +786,17 @@ def close_tender(
         )
 
 
+def _award_conflict_reason(exc: EntityConflictError) -> str:
+    message = str(exc).lower()
+    if "capacity" in message:
+        return "aircraft_capacity_conflict"
+    if "feasible" in message or "matching" in message or "quoted operator" in message:
+        return "feasibility_rejected"
+    if "quote" in message or "tender" in message:
+        return "commercial_conflict"
+    return "business_conflict"
+
+
 @router.post("/tenders/{tender_id}/award", response_model=TenderAwardResponse)
 def award_tender(
     tender_id: UUID,
@@ -794,6 +808,9 @@ def award_tender(
 ) -> TenderAwardResponse:
     scope = f"POST:/v1/tenders/{tender_id}/award"
     request_hash = canonical_request_hash(body.model_dump(mode="json"))
+    metrics = get_operational_metrics()
+    started = perf_counter()
+    reconciled = False
 
     def action() -> TenderAwardResponse:
         tender, booking = _service(session).award(
@@ -808,6 +825,7 @@ def award_tender(
         )
 
     def reconcile() -> TenderAwardResponse | None:
+        nonlocal reconciled
         idempotency = SqlAlchemyIdempotencyRepository(session)
         idempotency.lock(scope, idempotency_key)
         stored = _stored_response(
@@ -818,21 +836,51 @@ def award_tender(
         )
         if stored is None:
             return None
+        reconciled = True
         return TenderAwardResponse.model_validate(stored.response_body)
 
-    return run_transaction(
-        session,
-        lambda: _run_idempotent(
-            session=session,
-            scope=scope,
-            key=idempotency_key,
-            request_hash=request_hash,
-            success_status=status.HTTP_200_OK,
-            response_type=TenderAwardResponse,
-            action=action,
-        ),
-        reconcile_ambiguous=reconcile,
+    try:
+        response = run_transaction(
+            session,
+            lambda: _run_idempotent(
+                session=session,
+                scope=scope,
+                key=idempotency_key,
+                request_hash=request_hash,
+                success_status=status.HTTP_200_OK,
+                response_type=TenderAwardResponse,
+                action=action,
+            ),
+            reconcile_ambiguous=reconcile,
+        )
+    except EntityConflictError as exc:
+        metrics.award(
+            outcome="rejected",
+            reason=_award_conflict_reason(exc),
+            duration_seconds=perf_counter() - started,
+        )
+        raise
+    except DatabaseTransactionError as exc:
+        reason = (
+            "ambiguous_commit"
+            if exc.failure.kind is DatabaseFailureKind.AMBIGUOUS_COMMIT
+            else "database_integrity_conflict"
+            if exc.failure.kind is DatabaseFailureKind.INTEGRITY_VIOLATION
+            else "database_failure"
+        )
+        metrics.award(
+            outcome="failed",
+            reason=reason,
+            duration_seconds=perf_counter() - started,
+        )
+        raise
+
+    metrics.award(
+        outcome="success",
+        reason="ambiguous_recovery" if reconciled else "none",
+        duration_seconds=perf_counter() - started,
     )
+    return response
 
 
 @router.post(
