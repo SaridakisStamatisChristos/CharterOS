@@ -63,7 +63,10 @@ def run_transaction[T](
             failure = classify_database_failure(exc, phase=DatabaseFailurePhase.EXECUTION)
             _record_decision_snapshot_failure(session)
             _reset_failed_session(session, exc)
-            _record_failure_metrics(failure, retrying=failure.retryable and attempt < retry_policy.max_attempts)
+            _record_failure_metrics(
+                failure,
+                retrying=failure.retryable and attempt < retry_policy.max_attempts,
+            )
             if failure.retryable and attempt < retry_policy.max_attempts:
                 continue
             metrics.db_transaction(
