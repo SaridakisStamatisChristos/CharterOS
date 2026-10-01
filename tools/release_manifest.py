@@ -338,13 +338,13 @@ def _read_gate_evidence(gate_dir: Path) -> dict[str, str]:
 
 def _junit_summary(path: Path) -> dict[str, int]:
     document = path.read_text(encoding="utf-8")
-    match = re.search(r"<testsuite\\b([^>]*)>", document)
+    match = re.search(r"<testsuite\b([^>]*)>", document)
     if match is None:
         raise ValueError("JUnit evidence does not contain a testsuite")
     attributes = match.group(1)
     totals: dict[str, int] = {}
     for key in ("tests", "failures", "errors", "skipped"):
-        value = re.search(rf'\\b{key}="(\\d+)"', attributes)
+        value = re.search(rf'\b{key}="(\d+)"', attributes)
         if value is None:
             raise ValueError(f"JUnit testsuite is missing {key!r}")
         totals[key] = int(value.group(1))
