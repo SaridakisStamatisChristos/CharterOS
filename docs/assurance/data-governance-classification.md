@@ -8,6 +8,8 @@ This document classifies the data currently persisted by CharterOS and defines t
 
 PostgreSQL remains the canonical operational source of truth. Charter Graph state is derived and rebuildable. No PR45 path weakens an existing `RESTRICT` foreign key or the evidence-integrity triggers introduced before PR45.
 
+Operator procedure: [commercial data-governance runbook](../runbooks/data-governance.md).
+
 ## Classes
 
 | Class | Meaning |

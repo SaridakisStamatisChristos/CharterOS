@@ -76,3 +76,6 @@ and previous-digest verification once the append-only ledger trigger is bypassed
 
 Do not grant application logins table ownership or superuser privileges; doing so would collapse the
 database privilege boundary this hardening establishes.
+
+For post-restore verification, graph rebuild, corruption checks, and observed RTO/RPO evidence, use
+the [disaster-recovery runbook](runbooks/disaster-recovery.md).

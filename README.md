@@ -10,7 +10,7 @@
 
 It models the charter lifecycle from buyer mission creation and supplier sourcing through RFQs, quotes, tenders, award, booking, contract, operations, disruption handling, financial reconciliation, audit evidence, and auditable FX—while keeping PostgreSQL as the canonical source of truth and making derived graph, analytical, optimization, and simulation layers explicitly non-canonical.
 
-> **Repository status:** active development on a production-oriented modular-monolith architecture. `main` is protected by a full CI gate covering static analysis, migrations, PostgreSQL integration tests, deterministic solver benchmarking, container hardening, vulnerability scanning, secret scanning, runtime smoke testing, and CycloneDX SBOM generation.
+> **Repository status:** active development on a production-oriented modular-monolith architecture. `main` is protected by a full CI and signed-provenance chain covering supply-chain policy, static/security analysis, migrations, recovery and observability smoke checks, PostgreSQL integration tests, deterministic solver benchmarking, container hardening, vulnerability/secret scanning, CycloneDX SBOM generation, SLSA-compatible build provenance, SBOM attestation, and a signed canonical release manifest.
 
 ---
 
@@ -63,6 +63,10 @@ The result is an auditable core that can support portals, integrations, optimiza
 | Abuse resistance | Bounded bodies/queries, shared expensive-work budgets, JWKS storm suppression and replay-state retention |
 | Evidence integrity | PostgreSQL-enforced immutability plus deterministic hash-chained integrity streams |
 | Event delivery | Transactional outbox, fenced leases, retry/poison handling and durable deduplication |
+| Data governance | Policy-driven legal hold, tenant closure, dependency-aware erasure and privacy-safe export |
+| Disaster recovery | Read-only restored-state verification, corruption checks, graph rebuild verification and observed RTO/RPO evidence |
+| Release provenance | Digest-pinned build inputs, signed build/SBOM attestations and signed canonical release manifest |
+| Observability | Bounded-cardinality API/DB/award/outbox/graph/optimizer/evidence metrics, alerts, candidate SLOs and load-assurance tooling |
 
 ---
 
@@ -588,7 +592,12 @@ Tests compare it with the actual FastAPI `/v1` routes. Adding a protected route 
 ### Public runtime endpoints
 
 - `GET /health` — process health metadata;
-- `GET /ready` — PostgreSQL readiness.
+- `GET /ready` — PostgreSQL readiness;
+- `GET /metrics` — aggregate Prometheus-format operational metrics.
+
+`/metrics` is application-public so a monitoring plane can scrape it, but production ingress must
+restrict it to the monitoring network or monitoring identity. Metric labels are bounded and exclude
+tenant/object identifiers and other high-cardinality identity data.
 
 In non-production environments, `/docs` and `/openapi.json` are enabled. Production disables both.
 
@@ -644,6 +653,7 @@ CharterOS currently exposes these major route families:
 | Disruptions | Booking disruption creation, proposals, requotes, decisions, resolution |
 | Reconciliation | Booking reconciliation, invoices, disputes, approvals, completion |
 | Evidence | `/v1/evidence/*` |
+| Data governance | `/v1/governance/*` — policy, legal hold, closure, erasure, tenant export |
 | FX | `/v1/fx/rates*` plus buyer FX-lock creation |
 
 For the exact schema and current endpoint inventory, run CharterOS outside production and use `/docs` or `/openapi.json`.
@@ -835,40 +845,75 @@ deploy/postgres/evidence_runtime_role.sql
 
 Do not run ordinary application traffic as the schema owner or PostgreSQL superuser.
 
+### Commercial data governance
+
+The governance API supports policy inspection, legal holds, idempotent tenant closure,
+dependency-aware erasure, and bounded evidence-verified tenant export.
+
+See the [data-governance runbook](docs/runbooks/data-governance.md) and
+[data classification](docs/assurance/data-governance-classification.md).
+
+### Disaster recovery
+
+Post-restore verification is repository-owned; provider-specific backup/PITR creation is not.
+
+```bash
+uv run python -m apps.recovery_verification.main \
+  --database-id <recovery-environment-id> \
+  --manifest recovery-manifest.json
+```
+
+See the [disaster-recovery runbook](docs/runbooks/disaster-recovery.md).
+
+### Release provenance and supply chain
+
+CI binds the source SHA, dependency lock, supply-chain policy, container archive, CycloneDX SBOM,
+quality-gate evidence, build provenance, SBOM attestation, and canonical release manifest.
+
+See the [release-provenance runbook](docs/runbooks/release-provenance.md).
+
+### Observability and production-readiness evidence
+
+`GET /metrics` exposes bounded aggregate operational metrics. Candidate SLOs and executable
+Prometheus alert rules are documented under
+[production-readiness assurance](docs/assurance/production-readiness/README.md).
+
+A reproducible HTTP load harness is available at `tools/http_load_assurance.py`. Repository CI
+proves instrumentation wiring; it does not claim live production SLO attainment.
+
 ---
 
 ## Quality gate
 
-The repository's GitHub Actions pipeline executes the following gate on pull requests and `main`:
+The GitHub Actions pipeline on pull requests and `main` performs the current release gate:
 
-1. pinned Python 3.13.15;
-2. pinned `uv` installation with checksum verification;
-3. dependency-lock verification;
-4. frozen environment sync;
-5. Ruff lint;
-6. Ruff format check;
-7. strict mypy across apps, core, tests and tools;
-8. Bandit static security analysis;
-9. `pip-audit` dependency vulnerability audit;
-10. Docker Compose configuration validation;
-11. Alembic migration smoke;
-12. Alembic schema-drift check;
-13. bounded resource-cleanup CLI smoke;
-14. full pytest suite against PostgreSQL 17;
-15. PostgreSQL restart / stale-connection recovery smoke;
-16. reposition solver benchmark;
-17. API boot smoke;
-18. pinned Trivy installation with checksum verification;
-19. repository secret scan;
-20. hardened container image build;
-21. read-only/capability-dropped runtime smoke;
-22. HIGH/CRITICAL container vulnerability scan;
-23. CycloneDX SBOM generation and validation.
+1. pinned Python and checksum-verified `uv`;
+2. frozen dependency-lock verification and machine-enforced supply-chain policy;
+3. Ruff lint/format, strict mypy, Bandit and `pip-audit`;
+4. Docker Compose validation;
+5. Alembic upgrade and schema-drift checks;
+6. disaster-recovery verification smoke;
+7. bounded resource-cleanup smoke;
+8. observability/privacy smoke, including PostgreSQL-derived outbox/graph gauges;
+9. full pytest suite against PostgreSQL 17;
+10. PostgreSQL restart / stale-connection recovery smoke;
+11. deterministic reposition-solver benchmark;
+12. API boot smoke;
+13. checksum-verified Trivy install and repository secret scan;
+14. digest-pinned hardened container build and read-only/capability-dropped runtime smoke;
+15. HIGH/CRITICAL container vulnerability gate;
+16. CycloneDX SBOM generation;
+17. immutable release-subject packaging and artifact transfer;
+18. isolated OIDC-enabled provenance job;
+19. signed SLSA-compatible build provenance and CycloneDX SBOM attestation;
+20. cryptographic attestation verification;
+21. canonical release-manifest build/verification and separate manifest attestation.
 
 Run the primary developer gate locally:
 
 ```bash
 uv lock --check
+uv run python tools/check_supply_chain_policy.py
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy apps charteros tests tools
@@ -885,11 +930,8 @@ uv run python tools/benchmark_reposition_solver.py
 uv run python tools/app_boot_smoke.py
 ```
 
-Or use:
-
-```bash
-make quality
-```
+`make quality` remains a shorter developer convenience target; GitHub CI is the authoritative full
+release/provenance gate.
 
 Test markers distinguish integration, property, regression, and concurrency suites.
 
@@ -904,7 +946,8 @@ CharterOS/
 │   ├── graph_projection/       # rebuild / verify / activate CLI
 │   ├── outbox_worker/          # leased asynchronous delivery worker
 │   ├── pricing_intelligence/   # deterministic historical dataset CLI
-│   └── resource_cleanup/       # bounded idempotency/rate-window cleanup CLI
+│   ├── recovery_verification/  # restored-state / recovery-manifest verifier
+│   └── resource_cleanup/       # bounded transient-state cleanup CLI
 ├── charteros/
 │   ├── application/            # use cases and application ports
 │   ├── domain/                 # pure business model and invariants
@@ -915,21 +958,29 @@ CharterOS/
 │   ├── repositioning/          # exact optimizer + economics
 │   ├── security/               # authentication model and JWT verification
 │   ├── shared/                 # config, clock, logging, context
-│   └── simulation/             # deterministic synthetic market simulator
-├── deploy/postgres/            # database runtime-role hardening
+│   ├── simulation/             # deterministic synthetic market simulator
+│   └── observability.py        # bounded operational metrics registry
+├── deploy/
+│   ├── observability/          # executable Prometheus alert rules
+│   └── postgres/               # database runtime-role hardening
 ├── docs/
+│   ├── README.md               # documentation navigation root
 │   ├── adr/                    # durable architecture decisions
-│   ├── architecture/           # architecture notes
-│   ├── authentication-authorization.md
-│   └── evidence-integrity.md
+│   ├── architecture/           # current architecture overview
+│   ├── assurance/              # governance / production-readiness evidence contracts
+│   └── runbooks/               # operator procedures
 ├── migrations/versions/        # Alembic schema history
 ├── test-assets/                # deterministic reference assets
 ├── tests/                      # unit, property, regression, concurrency, integration
 ├── tools/
 │   ├── app_boot_smoke.py
-│   └── benchmark_reposition_solver.py
+│   ├── benchmark_reposition_solver.py
+│   ├── check_supply_chain_policy.py
+│   ├── http_load_assurance.py
+│   └── release_manifest.py
 ├── Dockerfile
 ├── docker-compose.yml
+├── supply-chain-policy.json
 ├── pyproject.toml
 └── uv.lock
 ```
@@ -938,40 +989,24 @@ CharterOS/
 
 ## Architecture Decision Records
 
-The ADR history is the detailed design authority for the major subsystems.
+The complete design-history index is maintained in
+[docs/adr/README.md](docs/adr/README.md). The latest enterprise-hardening decisions are:
 
 | ADR | Decision |
 | --- | --- |
-| [0001](docs/adr/0001-modular-monolith-postgresql-foundation.md) | Modular monolith + PostgreSQL foundation |
-| [0002](docs/adr/0002-shared-domain-primitives.md) | Shared domain primitives |
-| [0003](docs/adr/0003-catalog-core-persistence.md) | Catalog persistence |
-| [0004](docs/adr/0004-bitemporal-aircraft-timeline.md) | Bitemporal aircraft timeline |
-| [0005](docs/adr/0005-mission-domain-lifecycle.md) | Mission lifecycle |
-| [0006](docs/adr/0006-deterministic-matching-v1.md) | Deterministic matching |
-| [0007](docs/adr/0007-rfq-engine.md) | RFQ engine |
-| [0008](docs/adr/0008-quote-engine.md) | Quote engine |
-| [0009](docs/adr/0009-quote-normalization.md) | Quote normalization |
-| [0010](docs/adr/0010-quote-comparison.md) | Quote comparison |
-| [0011](docs/adr/0011-quote-acceptance-booking.md) | Atomic Quote acceptance / Booking |
-| [0012](docs/adr/0012-contract-layer.md) | Contract layer |
-| [0013](docs/adr/0013-booking-workflow.md) | Booking workflow |
-| [0014](docs/adr/0014-transactional-outbox.md) | Production transactional outbox |
-| [0015](docs/adr/0015-charter-graph-projection.md) | Charter Graph projection |
-| [0016](docs/adr/0016-graph-query-layer.md) | Bounded graph queries |
-| [0017](docs/adr/0017-tender-reverse-auction.md) | Tender / reverse auction |
-| [0018](docs/adr/0018-repositioning-deadhead-optimizer.md) | Reposition / deadhead optimizer |
-| [0019](docs/adr/0019-market-simulator.md) | Deterministic market simulator |
-| [0020](docs/adr/0020-pricing-historical-intelligence.md) | Pricing historical intelligence |
-| [0021](docs/adr/0021-operator-portal-apis.md) | Operator portal |
-| [0022](docs/adr/0022-buyer-procurement-apis.md) | Buyer procurement |
-| [0023](docs/adr/0023-disruption-model.md) | Disruption model |
-| [0024](docs/adr/0024-financial-reconciliation.md) | Financial reconciliation |
-| [0025](docs/adr/0025-audit-evidence-layer.md) | Audit evidence |
-| [0026](docs/adr/0026-auditable-fx-policy.md) | Auditable FX |
-| [0032](docs/adr/0032-transaction-failure-and-ambiguous-commit.md) | Transaction failure and ambiguous-commit semantics |
-| [0033](docs/adr/0033-api-abuse-resource-bounds.md) | API abuse and resource-exhaustion boundaries |
+| [0027](docs/adr/0027-aircraft-capacity-reservations.md) | Aircraft capacity reservations |
+| [0028](docs/adr/0028-booking-termination-capacity-release.md) | Booking termination / capacity release |
+| [0029](docs/adr/0029-canonical-replacement-aircraft-feasibility.md) | Canonical replacement-aircraft feasibility |
+| [0030](docs/adr/0030-reposition-optimizer-input-completeness.md) | Reposition optimizer input completeness |
+| [0031](docs/adr/0031-award-time-aircraft-feasibility-truth-gate.md) | Award-time aircraft feasibility truth gate |
+| [0032](docs/adr/0032-transaction-failure-and-ambiguous-commit.md) | Transaction failure / ambiguous commit |
+| [0033](docs/adr/0033-api-abuse-resource-bounds.md) | API abuse / resource bounds |
+| [0034](docs/adr/0034-commercial-data-governance.md) | Commercial data governance |
+| [0035](docs/adr/0035-disaster-recovery-assurance.md) | Disaster-recovery assurance |
+| [0036](docs/adr/0036-release-supply-chain-provenance.md) | Verifiable release / supply-chain provenance |
+| [0037](docs/adr/0037-production-observability.md) | Production observability / failure evidence |
 
-Later hardening is additionally encoded in the implementation, focused documentation, and regression suites for authentication, database evidence integrity, event-ordering assurance, explicit clock authority, deterministic solver tie semantics, and the validated optimizer capacity envelope.
+For a task-oriented entry point, see the [documentation index](docs/README.md).
 
 ---
 
@@ -990,8 +1025,11 @@ Current boundaries include:
 - no cross-operator disruption re-award shortcut;
 - no payment-rail settlement or accounting ledger;
 - no claim that internal SHA-256 evidence digests are legal signatures;
-- no KMS/HSM signing or external notarization unless a real provider is separately implemented and exercised;
-- no production authentication bypass when OIDC is absent.
+- release provenance uses GitHub keyless artifact attestations; no independent KMS/HSM signing or external notarization is claimed unless separately implemented and exercised;
+- no production authentication bypass when OIDC is absent;
+- commercial data-governance controls are engineering controls, not a claim of legal/regulatory certification;
+- candidate SLO/alert thresholds are measurement contracts, not proof of production attainment;
+- signed CI provenance does not prove that production deployed the attested artifact digest.
 
 These boundaries are part of the architecture, not missing error handling.
 
