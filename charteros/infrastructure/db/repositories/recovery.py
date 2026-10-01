@@ -44,9 +44,7 @@ class SqlAlchemyRecoveryVerificationRepository:
 
         # This must be the first SQL statement in the transaction. Verification is deliberately
         # incapable of repairing state or silently rewriting restored evidence.
-        self._session.execute(
-            text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-        )
+        self._session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
 
         schema_revision = self._session.scalar(text("SELECT version_num FROM alembic_version"))
         latest_canonical_event_at = self._session.scalar(
@@ -56,11 +54,7 @@ class SqlAlchemyRecoveryVerificationRepository:
             self._session.scalar(
                 select(func.count())
                 .select_from(OutboxEventRow)
-                .where(
-                    OutboxEventRow.aggregate_type.in_(
-                        tuple(sorted(SUPPORTED_AGGREGATE_TYPES))
-                    )
-                )
+                .where(OutboxEventRow.aggregate_type.in_(tuple(sorted(SUPPORTED_AGGREGATE_TYPES))))
             )
             or 0
         )
@@ -92,10 +86,7 @@ class SqlAlchemyRecoveryVerificationRepository:
             .group_by(OutboxEventRow.delivery_status)
             .order_by(OutboxEventRow.delivery_status)
         ).all()
-        counts: dict[str, int] = {
-            status.value: 0
-            for status in OutboxDeliveryStatus
-        }
+        counts: dict[str, int] = {status.value: 0 for status in OutboxDeliveryStatus}
         for status, count in rows:
             counts[str(status)] = int(count)
 
@@ -189,7 +180,7 @@ class SqlAlchemyRecoveryVerificationRepository:
                 )
 
             quote = preparer.quote_identifier
-            child_ref = f'{quote("public")}.{quote(child_table)}'
+            child_ref = f"{quote('public')}.{quote(child_table)}"
             parent_ref = f"{quote(parent_schema)}.{quote(parent_table)}"
             join_predicate = " AND ".join(
                 f"c.{quote(child)} = p.{quote(parent)}"
