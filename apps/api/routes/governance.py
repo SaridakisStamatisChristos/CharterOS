@@ -38,9 +38,7 @@ router = APIRouter(prefix="/v1/governance", tags=["data-governance"])
 SessionDep = Annotated[Session, Depends(get_session)]
 ClockDep = Annotated[Clock, Depends(get_clock)]
 CorrelationIdDep = Annotated[CorrelationId, Depends(get_correlation_id)]
-GovernanceKeyDep = Annotated[
-    str, Header(alias="Idempotency-Key", min_length=1, max_length=128)
-]
+GovernanceKeyDep = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128)]
 MissionLimit = Annotated[int, Query(ge=1, le=100)]
 EventLimit = Annotated[int, Query(ge=1, le=500)]
 
