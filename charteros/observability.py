@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from threading import RLock
 from time import perf_counter
 from typing import Final
+from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -447,7 +448,11 @@ def _bounded(value: str) -> str:
         return "other"
     if any(character not in "abcdefghijklmnopqrstuvwxyz0123456789_-." for character in normalized):
         return "other"
-    return normalized
+    try:
+        UUID(normalized)
+    except ValueError:
+        return normalized
+    return "other"
 
 
 def _label_key(labels: dict[str, str] | None) -> tuple[tuple[str, str], ...]:
