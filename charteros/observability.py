@@ -10,6 +10,7 @@ from typing import Final
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from charteros.application.graph_projection import PROJECTION_NAME
 from charteros.infrastructure.db.models.catalog import OutboxEventRow
 from charteros.infrastructure.db.models.graph import (
     GraphProjectionCheckpointRow,
@@ -425,7 +426,7 @@ def collect_persistent_metrics(
     if active_version is not None:
         checkpoint = session.get(
             GraphProjectionCheckpointRow,
-            ("charter_graph", active_version),
+            (PROJECTION_NAME, active_version),
         )
     lag = (
         0.0
@@ -456,7 +457,25 @@ def _bounded(value: str) -> str:
 def _label_key(labels: dict[str, str] | None) -> tuple[tuple[str, str], ...]:
     if not labels:
         return ()
-    return tuple(sorted((key, _bounded(value)) for key, value in labels.items()))
+    return tuple(
+        sorted(
+            (
+                key,
+                _bounded_route(value) if key == "route" else _bounded(value),
+            )
+            for key, value in labels.items()
+        )
+    )
+
+
+def _bounded_route(value: str) -> str:
+    normalized = value.strip().lower()
+    if not normalized or len(normalized) > 192:
+        return "unmatched"
+    allowed = "abcdefghijklmnopqrstuvwxyz0123456789_-/{}:."
+    if any(character not in allowed for character in normalized):
+        return "unmatched"
+    return normalized
 
 
 def _render_labels(labels: tuple[tuple[str, str], ...]) -> str:
