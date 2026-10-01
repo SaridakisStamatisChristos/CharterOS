@@ -93,6 +93,24 @@ Transaction failure handling distinguishes execution failure, commit failure, tr
 failure, and ambiguous commit. Ambiguous outcomes reconcile through durable idempotency/authority
 state instead of blindly replaying a business action.
 
+## Aircraft commitment and award-truth chain
+
+PR38–PR42 form one integrated correctness boundary around aircraft commitment:
+
+1. **PR38 / ADR 0027** derives a deterministic aircraft-capacity interval and lets PostgreSQL's GiST
+   exclusion constraint arbitrate concurrent overlap.
+2. **PR39 / ADR 0028** atomically terminates eligible pre-confirmation Bookings and releases only the
+   coupled reservation.
+3. **PR40 / ADR 0029** reuses canonical `matching-v1` feasibility for same-operator disruption
+   replacement without creating a capacity hold or alternate award path.
+4. **PR41 / ADR 0030** makes global reposition optimization fail closed when the bounded input
+   universe is known to be incomplete.
+5. **PR42 / ADR 0031** revalidates the exact quoted aircraft at award time and then commits through
+   the PR38 capacity boundary.
+
+The detailed integration map is
+[PR38–PR42 aircraft commitment hardening](../assurance/pr38-pr42-aircraft-commitment-hardening.md).
+
 ## Historical truth
 
 CharterOS preserves event time and knowledge time separately. Bitemporal fleet state, no-hindsight

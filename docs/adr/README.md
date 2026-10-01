@@ -41,6 +41,10 @@ Naming convention: `NNNN-short-title.md`.
 
 ## Commercial and correctness hardening
 
+ADRs 0027–0031 are the design record for the connected PR38–PR42 adversarial-hardening sequence.
+For the composed authority/failure model across all five PRs, see the
+[PR38–PR42 aircraft commitment hardening assurance map](../assurance/pr38-pr42-aircraft-commitment-hardening.md).
+
 - [ADR 0027 — Aircraft Capacity Reservations](0027-aircraft-capacity-reservations.md)
 - [ADR 0028 — Booking Termination / Capacity Release](0028-booking-termination-capacity-release.md)
 - [ADR 0029 — Canonical Replacement-Aircraft Feasibility](0029-canonical-replacement-aircraft-feasibility.md)
