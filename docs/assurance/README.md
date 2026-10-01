@@ -10,6 +10,8 @@ evidence is still required.
 - [PR31 event ordering / projection assurance](pr31-event-ordering-projection.md)
 - [PR32 solver-boundary performance assurance](pr32-solver-boundary-performance.md)
 - [PR33 determinism / clock assurance](pr33-determinism-clock.md)
+- [PR38–PR42 aircraft commitment hardening](pr38-pr42-aircraft-commitment-hardening.md) — cross-PR
+  capacity, release, replacement-feasibility, optimizer-completeness, and award-truth invariant map.
 - [Production-readiness index](production-readiness/README.md)
 
 ## Evidence interpretation
