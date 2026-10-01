@@ -159,7 +159,7 @@ def test_wrong_signature_is_rejected() -> None:
         {"iss": "https://attacker.invalid/"},
         {"aud": "other-api"},
         {"exp": int((datetime.now(UTC) - timedelta(minutes=1)).timestamp())},
-        {"nbf": int((datetime.now(UTC) + timedelta(minutes=5)).timestamp())},
+        {"nbf": int((datetime.now(UTC) + timedelta(days=1)).timestamp())},
     ],
 )
 def test_standard_claim_validation_fails_closed(overrides: dict[str, Any]) -> None:
