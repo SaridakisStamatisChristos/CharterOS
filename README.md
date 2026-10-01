@@ -164,6 +164,24 @@ The lifecycle is intentionally not implemented as one mutable mega-record.
 - **FinancialReconciliation** records invoice/dispute/variance evidence without claiming payment settlement.
 - **FxLock** records a bounded cross-currency commitment without mutating supplier Quotes.
 
+### Aircraft commitment hardening
+
+PR38–PR42 are one connected hardening sequence:
+
+- **PR38 / ADR 0027** — database-enforced capacity reservations prevent overlapping commitments for
+  the same aircraft.
+- **PR39 / ADR 0028** — eligible pre-confirmation Booking termination atomically releases the coupled
+  reservation.
+- **PR40 / ADR 0029** — disruption replacement reuses canonical `matching-v1` feasibility without
+  creating an alternate capacity or award authority.
+- **PR41 / ADR 0030** — reposition optimization fails closed when its bounded input universe is known
+  to be incomplete.
+- **PR42 / ADR 0031** — every award path revalidates the quoted aircraft immediately before capacity
+  commitment.
+
+See the integrated
+[PR38–PR42 hardening assurance map](docs/assurance/pr38-pr42-aircraft-commitment-hardening.md).
+
 ---
 
 ## Design invariants
