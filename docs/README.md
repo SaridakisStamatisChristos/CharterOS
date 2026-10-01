@@ -7,6 +7,14 @@ documentation.
 
 - [Architecture overview](architecture/README.md) — current system shape, authority boundaries, runtime
   processes, and scaling posture.
+- [System context and container views](architecture/system-context.md) — C4-inspired visual atlas of
+  actors, runtime containers, canonical persistence, derived state, and deployment posture.
+- [Critical flows](architecture/critical-flows.md) — sequence diagrams for award/capacity commitment,
+  outbox projection, ambiguous commit recovery, disaster recovery, and release provenance.
+- [Authority and trust boundaries](architecture/authority-and-trust-boundaries.md) — explicit map of
+  command authority, trust re-establishment, failure posture, and evidence classes.
+- [Glossary](glossary.md) — canonical terminology for domain, temporal, eventing, assurance, and
+  operational concepts.
 - [Architecture Decision Records](adr/README.md) — durable design decisions from ADR 0001 through ADR
   0037.
 - [Authentication and authorization](authentication-authorization.md) — OIDC/JWT verification,
