@@ -65,9 +65,7 @@ def _validate_dockerfile(
         return
     for image in images:
         if image != expected:
-            issues.append(
-                f"Dockerfile base image must be exactly {expected!r}; found {image!r}"
-            )
+            issues.append(f"Dockerfile base image must be exactly {expected!r}; found {image!r}")
 
 
 def _validate_uv_lock(
@@ -166,9 +164,7 @@ def _validate_actions(
         if refs is None:
             issues.append(f"CI does not use required supply-chain action {action}")
         elif refs != {expected_sha}:
-            issues.append(
-                f"{action} must use policy SHA {expected_sha}; found {sorted(refs)}"
-            )
+            issues.append(f"{action} must use policy SHA {expected_sha}; found {sorted(refs)}")
 
 
 def _mapping(
@@ -196,9 +192,7 @@ def _string_list(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Verify CharterOS release supply-chain policy."
-    )
+    parser = argparse.ArgumentParser(description="Verify CharterOS release supply-chain policy.")
     parser.add_argument("--root", type=Path, default=Path("."))
     args = parser.parse_args()
     issues = validate_repository_policy(args.root.resolve())
