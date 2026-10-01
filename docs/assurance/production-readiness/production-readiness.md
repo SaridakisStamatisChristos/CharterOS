@@ -3,6 +3,10 @@
 PR48 closes the **code-capability** portion of the PR43-PR48 hardening roadmap. It does not create
 live-production evidence by itself.
 
+See also [candidate SLOs](slo-definition.md), [alert matrix](alert-matrix.md),
+[load/soak plan](load-test-plan.md), and the
+[production-observability runbook](../../runbooks/production-observability.md).
+
 ## Code-capability evidence delivered by PR48
 
 - bounded-cardinality Prometheus exposition for API, DB pool/transactions, award, outbox, graph,
