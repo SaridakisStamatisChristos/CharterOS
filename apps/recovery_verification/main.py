@@ -237,8 +237,7 @@ def _issues(
         issues.append(f"evidence integrity violations: {evidence_violation_count}")
     if poisoned_event_count:
         issues.append(
-            "poisoned outbox events require operator disposition: "
-            f"{poisoned_event_count}"
+            f"poisoned outbox events require operator disposition: {poisoned_event_count}"
         )
     if capacity_overlap_count:
         issues.append(f"active aircraft capacity overlaps: {capacity_overlap_count}")
