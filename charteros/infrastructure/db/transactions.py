@@ -61,6 +61,7 @@ def run_transaction[T](
             session.flush()
         except SQLAlchemyError as exc:
             failure = classify_database_failure(exc, phase=DatabaseFailurePhase.EXECUTION)
+            _record_decision_snapshot_failure(session)
             _reset_failed_session(session, exc)
             _record_failure_metrics(failure, retrying=failure.retryable and attempt < retry_policy.max_attempts)
             if failure.retryable and attempt < retry_policy.max_attempts:
@@ -72,6 +73,7 @@ def run_transaction[T](
             )
             raise DatabaseTransactionError(failure, attempts=attempt) from exc
         except BaseException:
+            _record_decision_snapshot_failure(session)
             _rollback_quietly(session)
             metrics.db_transaction(
                 duration_seconds=perf_counter() - started,
@@ -83,6 +85,7 @@ def run_transaction[T](
             session.commit()
         except SQLAlchemyError as exc:
             failure = classify_database_failure(exc, phase=DatabaseFailurePhase.COMMIT)
+            _record_decision_snapshot_failure(session)
             _reset_failed_session(session, exc)
 
             if failure.kind is DatabaseFailureKind.AMBIGUOUS_COMMIT:
@@ -112,6 +115,7 @@ def run_transaction[T](
             )
             raise DatabaseTransactionError(failure, attempts=attempt) from exc
 
+        session.info.pop("charteros_decision_snapshot_pending", None)
         metrics.db_transaction(
             duration_seconds=perf_counter() - started,
             outcome="success",
@@ -119,6 +123,11 @@ def run_transaction[T](
         return result
 
     raise RuntimeError("transaction retry loop exhausted unexpectedly")
+
+
+def _record_decision_snapshot_failure(session: Session) -> None:
+    if session.info.pop("charteros_decision_snapshot_pending", False):
+        get_operational_metrics().decision_snapshot_write_failure()
 
 
 def _record_failure_metrics(failure: object, *, retrying: bool) -> None:
