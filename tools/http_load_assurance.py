@@ -7,9 +7,9 @@ import re
 import statistics
 import time
 from concurrent.futures import ThreadPoolExecutor
-from http.client import HTTPConnection, HTTPException, HTTPSConnection
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from http.client import HTTPConnection, HTTPException, HTTPSConnection
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
