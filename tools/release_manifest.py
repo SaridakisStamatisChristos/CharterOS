@@ -342,18 +342,17 @@ def _read_gate_evidence(gate_dir: Path) -> dict[str, str]:
 
 
 def _junit_summary(path: Path) -> dict[str, int]:
-    root = ET.parse(path).getroot()
-    if root.tag == "testsuite":
-        suites = [root]
-    elif root.tag == "testsuites":
-        suites = list(root.findall("testsuite"))
-    else:
-        raise ValueError(f"unexpected JUnit root element: {root.tag!r}")
-
-    totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
-    for suite in suites:
-        for key in totals:
-            totals[key] += int(suite.attrib.get(key, "0"))
+    document = path.read_text(encoding="utf-8")
+    match = re.search(r"<testsuite\\b([^>]*)>", document)
+    if match is None:
+        raise ValueError("JUnit evidence does not contain a testsuite")
+    attributes = match.group(1)
+    totals: dict[str, int] = {}
+    for key in ("tests", "failures", "errors", "skipped"):
+        value = re.search(rf'\\b{key}="(\\d+)"', attributes)
+        if value is None:
+            raise ValueError(f"JUnit testsuite is missing {key!r}")
+        totals[key] = int(value.group(1))
     return totals
 
 
