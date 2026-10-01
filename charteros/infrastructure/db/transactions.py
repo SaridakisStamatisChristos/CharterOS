@@ -85,7 +85,9 @@ def run_transaction[T](
             session.commit()
         except SQLAlchemyError as exc:
             failure = classify_database_failure(exc, phase=DatabaseFailurePhase.COMMIT)
-            _record_decision_snapshot_failure(session)
+            pending_decision_snapshot = bool(
+                session.info.pop("charteros_decision_snapshot_pending", False)
+            )
             _reset_failed_session(session, exc)
 
             if failure.kind is DatabaseFailureKind.AMBIGUOUS_COMMIT:
@@ -97,6 +99,8 @@ def run_transaction[T](
                         outcome="success",
                     )
                     return recovered
+                if pending_decision_snapshot:
+                    metrics.decision_snapshot_write_failure()
                 _record_failure_metrics(failure, retrying=False)
                 metrics.db_transaction(
                     duration_seconds=perf_counter() - started,
@@ -105,7 +109,12 @@ def run_transaction[T](
                 )
                 raise DatabaseTransactionError(failure, attempts=attempt) from exc
 
-            _record_failure_metrics(failure, retrying=failure.retryable and attempt < retry_policy.max_attempts)
+            if pending_decision_snapshot:
+                metrics.decision_snapshot_write_failure()
+            _record_failure_metrics(
+                failure,
+                retrying=failure.retryable and attempt < retry_policy.max_attempts,
+            )
             if failure.retryable and attempt < retry_policy.max_attempts:
                 continue
             metrics.db_transaction(
