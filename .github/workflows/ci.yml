@@ -14,6 +14,8 @@ concurrency:
 
 jobs:
   quality:
+    outputs:
+      release_artifact_digest: ${{ steps.release_subjects.outputs.artifact-digest }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
@@ -38,6 +40,9 @@ jobs:
       CHARTEROS_DATABASE_URL: postgresql+psycopg://charteros:charteros-ci@localhost:5432/charteros
       UV_VERSION: "0.12.21"
       TRIVY_VERSION: "0.74.0"
+      PYTHON_VERSION: "3.13.15"
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
 
     steps:
       - name: Checkout
@@ -60,23 +65,41 @@ jobs:
           sudo install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv
           uv --version
 
+      - name: Initialize release evidence
+        run: mkdir -p release-evidence/gates
+
       - name: Verify dependency lock
-        run: uv lock --check
+        run: |
+          uv lock --check
+          touch release-evidence/gates/dependency-lock.passed
 
       - name: Sync frozen environment
         run: uv sync --frozen --extra dev
 
+      - name: Supply-chain policy
+        run: |
+          uv run python tools/check_supply_chain_policy.py
+          touch release-evidence/gates/supply-chain-policy.passed
+
       - name: Ruff lint
-        run: uv run ruff check .
+        run: |
+          uv run ruff check .
+          touch release-evidence/gates/ruff-lint.passed
 
       - name: Ruff format
-        run: uv run ruff format --check .
+        run: |
+          uv run ruff format --check .
+          touch release-evidence/gates/ruff-format.passed
 
       - name: Mypy
-        run: uv run mypy apps charteros tests tools
+        run: |
+          uv run mypy apps charteros tests tools
+          touch release-evidence/gates/mypy.passed
 
       - name: Bandit
-        run: uv run bandit -q -r apps charteros tools
+        run: |
+          uv run bandit -q -r apps charteros tools
+          touch release-evidence/gates/bandit.passed
 
       - name: Dependency vulnerability audit
         shell: bash
@@ -85,15 +108,23 @@ jobs:
           uv export --frozen --no-dev --no-emit-project --no-hashes \
             --format requirements-txt --output-file /tmp/runtime-requirements.txt
           uv run pip-audit --strict --no-deps -r /tmp/runtime-requirements.txt
+          touch release-evidence/gates/pip-audit.passed
 
       - name: Compose config
-        run: docker compose config
+        run: |
+          docker compose config
+          touch release-evidence/gates/compose-config.passed
 
       - name: Migration smoke
-        run: uv run alembic upgrade head
+        run: |
+          uv run alembic upgrade head
+          touch release-evidence/gates/migration-smoke.passed
 
       - name: Alembic schema drift
-        run: uv run alembic check
+        run: |
+          uv run alembic check
+          uv run alembic heads > release-evidence/migration-head.txt
+          touch release-evidence/gates/alembic-drift.passed
 
       - name: Recovery verification smoke
         shell: bash
@@ -113,12 +144,17 @@ jobs:
           assert document["ok"] is True
           assert document["verification_read_only"] is True
           PY
+          touch release-evidence/gates/recovery-verification.passed
 
       - name: Resource cleanup smoke
-        run: uv run python -m apps.resource_cleanup.main
+        run: |
+          uv run python -m apps.resource_cleanup.main
+          touch release-evidence/gates/resource-cleanup.passed
 
       - name: Tests
-        run: uv run pytest
+        run: |
+          uv run pytest --junitxml=release-evidence/pytest.xml
+          touch release-evidence/gates/tests.passed
 
       - name: PostgreSQL restart recovery smoke
         shell: bash
@@ -190,12 +226,17 @@ jobs:
           docker restart "$postgres_id" >/dev/null
           touch /tmp/pr43-db-restarted
           wait "$probe_pid"
+          touch release-evidence/gates/postgres-restart.passed
 
       - name: Reposition solver benchmark
-        run: uv run python tools/benchmark_reposition_solver.py
+        run: |
+          uv run python tools/benchmark_reposition_solver.py
+          touch release-evidence/gates/reposition-benchmark.passed
 
       - name: App boot smoke
-        run: uv run python tools/app_boot_smoke.py
+        run: |
+          uv run python tools/app_boot_smoke.py
+          touch release-evidence/gates/app-boot.passed
 
       - name: Install pinned Trivy
         shell: bash
@@ -210,10 +251,17 @@ jobs:
           trivy --version
 
       - name: Secret scan
-        run: trivy fs --scanners secret --exit-code 1 --no-progress .
+        run: |
+          trivy fs --scanners secret --exit-code 1 --no-progress .
+          touch release-evidence/gates/secret-scan.passed
 
       - name: Build hardened image
-        run: docker build --tag charteros:ci .
+        run: |
+          docker build \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --tag charteros:ci \
+            .
 
       - name: Hardened image runtime smoke
         shell: bash
@@ -229,6 +277,7 @@ jobs:
           trap 'docker logs charteros-api-smoke; docker rm -f charteros-api-smoke' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:8000/ready; then
+              touch release-evidence/gates/image-runtime.passed
               exit 0
             fi
             if [ "$(docker inspect -f '{{.State.Running}}' charteros-api-smoke)" != "true" ]; then
@@ -255,29 +304,221 @@ jobs:
           done
 
       - name: Container vulnerability scan
-        run: >-
-          trivy image
-          --skip-db-update
-          --scanners vuln
-          --severity HIGH,CRITICAL
-          --ignore-unfixed
-          --exit-code 1
-          --no-progress
-          charteros:ci
+        shell: bash
+        run: |
+          set -euo pipefail
+          trivy image \
+            --skip-db-update \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            --no-progress \
+            --format json \
+            --output release-evidence/trivy-vuln.json \
+            charteros:ci
+          touch release-evidence/gates/container-vulnerability-scan.passed
 
       - name: Generate CycloneDX SBOM
         shell: bash
         run: |
           set -euo pipefail
-          trivy image --skip-db-update --format cyclonedx --output sbom.cdx.json charteros:ci
+          trivy image \
+            --skip-db-update \
+            --format cyclonedx \
+            --output release-evidence/sbom.cdx.json \
+            charteros:ci
           python - <<'PY'
           import json
           from pathlib import Path
 
-          path = Path("sbom.cdx.json")
+          path = Path("release-evidence/sbom.cdx.json")
           document = json.loads(path.read_text(encoding="utf-8"))
           if document.get("bomFormat") != "CycloneDX" or not document.get("components"):
               raise SystemExit("invalid or empty CycloneDX SBOM")
           print(f"SBOM components: {len(document['components'])}")
           PY
+          touch release-evidence/gates/sbom.passed
+
+      - name: Package immutable release subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker image inspect charteros:ci > release-evidence/image-inspect.json
+          docker save --output release-evidence/charteros-image.tar charteros:ci
+          cp uv.lock supply-chain-policy.json release-evidence/
+          (
+            cd release-evidence
+            sha256sum charteros-image.tar sbom.cdx.json uv.lock supply-chain-policy.json \
+              > subjects.sha256
+          )
+          sha256sum --check release-evidence/subjects.sha256
+
+      - name: Upload unsigned release subjects
+        id: release_subjects
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: charteros-release-subjects-${{ env.SOURCE_SHA }}-${{ github.run_id }}
+          path: release-evidence/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+  provenance:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+      PYTHON_VERSION: "3.13.15"
+      UV_VERSION: "0.12.21"
+      TRIVY_VERSION: "0.74.0"
+      ATTEST_ACTION_SHA: "1e69f48acb82d1966a394da916b4c1698aa569d6"
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13.15"
+
+      - name: Download release subjects
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: charteros-release-subjects-${{ env.SOURCE_SHA }}-${{ github.run_id }}
+          path: release-evidence
+
+      - name: Verify transferred subjects
+        run: |
+          sha256sum --check release-evidence/subjects.sha256
+          python tools/check_supply_chain_policy.py
+
+      - name: Generate SLSA build provenance
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-checksums: release-evidence/subjects.sha256
+
+      - name: Bind CycloneDX SBOM to deployable artifact
+        id: sbom_attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: release-evidence/charteros-image.tar
+          sbom-path: release-evidence/sbom.cdx.json
+
+      - name: Preserve and verify signed attestations
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "${{ steps.provenance.outputs.bundle-path }}" release-evidence/provenance.bundle.json
+          cp "${{ steps.sbom_attestation.outputs.bundle-path }}" release-evidence/sbom.bundle.json
+          gh attestation verify release-evidence/charteros-image.tar \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/ci.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --bundle release-evidence/provenance.bundle.json
+          gh attestation verify release-evidence/charteros-image.tar \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/ci.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --predicate-type "https://cyclonedx.org/bom" \
+            --bundle release-evidence/sbom.bundle.json
+
+      - name: Build canonical release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/release_manifest.py build \
+            --evidence-dir release-evidence \
+            --output release-evidence/release-manifest.json \
+            --source-sha "$SOURCE_SHA" \
+            --checkout-sha "$GITHUB_SHA" \
+            --base-sha "$BASE_SHA" \
+            --repository "$GITHUB_REPOSITORY" \
+            --event-name "$GITHUB_EVENT_NAME" \
+            --workflow-ref "$GITHUB_WORKFLOW_REF" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-number "$GITHUB_RUN_NUMBER" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --intermediate-artifact-digest "sha256:${{ needs.quality.outputs.release_artifact_digest }}" \
+            --uv-version "$UV_VERSION" \
+            --trivy-version "$TRIVY_VERSION" \
+            --python-version "$PYTHON_VERSION" \
+            --attest-action-sha "$ATTEST_ACTION_SHA" \
+            --provenance-attestation-id "${{ steps.provenance.outputs.attestation-id }}" \
+            --provenance-attestation-url "${{ steps.provenance.outputs.attestation-url }}" \
+            --provenance-bundle release-evidence/provenance.bundle.json \
+            --sbom-attestation-id "${{ steps.sbom_attestation.outputs.attestation-id }}" \
+            --sbom-attestation-url "${{ steps.sbom_attestation.outputs.attestation-url }}" \
+            --sbom-bundle release-evidence/sbom.bundle.json
+          python tools/release_manifest.py verify \
+            --manifest release-evidence/release-manifest.json \
+            --evidence-dir release-evidence \
+            --expected-source-sha "$SOURCE_SHA"
+
+      - name: Attest canonical release manifest
+        id: manifest_attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: release-evidence/release-manifest.json
+
+      - name: Verify release-manifest attestation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "${{ steps.manifest_attestation.outputs.bundle-path }}" \
+            release-evidence/release-manifest.bundle.json
+          gh attestation verify release-evidence/release-manifest.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/ci.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --bundle release-evidence/release-manifest.bundle.json
+
+      - name: Record attestation index
+        shell: bash
+        env:
+          PROVENANCE_ID: ${{ steps.provenance.outputs.attestation-id }}
+          PROVENANCE_URL: ${{ steps.provenance.outputs.attestation-url }}
+          SBOM_ID: ${{ steps.sbom_attestation.outputs.attestation-id }}
+          SBOM_URL: ${{ steps.sbom_attestation.outputs.attestation-url }}
+          MANIFEST_ID: ${{ steps.manifest_attestation.outputs.attestation-id }}
+          MANIFEST_URL: ${{ steps.manifest_attestation.outputs.attestation-url }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          document = {
+              "schema_version": "charteros.attestation-index.v1",
+              "build": {"id": os.environ["PROVENANCE_ID"], "url": os.environ["PROVENANCE_URL"]},
+              "sbom": {"id": os.environ["SBOM_ID"], "url": os.environ["SBOM_URL"]},
+              "release_manifest": {
+                  "id": os.environ["MANIFEST_ID"],
+                  "url": os.environ["MANIFEST_URL"],
+              },
+          }
+          Path("release-evidence/attestation-index.json").write_text(
+              json.dumps(document, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload signed release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: charteros-release-evidence-${{ env.SOURCE_SHA }}-${{ github.run_id }}
+          path: release-evidence/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
 
