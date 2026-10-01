@@ -207,8 +207,7 @@ DATA_ASSET_POLICIES: tuple[DataAssetPolicy, ...] = (
         RetentionAction.CLOSE_OR_REVIEW,
         exportable=True,
         rationale=(
-            "Operator master data and document references; closure is safer than "
-            "blind deletion."
+            "Operator master data and document references; closure is safer than blind deletion."
         ),
     ),
     _asset(
@@ -525,9 +524,7 @@ class DataGovernanceRepository(Protocol):
         actor_subject_digest: str,
         recorded_at: datetime,
     ) -> LegalHold: ...
-    def list_legal_holds(
-        self, tenant_kind: TenantKind, tenant_id: UUID
-    ) -> list[LegalHold]: ...
+    def list_legal_holds(self, tenant_kind: TenantKind, tenant_id: UUID) -> list[LegalHold]: ...
 
 
 class DataGovernanceService:
