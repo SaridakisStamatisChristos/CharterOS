@@ -89,6 +89,15 @@ def _authorize_resource(
     if requirement is ResourceRequirement.NONE or _has_tenant_admin(principal):
         return
 
+    if requirement is ResourceRequirement.TENANT_PATH:
+        tenant_kind = request.path_params.get("tenant_kind")
+        tenant_id = _path_uuid(request, "tenant_id")
+        if tenant_kind == "buyer" and tenant_id in principal.buyer_ids:
+            return
+        if tenant_kind == "operator" and tenant_id in principal.operator_ids:
+            return
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
+
     buyer_id = _uuid_header(request, "X-Buyer-Id")
     operator_id = _uuid_header(request, "X-Operator-Id")
     factory = cast(sessionmaker[Session], request.app.state.session_factory)
