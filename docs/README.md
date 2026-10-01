@@ -22,6 +22,11 @@ documentation.
 
 | Area | Design authority | Operator / assurance documentation |
 | --- | --- | --- |
+| Aircraft capacity / cross-Mission overlap | [ADR 0027](adr/0027-aircraft-capacity-reservations.md) | [PR38–PR42 hardening lineage](assurance/pr38-pr42-aircraft-commitment-hardening.md) |
+| Booking termination / capacity release | [ADR 0028](adr/0028-booking-termination-capacity-release.md) | [PR38–PR42 hardening lineage](assurance/pr38-pr42-aircraft-commitment-hardening.md) |
+| Replacement-aircraft feasibility | [ADR 0029](adr/0029-canonical-replacement-aircraft-feasibility.md) | [PR38–PR42 hardening lineage](assurance/pr38-pr42-aircraft-commitment-hardening.md) |
+| Optimizer input completeness | [ADR 0030](adr/0030-reposition-optimizer-input-completeness.md) | [PR38–PR42 hardening lineage](assurance/pr38-pr42-aircraft-commitment-hardening.md) |
+| Award-time feasibility truth gate | [ADR 0031](adr/0031-award-time-aircraft-feasibility-truth-gate.md) | [PR38–PR42 hardening lineage](assurance/pr38-pr42-aircraft-commitment-hardening.md) |
 | Transaction failures / ambiguous commit | [ADR 0032](adr/0032-transaction-failure-and-ambiguous-commit.md) | Main README operational/quality sections |
 | API abuse/resource bounds | [ADR 0033](adr/0033-api-abuse-resource-bounds.md) | Authentication docs + resource-cleanup command |
 | Commercial data governance | [ADR 0034](adr/0034-commercial-data-governance.md) | [Data-governance runbook](runbooks/data-governance.md), [classification](assurance/data-governance-classification.md) |
