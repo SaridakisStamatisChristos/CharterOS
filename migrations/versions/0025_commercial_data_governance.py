@@ -163,3 +163,143 @@ def upgrade() -> None:
                 RAISE EXCEPTION 'released legal holds are immutable'
                     USING ERRCODE = 'integrity_constraint_violation';
             END IF;
+            IF OLD.id IS DISTINCT FROM NEW.id
+                OR OLD.tenant_kind IS DISTINCT FROM NEW.tenant_kind
+                OR OLD.tenant_id IS DISTINCT FROM NEW.tenant_id
+                OR OLD.reason IS DISTINCT FROM NEW.reason
+                OR OLD.created_at IS DISTINCT FROM NEW.created_at
+                OR OLD.created_by_digest IS DISTINCT FROM NEW.created_by_digest
+            THEN
+                RAISE EXCEPTION 'legal hold identity/scope is immutable'
+                    USING ERRCODE = 'integrity_constraint_violation';
+            END IF;
+            IF NEW.status <> 'released'
+                OR NEW.released_at IS NULL
+                OR NEW.released_by_digest IS NULL
+                OR NEW.release_reason IS NULL
+            THEN
+                RAISE EXCEPTION 'legal hold update must be a complete release transition'
+                    USING ERRCODE = 'integrity_constraint_violation';
+            END IF;
+            RETURN NEW;
+        END
+        $$;
+        """
+    )
+    op.execute(
+        """
+        CREATE TRIGGER trg_data_governance_legal_hold_guard
+        BEFORE UPDATE OR DELETE ON data_governance_legal_holds
+        FOR EACH ROW EXECUTE FUNCTION charteros_guard_legal_hold_mutation()
+        """
+    )
+    op.execute(
+        "ALTER TABLE data_governance_legal_holds "
+        "ENABLE ALWAYS TRIGGER trg_data_governance_legal_hold_guard"
+    )
+
+    for table_name, tag, primary_keys in (
+        ("data_governance_lifecycle_operations", "governance_lifecycle", "id"),
+        ("data_governance_events", "governance_event", "id"),
+    ):
+        op.execute(
+            f"""
+            CREATE TRIGGER trg_ei_{tag}_guard
+            BEFORE UPDATE OR DELETE ON {table_name}
+            FOR EACH ROW EXECUTE FUNCTION charteros_guard_evidence_mutation('')
+            """
+        )
+        op.execute(
+            f"""
+            CREATE TRIGGER trg_ei_{tag}_capture
+            AFTER INSERT ON {table_name}
+            FOR EACH ROW EXECUTE FUNCTION charteros_capture_evidence_insert(
+                '{primary_keys}', 'tenant_kind,tenant_id', ''
+            )
+            """
+        )
+        op.execute(f"ALTER TABLE {table_name} ENABLE ALWAYS TRIGGER trg_ei_{tag}_guard")
+        op.execute(f"ALTER TABLE {table_name} ENABLE ALWAYS TRIGGER trg_ei_{tag}_capture")
+
+    op.execute(
+        """
+        CREATE OR REPLACE FUNCTION charteros_apply_runtime_governance_privileges(
+            p_role name
+        ) RETURNS void
+        LANGUAGE plpgsql
+        SECURITY DEFINER
+        SET search_path = pg_catalog, public
+        AS $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = p_role::text) THEN
+                RAISE EXCEPTION 'database role % does not exist', p_role;
+            END IF;
+
+            EXECUTE format(
+                'GRANT SELECT, INSERT, UPDATE ON TABLE public.data_governance_legal_holds TO %I',
+                p_role
+            );
+            EXECUTE format(
+                'REVOKE DELETE ON TABLE public.data_governance_legal_holds FROM %I', p_role
+            );
+
+            EXECUTE format(
+                'GRANT SELECT, INSERT ON TABLE public.data_governance_lifecycle_operations, '
+                'public.data_governance_events TO %I', p_role
+            );
+            EXECUTE format(
+                'REVOKE UPDATE, DELETE ON TABLE public.data_governance_lifecycle_operations, '
+                'public.data_governance_events FROM %I', p_role
+            );
+        END
+        $$;
+        """
+    )
+    op.execute(
+        "REVOKE ALL ON FUNCTION charteros_apply_runtime_governance_privileges(name) FROM PUBLIC"
+    )
+
+
+def downgrade() -> None:
+    bind = op.get_bind()
+    persisted = bind.execute(
+        sa.text(
+            "SELECT "
+            "(SELECT count(*) FROM data_governance_legal_holds) + "
+            "(SELECT count(*) FROM data_governance_lifecycle_operations) + "
+            "(SELECT count(*) FROM data_governance_events) + "
+            "(SELECT count(*) FROM evidence_integrity_entries "
+            " WHERE source_table IN "
+            " ('data_governance_lifecycle_operations','data_governance_events'))"
+        )
+    ).scalar_one()
+    if persisted:
+        raise RuntimeError(
+            "refusing to downgrade 0025 while data-governance audit/evidence history exists"
+        )
+
+    op.execute(
+        "DROP FUNCTION IF EXISTS charteros_apply_runtime_governance_privileges(name)"
+    )
+    op.execute(
+        "DROP TRIGGER IF EXISTS trg_ei_governance_event_capture ON data_governance_events"
+    )
+    op.execute(
+        "DROP TRIGGER IF EXISTS trg_ei_governance_event_guard ON data_governance_events"
+    )
+    op.execute(
+        "DROP TRIGGER IF EXISTS trg_ei_governance_lifecycle_capture "
+        "ON data_governance_lifecycle_operations"
+    )
+    op.execute(
+        "DROP TRIGGER IF EXISTS trg_ei_governance_lifecycle_guard "
+        "ON data_governance_lifecycle_operations"
+    )
+    op.execute(
+        "DROP TRIGGER IF EXISTS trg_data_governance_legal_hold_guard "
+        "ON data_governance_legal_holds"
+    )
+    op.execute("DROP FUNCTION IF EXISTS charteros_guard_legal_hold_mutation()")
+    op.drop_table("data_governance_events")
+    op.drop_table("data_governance_lifecycle_operations")
+    op.drop_table("data_governance_legal_holds")
