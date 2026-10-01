@@ -190,9 +190,8 @@ def create_app(
     ) -> JSONResponse:
         failure = classify_database_failure(exc, phase=DatabaseFailurePhase.UNKNOWN)
         if (
-            (failure.sqlstate is not None and failure.sqlstate.startswith("08"))
-            or failure.sqlstate in {"57P01", "57P02", "57P03"}
-        ):
+            failure.sqlstate is not None and failure.sqlstate.startswith("08")
+        ) or failure.sqlstate in {"57P01", "57P02", "57P03"}:
             metrics.db_connectivity_failure()
         logger = get_logger(__name__)
         logger.warning(
