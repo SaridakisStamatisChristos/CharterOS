@@ -40,7 +40,10 @@ def test_metrics_record_domain_failure_signals_without_identifiers() -> None:
 
     document = metrics.render_prometheus()
 
-    assert 'charteros_award_attempts_total{outcome="rejected",reason="commercial_conflict"} 1' in document
+    assert (
+        'charteros_award_attempts_total{outcome="rejected",reason="commercial_conflict"} 1'
+        in document
+    )
     assert 'charteros_optimizer_rejections_total{reason="incomplete_universe"} 1' in document
     assert "charteros_evidence_integrity_failures_total 1" in document
     assert "charteros_outbox_poisoned_total 1" in document
