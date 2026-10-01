@@ -347,11 +347,12 @@ jobs:
           docker image inspect charteros:ci > release-evidence/image-inspect.json
           docker save --output release-evidence/charteros-image.tar charteros:ci
           cp uv.lock supply-chain-policy.json release-evidence/
-          (
-            cd release-evidence
-            sha256sum charteros-image.tar sbom.cdx.json uv.lock supply-chain-policy.json \
-              > subjects.sha256
-          )
+          sha256sum \
+            release-evidence/charteros-image.tar \
+            release-evidence/sbom.cdx.json \
+            release-evidence/uv.lock \
+            release-evidence/supply-chain-policy.json \
+            > release-evidence/subjects.sha256
           sha256sum --check release-evidence/subjects.sha256
 
       - name: Upload unsigned release subjects
