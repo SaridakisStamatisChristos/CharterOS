@@ -317,11 +317,11 @@ class OperationalMetrics:
                         cumulative = 0
                         for boundary, bucket_count in zip(buckets, counts, strict=True):
                             cumulative += bucket_count
-                            bucket_labels = tuple(labels) + (("le", f"{boundary:g}"),)
+                            bucket_labels = (*labels, ("le", f"{boundary:g}"))
                             lines.append(
                                 f"{name}_bucket{_render_labels(bucket_labels)} {cumulative}"
                             )
-                        inf_labels = tuple(labels) + (("le", "+Inf"),)
+                        inf_labels = (*labels, ("le", "+Inf"))
                         lines.append(f"{name}_bucket{_render_labels(inf_labels)} {count}")
                         lines.append(f"{name}_count{_render_labels(labels)} {count}")
                         lines.append(f"{name}_sum{_render_labels(labels)} {total:g}")
