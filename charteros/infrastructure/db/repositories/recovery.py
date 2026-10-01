@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, cast
 
-from sqlalchemy import func, inspect, or_, select, text
+from sqlalchemy import MetaData, Table, and_, func, inspect, or_, select, text
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.orm import Session
 
@@ -167,36 +167,55 @@ class SqlAlchemyRecoveryVerificationRepository:
             )
             foreign_keys.extend((table_name, fk) for fk in reflected)
 
-        preparer = connection.dialect.identifier_preparer
+        metadata = MetaData()
+        reflected_tables: dict[tuple[str, str], Table] = {}
+
+        def reflected_table(schema: str, table_name: str) -> Table:
+            key = (schema, table_name)
+            table = reflected_tables.get(key)
+            if table is None:
+                table = Table(
+                    table_name,
+                    metadata,
+                    schema=schema,
+                    autoload_with=connection,
+                )
+                reflected_tables[key] = table
+            return table
+
         findings: list[OrphanReferenceFinding] = []
-        for child_table, foreign_key in foreign_keys:
+        for child_table_name, foreign_key in foreign_keys:
             child_columns = cast(list[str], foreign_key["constrained_columns"])
             parent_columns = cast(list[str], foreign_key["referred_columns"])
-            parent_table = cast(str, foreign_key["referred_table"])
+            parent_table_name = cast(str, foreign_key["referred_table"])
             parent_schema = cast(str | None, foreign_key.get("referred_schema")) or "public"
             if not child_columns or len(child_columns) != len(parent_columns):
                 raise RuntimeError(
-                    f"cannot verify malformed foreign key on {child_table}: {foreign_key!r}"
+                    f"cannot verify malformed foreign key on {child_table_name}: "
+                    f"{foreign_key!r}"
                 )
 
-            quote = preparer.quote_identifier
-            child_ref = f"{quote('public')}.{quote(child_table)}"
-            parent_ref = f"{quote(parent_schema)}.{quote(parent_table)}"
-            join_predicate = " AND ".join(
-                f"c.{quote(child)} = p.{quote(parent)}"
-                for child, parent in zip(child_columns, parent_columns, strict=True)
+            child_table = reflected_table("public", child_table_name)
+            parent_table = reflected_table(parent_schema, parent_table_name)
+            join_predicate = and_(
+                *(
+                    child_table.c[child] == parent_table.c[parent]
+                    for child, parent in zip(
+                        child_columns,
+                        parent_columns,
+                        strict=True,
+                    )
+                )
             )
-            constrained_values_present = " AND ".join(
-                f"c.{quote(child)} IS NOT NULL" for child in child_columns
+            constrained_values_present = and_(
+                *(child_table.c[column].is_not(None) for column in child_columns)
             )
-            parent_missing = f"p.{quote(parent_columns[0])} IS NULL"
+            parent_missing = parent_table.c[parent_columns[0]].is_(None)
             orphan_count = int(
                 self._session.scalar(
-                    text(
-                        f"SELECT count(*) FROM {child_ref} AS c "
-                        f"LEFT JOIN {parent_ref} AS p ON {join_predicate} "
-                        f"WHERE {constrained_values_present} AND {parent_missing}"
-                    )
+                    select(func.count())
+                    .select_from(child_table.outerjoin(parent_table, join_predicate))
+                    .where(constrained_values_present, parent_missing)
                 )
                 or 0
             )
@@ -205,8 +224,8 @@ class SqlAlchemyRecoveryVerificationRepository:
                 findings.append(
                     OrphanReferenceFinding(
                         constraint_name=constraint_name or "<unnamed>",
-                        child_table=child_table,
-                        parent_table=parent_table,
+                        child_table=child_table_name,
+                        parent_table=parent_table_name,
                         orphan_count=orphan_count,
                     )
                 )
