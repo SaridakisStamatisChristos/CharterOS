@@ -262,22 +262,24 @@ def test_pr45_erasure_rolls_back_if_audit_write_fails(
     factory = build_session_factory(engine)
 
     try:
-        with pytest.raises(RuntimeError, match="synthetic governance audit failure"):
-            with factory.begin() as session:
-                repository = SqlAlchemyDataGovernanceRepository(session)
+        with (
+            pytest.raises(RuntimeError, match="synthetic governance audit failure"),
+            factory.begin() as session,
+        ):
+            repository = SqlAlchemyDataGovernanceRepository(session)
 
-                def fail_audit(**_kwargs: object) -> None:
-                    raise RuntimeError("synthetic governance audit failure")
+            def fail_audit(**_kwargs: object) -> None:
+                raise RuntimeError("synthetic governance audit failure")
 
-                monkeypatch.setattr(repository, "append_governance_event", fail_audit)
-                DataGovernanceService(repository).erase_tenant(
-                    tenant_kind=TenantKind.BUYER,
-                    tenant_id=tenant_id,
-                    request_key_digest="1" * 64,
-                    request_hash="2" * 64,
-                    actor_subject_digest="3" * 64,
-                    recorded_at=datetime.now(UTC),
-                )
+            monkeypatch.setattr(repository, "append_governance_event", fail_audit)
+            DataGovernanceService(repository).erase_tenant(
+                tenant_kind=TenantKind.BUYER,
+                tenant_id=tenant_id,
+                request_key_digest="1" * 64,
+                request_hash="2" * 64,
+                actor_subject_digest="3" * 64,
+                recorded_at=datetime.now(UTC),
+            )
 
         with factory() as session:
             assert session.get(OrganizationRow, tenant_id) is not None
