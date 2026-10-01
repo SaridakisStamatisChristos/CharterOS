@@ -107,6 +107,7 @@ class SqlAlchemyDecisionEvidenceRepository:
         content: Mapping[str, object],
     ) -> UUID:
         snapshot_id = uuid4()
+        self._session.info["charteros_decision_snapshot_pending"] = True
         when = _utc(decided_at)
         cutoff = _utc(known_as_of) if known_as_of is not None else None
         body: dict[str, object] = {
