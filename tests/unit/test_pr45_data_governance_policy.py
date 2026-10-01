@@ -24,7 +24,10 @@ def test_only_transient_pr44_state_allows_automated_deletion() -> None:
     }
     assert allowed == {"idempotency_records", "api_rate_limit_windows"}
     for table in allowed:
-        assert DATA_ASSET_POLICY_BY_TABLE[table].retention_action is RetentionAction.POLICY_TTL_DELETE
+        assert (
+            DATA_ASSET_POLICY_BY_TABLE[table].retention_action
+            is RetentionAction.POLICY_TTL_DELETE
+        )
         assert_automated_deletion_allowed(table)
 
 
