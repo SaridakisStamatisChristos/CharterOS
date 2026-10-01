@@ -2,8 +2,9 @@ from time import perf_counter
 from typing import Any
 
 from sqlalchemy import Engine, create_engine, event
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import QueuePool
 
 from charteros.observability import OperationalMetrics, get_operational_metrics
 from charteros.shared.config import Settings
@@ -22,6 +23,12 @@ def build_engine(
             started = perf_counter()
             try:
                 connection_record = super()._do_get()
+            except SQLAlchemyTimeoutError:
+                resolved_metrics.db_pool_checkout(
+                    duration_seconds=perf_counter() - started,
+                    outcome="timeout",
+                )
+                raise
             except Exception:
                 resolved_metrics.db_pool_checkout(
                     duration_seconds=perf_counter() - started,
