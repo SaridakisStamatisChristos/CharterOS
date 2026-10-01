@@ -47,6 +47,7 @@ from charteros.domain.tenders import (
     TenderInvitationStatus,
     TenderStatus,
 )
+from charteros.infrastructure.db.failures import DatabaseFailureKind, DatabaseTransactionError
 from charteros.infrastructure.db.repositories import (
     SqlAlchemyAircraftRepository,
     SqlAlchemyAirportRepository,
@@ -61,7 +62,6 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyTenderRepository,
 )
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
-from charteros.infrastructure.db.failures import DatabaseFailureKind, DatabaseTransactionError
 from charteros.infrastructure.db.transactions import run_transaction
 from charteros.observability import get_operational_metrics
 from charteros.shared.clock import Clock
