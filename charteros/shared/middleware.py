@@ -228,4 +228,3 @@ class OperationalMetricsMiddleware:
                 status_code=status_code,
                 duration_seconds=perf_counter() - started,
             )
-
