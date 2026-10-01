@@ -75,6 +75,8 @@ The result is an auditable core that can support portals, integrations, optimiza
 
 CharterOS remains a **modular monolith** on purpose. Business transactions stay local and explicit while worker, projection, query, optimization, simulation, and integration seams remain independently evolvable.
 
+**Architecture atlas:** [overview](docs/architecture/README.md) · [system context & containers](docs/architecture/system-context.md) · [critical flows](docs/architecture/critical-flows.md) · [authority & trust boundaries](docs/architecture/authority-and-trust-boundaries.md) · [glossary](docs/glossary.md)
+
 ```mermaid
 flowchart LR
     C[Buyer / Operator / Admin / Service] --> API[FastAPI delivery layer]
