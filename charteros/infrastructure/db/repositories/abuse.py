@@ -29,13 +29,12 @@ class SqlAlchemyRateBudgetRepository:
             self._session.execute(
                 text(
                     """
-                WITH params AS (
-                    SELECT to_timestamp(
-                        floor(extract(epoch FROM clock_timestamp()) / :window_seconds)
-                        * :window_seconds
-                    ) AS window_started_at
-                ),
-                attempted AS (
+                    WITH params AS (
+                        SELECT to_timestamp(
+                            floor(extract(epoch FROM clock_timestamp()) / :window_seconds)
+                            * :window_seconds
+                        ) AS window_started_at
+                    )
                     INSERT INTO api_rate_limit_windows (
                         budget,
                         identity_digest,
@@ -50,52 +49,27 @@ class SqlAlchemyRateBudgetRepository:
                     FROM params
                     ON CONFLICT (budget, identity_digest, window_started_at)
                     DO UPDATE
-                    SET request_count = api_rate_limit_windows.request_count + 1
-                    WHERE api_rate_limit_windows.request_count < :request_limit
-                    RETURNING request_count, window_started_at
-                )
-                SELECT
-                    TRUE AS allowed,
-                    attempted.request_count,
-                    attempted.window_started_at,
-                    GREATEST(
-                        1,
-                        CEIL(
-                            extract(
-                                epoch FROM (
-                                    attempted.window_started_at
-                                    + make_interval(secs => :window_seconds)
-                                    - clock_timestamp()
+                    SET request_count = LEAST(
+                        api_rate_limit_windows.request_count + 1,
+                        :request_limit + 1
+                    )
+                    RETURNING
+                        request_count <= :request_limit AS allowed,
+                        request_count,
+                        window_started_at,
+                        GREATEST(
+                            1,
+                            CEIL(
+                                extract(
+                                    epoch FROM (
+                                        window_started_at
+                                        + make_interval(secs => :window_seconds)
+                                        - clock_timestamp()
+                                    )
                                 )
-                            )
-                        )::integer
-                    ) AS retry_after_seconds
-                FROM attempted
-                UNION ALL
-                SELECT
-                    FALSE AS allowed,
-                    existing.request_count,
-                    existing.window_started_at,
-                    GREATEST(
-                        1,
-                        CEIL(
-                            extract(
-                                epoch FROM (
-                                    existing.window_started_at
-                                    + make_interval(secs => :window_seconds)
-                                    - clock_timestamp()
-                                )
-                            )
-                        )::integer
-                    ) AS retry_after_seconds
-                FROM api_rate_limit_windows AS existing
-                CROSS JOIN params
-                WHERE existing.budget = :budget
-                  AND existing.identity_digest = :identity_digest
-                  AND existing.window_started_at = params.window_started_at
-                  AND NOT EXISTS (SELECT 1 FROM attempted)
-                LIMIT 1
-                """
+                            )::integer
+                        ) AS retry_after_seconds
+                    """
                 ),
                 {
                     "budget": budget.value,
