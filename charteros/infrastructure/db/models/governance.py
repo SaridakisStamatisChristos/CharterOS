@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, Index, String, UniqueConstraint, Uuid, text
+from sqlalchemy import CheckConstraint, DateTime, Index, String, UniqueConstraint, Uuid, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from charteros.infrastructure.db.base import Base
@@ -113,7 +114,7 @@ class DataGovernanceLifecycleOperationRow(Base):
     request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     actor_subject_digest: Mapped[str] = mapped_column(String(64), nullable=False)
     policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
-    report: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    report: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
