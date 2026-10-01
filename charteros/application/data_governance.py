@@ -206,7 +206,10 @@ DATA_ASSET_POLICIES: tuple[DataAssetPolicy, ...] = (
         (DataClass.TENANT_BUSINESS_MASTER, DataClass.PERSONAL_DATA),
         RetentionAction.CLOSE_OR_REVIEW,
         exportable=True,
-        rationale="Operator master data and document references; closure is safer than blind deletion.",
+        rationale=(
+            "Operator master data and document references; closure is safer than "
+            "blind deletion."
+        ),
     ),
     _asset(
         "airports",
@@ -243,9 +246,16 @@ DATA_ASSET_POLICIES: tuple[DataAssetPolicy, ...] = (
                 if table in _PERSONAL_CAPABLE
                 else (DataClass.IMMUTABLE_EVIDENCE,)
             ),
-            RetentionAction.APPEND_ONLY_AUDIT if table in _APPEND_ONLY else RetentionAction.PRESERVE,
+            (
+                RetentionAction.APPEND_ONLY_AUDIT
+                if table in _APPEND_ONLY
+                else RetentionAction.PRESERVE
+            ),
             exportable=True,
-            rationale="Authoritative commercial/operational evidence retained for historical reproducibility.",
+            rationale=(
+                "Authoritative commercial/operational evidence retained for historical "
+                "reproducibility."
+            ),
         )
         for table in _EVIDENCE_EXPORT
     ),
@@ -353,11 +363,20 @@ EXTERNAL_DATA_ASSET_POLICIES: tuple[ExternalDataAssetPolicy, ...] = (
         RetentionAction.CLOSE_OR_REVIEW,
         False,
         True,
-        "Deployment-owned logs need a platform retention policy and are not PostgreSQL lifecycle data.",
+        (
+            "Deployment-owned logs need a platform retention policy and are not PostgreSQL "
+            "lifecycle data."
+        ),
     ),
     ExternalDataAssetPolicy(
         "authentication_security_logs",
-        frozenset({DataClass.SECURITY_AUDIT, DataClass.OPERATIONAL_TELEMETRY, DataClass.PERSONAL_DATA}),
+        frozenset(
+            {
+                DataClass.SECURITY_AUDIT,
+                DataClass.OPERATIONAL_TELEMETRY,
+                DataClass.PERSONAL_DATA,
+            }
+        ),
         RetentionAction.CLOSE_OR_REVIEW,
         False,
         True,
@@ -372,22 +391,70 @@ TENANT_DEPENDENCY_GRAPH: tuple[TenantDependency, ...] = tuple(
         (TenantKind.BUYER, "procurement_approvals", "buyer_id", True, "award authority"),
         (TenantKind.BUYER, "contracts", "buyer_id", True, "contract evidence"),
         (TenantKind.BUYER, "fx_locks", "buyer_id", True, "FX commitment"),
-        (TenantKind.BUYER, "financial_reconciliations", "buyer_id", True, "financial evidence"),
+        (
+            TenantKind.BUYER,
+            "financial_reconciliations",
+            "buyer_id",
+            True,
+            "financial evidence",
+        ),
         (TenantKind.BUYER, "reconciliation_disputes", "buyer_id", True, "dispute evidence"),
-        (TenantKind.BUYER, "reconciliation_variance_approvals", "buyer_id", True, "approval evidence"),
+        (
+            TenantKind.BUYER,
+            "reconciliation_variance_approvals",
+            "buyer_id",
+            True,
+            "approval evidence",
+        ),
         (TenantKind.BUYER, "outbox_events", "organization aggregate", True, "canonical history"),
         (TenantKind.OPERATOR, "aircraft", "aircraft.operator_id", False, "fleet master"),
         (TenantKind.OPERATOR, "rfqs", "rfqs.operator_id", True, "procurement evidence"),
         (TenantKind.OPERATOR, "bookings", "bookings.operator_id", True, "award evidence"),
-        (TenantKind.OPERATOR, "aircraft_capacity_reservations", "operator_id", True, "capacity authority"),
+        (
+            TenantKind.OPERATOR,
+            "aircraft_capacity_reservations",
+            "operator_id",
+            True,
+            "capacity authority",
+        ),
         (TenantKind.OPERATOR, "contracts", "operator_id", True, "contract evidence"),
-        (TenantKind.OPERATOR, "disruption_proposals", "operator_id", True, "disruption evidence"),
-        (TenantKind.OPERATOR, "financial_reconciliations", "operator_id", True, "financial evidence"),
+        (
+            TenantKind.OPERATOR,
+            "disruption_proposals",
+            "operator_id",
+            True,
+            "disruption evidence",
+        ),
+        (
+            TenantKind.OPERATOR,
+            "financial_reconciliations",
+            "operator_id",
+            True,
+            "financial evidence",
+        ),
         (TenantKind.OPERATOR, "tender_invitations", "operator_id", True, "tender evidence"),
-        (TenantKind.OPERATOR, "aircraft_position_observations", "fleet history", True, "no-hindsight evidence"),
-        (TenantKind.OPERATOR, "aircraft_availability_records", "fleet history", True, "availability evidence"),
+        (
+            TenantKind.OPERATOR,
+            "aircraft_position_observations",
+            "fleet history",
+            True,
+            "no-hindsight evidence",
+        ),
+        (
+            TenantKind.OPERATOR,
+            "aircraft_availability_records",
+            "fleet history",
+            True,
+            "availability evidence",
+        ),
         (TenantKind.OPERATOR, "quotes", "operator aircraft quotes", True, "commercial evidence"),
-        (TenantKind.OPERATOR, "outbox_events", "org/operator/aircraft aggregates", True, "canonical history"),
+        (
+            TenantKind.OPERATOR,
+            "outbox_events",
+            "org/operator/aircraft aggregates",
+            True,
+            "canonical history",
+        ),
     )
 )
 
@@ -395,31 +462,107 @@ TENANT_DEPENDENCY_GRAPH: tuple[TenantDependency, ...] = tuple(
 class DataGovernanceRepository(Protocol):
     def lock_tenant(self, tenant_kind: TenantKind, tenant_id: UUID) -> None: ...
     def tenant_exists(self, tenant_kind: TenantKind, tenant_id: UUID) -> bool: ...
-    def find_lifecycle_operation(self, *, tenant_kind: TenantKind, tenant_id: UUID, operation: LifecycleOperation, request_key_digest: str) -> LifecycleOutcome | None: ...
-    def close_tenant(self, *, tenant_kind: TenantKind, tenant_id: UUID, recorded_at: datetime, correlation_id: CorrelationId) -> list[str]: ...
+    def find_lifecycle_operation(
+        self,
+        *,
+        tenant_kind: TenantKind,
+        tenant_id: UUID,
+        operation: LifecycleOperation,
+        request_key_digest: str,
+    ) -> LifecycleOutcome | None: ...
+    def close_tenant(
+        self,
+        *,
+        tenant_kind: TenantKind,
+        tenant_id: UUID,
+        recorded_at: datetime,
+        correlation_id: CorrelationId,
+    ) -> list[str]: ...
     def active_legal_hold(self, tenant_kind: TenantKind, tenant_id: UUID) -> LegalHold | None: ...
-    def erasure_dependency_counts(self, tenant_kind: TenantKind, tenant_id: UUID) -> dict[str, int]: ...
+    def erasure_dependency_counts(
+        self, tenant_kind: TenantKind, tenant_id: UUID
+    ) -> dict[str, int]: ...
     def erase_tenant(self, tenant_kind: TenantKind, tenant_id: UUID) -> list[str]: ...
-    def add_lifecycle_operation(self, *, tenant_kind: TenantKind, tenant_id: UUID, operation: LifecycleOperation, status: LifecycleStatus, request_key_digest: str, request_hash: str, actor_subject_digest: str, requested_at: datetime, report: dict[str, object]) -> LifecycleOutcome: ...
-    def append_governance_event(self, *, tenant_kind: TenantKind, tenant_id: UUID, event_type: str, related_id: UUID | None, actor_subject_digest: str, recorded_at: datetime, details: dict[str, object]) -> None: ...
-    def create_legal_hold(self, *, tenant_kind: TenantKind, tenant_id: UUID, reason: str, actor_subject_digest: str, recorded_at: datetime) -> LegalHold: ...
+    def add_lifecycle_operation(
+        self,
+        *,
+        tenant_kind: TenantKind,
+        tenant_id: UUID,
+        operation: LifecycleOperation,
+        status: LifecycleStatus,
+        request_key_digest: str,
+        request_hash: str,
+        actor_subject_digest: str,
+        requested_at: datetime,
+        report: dict[str, object],
+    ) -> LifecycleOutcome: ...
+    def append_governance_event(
+        self,
+        *,
+        tenant_kind: TenantKind,
+        tenant_id: UUID,
+        event_type: str,
+        related_id: UUID | None,
+        actor_subject_digest: str,
+        recorded_at: datetime,
+        details: dict[str, object],
+    ) -> None: ...
+    def create_legal_hold(
+        self,
+        *,
+        tenant_kind: TenantKind,
+        tenant_id: UUID,
+        reason: str,
+        actor_subject_digest: str,
+        recorded_at: datetime,
+    ) -> LegalHold: ...
     def get_legal_hold_for_update(self, hold_id: UUID) -> LegalHold | None: ...
-    def release_legal_hold(self, *, hold_id: UUID, reason: str, actor_subject_digest: str, recorded_at: datetime) -> LegalHold: ...
-    def list_legal_holds(self, tenant_kind: TenantKind, tenant_id: UUID) -> list[LegalHold]: ...
+    def release_legal_hold(
+        self,
+        *,
+        hold_id: UUID,
+        reason: str,
+        actor_subject_digest: str,
+        recorded_at: datetime,
+    ) -> LegalHold: ...
+    def list_legal_holds(
+        self, tenant_kind: TenantKind, tenant_id: UUID
+    ) -> list[LegalHold]: ...
 
 
 class DataGovernanceService:
     def __init__(self, repository: DataGovernanceRepository) -> None:
         self._repository = repository
 
-    def close_tenant(self, *, tenant_kind: TenantKind, tenant_id: UUID, request_key_digest: str, request_hash: str, actor_subject_digest: str, recorded_at: datetime, correlation_id: CorrelationId) -> LifecycleOutcome:
+    def close_tenant(
+        self,
+        *,
+        tenant_kind: TenantKind,
+        tenant_id: UUID,
+        request_key_digest: str,
+        request_hash: str,
+        actor_subject_digest: str,
+        recorded_at: datetime,
+        correlation_id: CorrelationId,
+    ) -> LifecycleOutcome:
         self._repository.lock_tenant(tenant_kind, tenant_id)
-        replay = self._replay(tenant_kind, tenant_id, LifecycleOperation.CLOSURE, request_key_digest, request_hash)
+        replay = self._replay(
+            tenant_kind,
+            tenant_id,
+            LifecycleOperation.CLOSURE,
+            request_key_digest,
+            request_hash,
+        )
         if replay is not None:
             return replay
         self._require_tenant(tenant_kind, tenant_id)
         hold = self._repository.active_legal_hold(tenant_kind, tenant_id)
-        mutations = self._repository.close_tenant(tenant_kind=tenant_kind, tenant_id=tenant_id, recorded_at=recorded_at, correlation_id=correlation_id)
+        mutations = self._repository.close_tenant(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            recorded_at=recorded_at,
+            correlation_id=correlation_id,
+        )
         report: dict[str, object] = {
             "policy_version": DATA_GOVERNANCE_POLICY_VERSION,
             "operation": LifecycleOperation.CLOSURE.value,
@@ -431,13 +574,46 @@ class DataGovernanceService:
             "immutable_evidence_preserved": True,
             "note": "Closure changes current master status; it does not erase historical evidence.",
         }
-        outcome = self._repository.add_lifecycle_operation(tenant_kind=tenant_kind, tenant_id=tenant_id, operation=LifecycleOperation.CLOSURE, status=LifecycleStatus.COMPLETED, request_key_digest=request_key_digest, request_hash=request_hash, actor_subject_digest=actor_subject_digest, requested_at=recorded_at, report=report)
-        self._repository.append_governance_event(tenant_kind=tenant_kind, tenant_id=tenant_id, event_type="TENANT_CLOSED", related_id=outcome.id, actor_subject_digest=actor_subject_digest, recorded_at=recorded_at, details=report)
+        outcome = self._repository.add_lifecycle_operation(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            operation=LifecycleOperation.CLOSURE,
+            status=LifecycleStatus.COMPLETED,
+            request_key_digest=request_key_digest,
+            request_hash=request_hash,
+            actor_subject_digest=actor_subject_digest,
+            requested_at=recorded_at,
+            report=report,
+        )
+        self._repository.append_governance_event(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            event_type="TENANT_CLOSED",
+            related_id=outcome.id,
+            actor_subject_digest=actor_subject_digest,
+            recorded_at=recorded_at,
+            details=report,
+        )
         return outcome
 
-    def erase_tenant(self, *, tenant_kind: TenantKind, tenant_id: UUID, request_key_digest: str, request_hash: str, actor_subject_digest: str, recorded_at: datetime) -> LifecycleOutcome:
+    def erase_tenant(
+        self,
+        *,
+        tenant_kind: TenantKind,
+        tenant_id: UUID,
+        request_key_digest: str,
+        request_hash: str,
+        actor_subject_digest: str,
+        recorded_at: datetime,
+    ) -> LifecycleOutcome:
         self._repository.lock_tenant(tenant_kind, tenant_id)
-        replay = self._replay(tenant_kind, tenant_id, LifecycleOperation.ERASURE, request_key_digest, request_hash)
+        replay = self._replay(
+            tenant_kind,
+            tenant_id,
+            LifecycleOperation.ERASURE,
+            request_key_digest,
+            request_hash,
+        )
         if replay is not None:
             return replay
         self._require_tenant(tenant_kind, tenant_id)
@@ -466,12 +642,42 @@ class DataGovernanceService:
             "immutable_evidence_preserved": True,
             "note": note,
         }
-        outcome = self._repository.add_lifecycle_operation(tenant_kind=tenant_kind, tenant_id=tenant_id, operation=LifecycleOperation.ERASURE, status=status, request_key_digest=request_key_digest, request_hash=request_hash, actor_subject_digest=actor_subject_digest, requested_at=recorded_at, report=report)
-        event_type = "TENANT_ERASURE_COMPLETED" if status is LifecycleStatus.COMPLETED else "TENANT_ERASURE_BLOCKED"
-        self._repository.append_governance_event(tenant_kind=tenant_kind, tenant_id=tenant_id, event_type=event_type, related_id=outcome.id, actor_subject_digest=actor_subject_digest, recorded_at=recorded_at, details=report)
+        outcome = self._repository.add_lifecycle_operation(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            operation=LifecycleOperation.ERASURE,
+            status=status,
+            request_key_digest=request_key_digest,
+            request_hash=request_hash,
+            actor_subject_digest=actor_subject_digest,
+            requested_at=recorded_at,
+            report=report,
+        )
+        event_type = (
+            "TENANT_ERASURE_COMPLETED"
+            if status is LifecycleStatus.COMPLETED
+            else "TENANT_ERASURE_BLOCKED"
+        )
+        self._repository.append_governance_event(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            event_type=event_type,
+            related_id=outcome.id,
+            actor_subject_digest=actor_subject_digest,
+            recorded_at=recorded_at,
+            details=report,
+        )
         return outcome
 
-    def create_legal_hold(self, *, tenant_kind: TenantKind, tenant_id: UUID, reason: str, actor_subject_digest: str, recorded_at: datetime) -> LegalHold:
+    def create_legal_hold(
+        self,
+        *,
+        tenant_kind: TenantKind,
+        tenant_id: UUID,
+        reason: str,
+        actor_subject_digest: str,
+        recorded_at: datetime,
+    ) -> LegalHold:
         self._repository.lock_tenant(tenant_kind, tenant_id)
         self._require_tenant(tenant_kind, tenant_id)
         existing = self._repository.active_legal_hold(tenant_kind, tenant_id)
@@ -479,31 +685,79 @@ class DataGovernanceService:
             if existing.reason == reason:
                 return existing
             raise EntityConflictError("tenant already has an active legal hold")
-        hold = self._repository.create_legal_hold(tenant_kind=tenant_kind, tenant_id=tenant_id, reason=reason, actor_subject_digest=actor_subject_digest, recorded_at=recorded_at)
-        self._repository.append_governance_event(tenant_kind=tenant_kind, tenant_id=tenant_id, event_type="LEGAL_HOLD_CREATED", related_id=hold.id, actor_subject_digest=actor_subject_digest, recorded_at=recorded_at, details={"hold_id": str(hold.id), "reason": reason})
+        hold = self._repository.create_legal_hold(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            reason=reason,
+            actor_subject_digest=actor_subject_digest,
+            recorded_at=recorded_at,
+        )
+        self._repository.append_governance_event(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            event_type="LEGAL_HOLD_CREATED",
+            related_id=hold.id,
+            actor_subject_digest=actor_subject_digest,
+            recorded_at=recorded_at,
+            details={"hold_id": str(hold.id), "reason": reason},
+        )
         return hold
 
-    def release_legal_hold(self, *, hold_id: UUID, reason: str, actor_subject_digest: str, recorded_at: datetime) -> LegalHold:
+    def release_legal_hold(
+        self,
+        *,
+        hold_id: UUID,
+        reason: str,
+        actor_subject_digest: str,
+        recorded_at: datetime,
+    ) -> LegalHold:
         hold = self._repository.get_legal_hold_for_update(hold_id)
         if hold is None:
             raise EntityNotFoundError("legal hold does not exist")
         self._repository.lock_tenant(hold.tenant_kind, hold.tenant_id)
         if hold.status == "released":
             return hold
-        released = self._repository.release_legal_hold(hold_id=hold_id, reason=reason, actor_subject_digest=actor_subject_digest, recorded_at=recorded_at)
-        self._repository.append_governance_event(tenant_kind=released.tenant_kind, tenant_id=released.tenant_id, event_type="LEGAL_HOLD_RELEASED", related_id=released.id, actor_subject_digest=actor_subject_digest, recorded_at=recorded_at, details={"hold_id": str(released.id), "release_reason": reason})
+        released = self._repository.release_legal_hold(
+            hold_id=hold_id,
+            reason=reason,
+            actor_subject_digest=actor_subject_digest,
+            recorded_at=recorded_at,
+        )
+        self._repository.append_governance_event(
+            tenant_kind=released.tenant_kind,
+            tenant_id=released.tenant_id,
+            event_type="LEGAL_HOLD_RELEASED",
+            related_id=released.id,
+            actor_subject_digest=actor_subject_digest,
+            recorded_at=recorded_at,
+            details={"hold_id": str(released.id), "release_reason": reason},
+        )
         return released
 
     def _require_tenant(self, tenant_kind: TenantKind, tenant_id: UUID) -> None:
         if not self._repository.tenant_exists(tenant_kind, tenant_id):
             raise EntityNotFoundError("tenant does not exist")
 
-    def _replay(self, tenant_kind: TenantKind, tenant_id: UUID, operation: LifecycleOperation, request_key_digest: str, request_hash: str) -> LifecycleOutcome | None:
-        existing = self._repository.find_lifecycle_operation(tenant_kind=tenant_kind, tenant_id=tenant_id, operation=operation, request_key_digest=request_key_digest)
+    def _replay(
+        self,
+        tenant_kind: TenantKind,
+        tenant_id: UUID,
+        operation: LifecycleOperation,
+        request_key_digest: str,
+        request_hash: str,
+    ) -> LifecycleOutcome | None:
+        existing = self._repository.find_lifecycle_operation(
+            tenant_kind=tenant_kind,
+            tenant_id=tenant_id,
+            operation=operation,
+            request_key_digest=request_key_digest,
+        )
         if existing is None:
             return None
         if existing.request_hash != request_hash:
-            raise EntityConflictError("governance idempotency key was already used with a different request")
+            raise EntityConflictError(
+                "governance idempotency key was already used with a different request"
+            )
         return existing
 
 
