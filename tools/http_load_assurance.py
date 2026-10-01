@@ -6,13 +6,13 @@ import os
 import re
 import statistics
 import time
-import urllib.error
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from http.client import HTTPConnection, HTTPException, HTTPSConnection
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 
@@ -69,25 +69,36 @@ def _execute_request(
         ).encode("utf-8")
         headers.setdefault("Content-Type", "application/json")
 
-    request = urllib.request.Request(
-        base_url.rstrip("/") + path,
-        data=body,
-        headers=headers,
-        method=method,
+    base = urlsplit(base_url)
+    if base.scheme not in {"http", "https"} or base.hostname is None:
+        raise ValueError("base URL must use http or https and include a hostname")
+    if base.username is not None or base.password is not None:
+        raise ValueError("base URL must not contain credentials")
+
+    target = (base.path.rstrip("/") + "/" + path.lstrip("/")) or "/"
+    if base.query:
+        raise ValueError("base URL must not contain a query string")
+    if base.fragment:
+        raise ValueError("base URL must not contain a fragment")
+
+    connection_type = HTTPSConnection if base.scheme == "https" else HTTPConnection
+    connection = connection_type(
+        base.hostname,
+        port=base.port,
+        timeout=timeout_seconds,
     )
     started = time.perf_counter()
     try:
-        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-            response.read()
-            status = int(response.status)
-            error = None
-    except urllib.error.HTTPError as exc:
-        exc.read()
-        status = int(exc.code)
+        connection.request(method, target, body=body, headers=headers)
+        response = connection.getresponse()
+        response.read()
+        status = int(response.status)
         error = None
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except (HTTPException, TimeoutError, OSError) as exc:
         status = 0
         error = type(exc).__name__
+    finally:
+        connection.close()
     return RequestResult(
         status=status,
         latency_seconds=time.perf_counter() - started,
