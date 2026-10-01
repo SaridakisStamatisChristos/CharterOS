@@ -10,6 +10,7 @@ from charteros.application.outbox import (
     OutboxPublisher,
     retry_delay_seconds,
 )
+from charteros.observability import get_operational_metrics
 from charteros.shared.logging import get_logger
 
 
@@ -48,6 +49,7 @@ class OutboxWorker:
         self._worker_id = worker_id
         self._config = config
         self._logger = get_logger(__name__)
+        self._metrics = get_operational_metrics()
 
     def run_once(self, *, now: datetime | None = None) -> OutboxRunResult:
         operation_time = _utc(now or datetime.now(UTC))
@@ -105,14 +107,28 @@ class OutboxWorker:
                 self._log_lease_lost(claim.envelope.event_id)
             else:
                 delivered += 1
+                self._metrics.outbox_delivery_latency(
+                    max(
+                        0.0,
+                        (operation_time - claim.envelope.recorded_at.astimezone(UTC)).total_seconds(),
+                    )
+                )
 
-        return OutboxRunResult(
+        result = OutboxRunResult(
             claimed=len(claims),
             delivered=delivered,
             retried=retried,
             poisoned=poisoned,
             lease_lost=lease_lost,
         )
+        self._metrics.outbox_result(
+            claimed=result.claimed,
+            delivered=result.delivered,
+            retried=result.retried,
+            poisoned=result.poisoned,
+            lease_lost=result.lease_lost,
+        )
+        return result
 
     def run_forever(self, stop_event: Event) -> None:
         while not stop_event.is_set():
