@@ -1,6 +1,4 @@
-ARG PYTHON_VERSION=3.13.15
-
-FROM python:${PYTHON_VERSION}-slim-bookworm AS builder
+FROM python:3.13.15-slim-bookworm@sha256:3d7f1033ff66b511e51a7c5c3e7907478048b874488b258cd98e50f59a368d67 AS builder
 
 ARG UV_VERSION=0.12.21
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -17,7 +15,7 @@ COPY charteros ./charteros
 
 RUN uv sync --frozen --no-dev --no-editable
 
-FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
+FROM python:3.13.15-slim-bookworm@sha256:3d7f1033ff66b511e51a7c5c3e7907478048b874488b258cd98e50f59a368d67 AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
