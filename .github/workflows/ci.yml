@@ -95,6 +95,25 @@ jobs:
       - name: Alembic schema drift
         run: uv run alembic check
 
+      - name: Recovery verification smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run python -m apps.recovery_verification.main \
+            --database-id ci-postgres \
+            --manifest /tmp/pr46-recovery-manifest.json
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+
+          document = json.loads(
+              Path("/tmp/pr46-recovery-manifest.json").read_text(encoding="utf-8")
+          )
+          assert document["schema_version"] == "charteros.recovery-manifest.v1"
+          assert document["ok"] is True
+          assert document["verification_read_only"] is True
+          PY
+
       - name: Resource cleanup smoke
         run: uv run python -m apps.resource_cleanup.main
 
