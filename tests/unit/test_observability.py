@@ -20,7 +20,11 @@ def test_metrics_render_prometheus_with_bounded_dimensions() -> None:
 
     document = metrics.render_prometheus()
 
-    assert 'charteros_api_requests_total{method="get",route="other",status_class="2xx"} 1' in document
+    assert (
+        'charteros_api_requests_total{method="get",route="/v1/tenders/{tender_id}",'
+        'status_class="2xx"} 1'
+        in document
+    )
     assert 'charteros_api_authorization_denials_total{reason="other"} 1' in document
     assert 'charteros_api_resource_budget_rejections_total{budget="repositioning"} 1' in document
     assert "charteros_api_in_flight_requests 0" in document
