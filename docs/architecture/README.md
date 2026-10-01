@@ -8,6 +8,17 @@ separately operable.
 This document describes the current post-PR48 architecture. Durable design details live in the
 [ADR index](../adr/README.md).
 
+## Architecture atlas
+
+For fast reviewer orientation, use these visual companion documents:
+
+- [System context and container views](system-context.md) — actors, runtime containers, canonical and
+  derived state, code-to-runtime mapping, and deployment posture.
+- [Critical flows](critical-flows.md) — award/capacity, outbox projection, ambiguous-commit recovery,
+  disaster-recovery verification, and release-provenance sequences.
+- [Authority and trust boundaries](authority-and-trust-boundaries.md) — what may mutate business
+  truth, where external input is re-verified, and how evidence strength is classified.
+
 ## Runtime topology
 
 ```mermaid
