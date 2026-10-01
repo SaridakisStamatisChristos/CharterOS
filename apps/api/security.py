@@ -14,6 +14,7 @@ from charteros.application.resource_limits import AbuseBudget
 from charteros.infrastructure.db.models.missions import MissionRow
 from charteros.infrastructure.db.models.tenders import TenderInvitationRow, TenderRow
 from charteros.infrastructure.db.repositories.abuse import SqlAlchemyRateBudgetRepository
+from charteros.observability import OperationalMetrics
 from charteros.security.auth import (
     AuthenticatedPrincipal,
     AuthenticationBackend,
@@ -28,6 +29,10 @@ from charteros.security.auth import (
 from charteros.shared.config import Settings
 
 logger = logging.getLogger(__name__)
+
+
+def _metrics(request: Request) -> OperationalMetrics:
+    return cast(OperationalMetrics, request.app.state.metrics)
 
 
 def _uuid_header(request: Request, name: str) -> UUID | None:
@@ -197,6 +202,7 @@ def _enforce_abuse_budget(
         )
     if decision.allowed:
         return
+    _metrics(request).resource_budget_rejection(budget.value)
     logger.warning(
         "api_resource_budget_exhausted",
         extra={
@@ -217,6 +223,10 @@ def _enforce_abuse_budget(
 def _deny(
     *, request: Request, principal: AuthenticatedPrincipal | None, reason: str, code: int
 ) -> Never:
+    if code == status.HTTP_401_UNAUTHORIZED:
+        _metrics(request).auth_failure(reason)
+    else:
+        _metrics(request).authorization_denial(reason)
     logger.warning(
         "authorization_denied",
         extra={
