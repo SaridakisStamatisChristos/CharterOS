@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+from time import perf_counter
 from uuid import UUID, uuid4
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from charteros.observability import OperationalMetrics
 from charteros.shared.context import bind_correlation_id, reset_correlation_id
 
 _HEADER_NAME = b"x-correlation-id"
@@ -20,6 +22,7 @@ class RequestBodyLimitMiddleware:
         max_body_bytes: int,
         max_json_depth: int,
         body_read_timeout_seconds: float,
+        metrics: OperationalMetrics | None = None,
     ) -> None:
         if max_body_bytes < 1:
             raise ValueError("max_body_bytes must be positive")
@@ -31,6 +34,7 @@ class RequestBodyLimitMiddleware:
         self._max_body_bytes = max_body_bytes
         self._max_json_depth = max_json_depth
         self._body_read_timeout_seconds = body_read_timeout_seconds
+        self._metrics = metrics
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -40,9 +44,11 @@ class RequestBodyLimitMiddleware:
         try:
             content_length = self._content_length(scope)
         except ValueError:
+            self._record_rejection("invalid_content_length")
             await self._reject(send, 400, "invalid_content_length")
             return
         if content_length is not None and content_length > self._max_body_bytes:
+            self._record_rejection("request_too_large")
             await self._reject(send, 413, "request_too_large")
             return
 
@@ -57,15 +63,18 @@ class RequestBodyLimitMiddleware:
                         continue
                     body.extend(message.get("body", b""))
                     if len(body) > self._max_body_bytes:
+                        self._record_rejection("request_too_large")
                         await self._reject(send, 413, "request_too_large")
                         return
                     if not message.get("more_body", False):
                         break
         except TimeoutError:
+            self._record_rejection("request_body_timeout")
             await self._reject(send, 408, "request_body_timeout")
             return
 
         if self._is_json(scope) and body and _json_nesting_depth(body) > self._max_json_depth:
+            self._record_rejection("request_complexity_exceeded")
             await self._reject(send, 422, "request_complexity_exceeded")
             return
 
@@ -79,6 +88,10 @@ class RequestBodyLimitMiddleware:
             return {"type": "http.disconnect"}
 
         await self.app(scope, replay_receive, send)
+
+    def _record_rejection(self, reason: str) -> None:
+        if self._metrics is not None:
+            self._metrics.api_rejection(reason)
 
     @staticmethod
     def _content_length(scope: Scope) -> int | None:
@@ -179,3 +192,40 @@ class CorrelationIdMiddleware:
             except (UnicodeDecodeError, ValueError):
                 break
         return str(uuid4())
+
+class OperationalMetricsMiddleware:
+    """Measure bounded HTTP request outcomes without high-cardinality path labels."""
+
+    def __init__(self, app: ASGIApp, *, metrics: OperationalMetrics) -> None:
+        self.app = app
+        self._metrics = metrics
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        started = perf_counter()
+        status_code = 500
+        self._metrics.api_request_started()
+
+        async def send_with_status(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = int(message["status"])
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_status)
+        finally:
+            route = scope.get("route")
+            path_template = getattr(route, "path", None)
+            bounded_route = path_template if isinstance(path_template, str) else "unmatched"
+            method = str(scope.get("method", "UNKNOWN"))
+            self._metrics.api_request_finished(
+                method=method,
+                route=bounded_route,
+                status_code=status_code,
+                duration_seconds=perf_counter() - started,
+            )
+
