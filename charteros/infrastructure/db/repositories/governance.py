@@ -378,3 +378,169 @@ class SqlAlchemyDataGovernanceRepository:
             ),
             "reconciliation_disputes": (
                 "SELECT count(*) FROM reconciliation_disputes WHERE buyer_id = :tenant_id"
+            ),
+            "reconciliation_variance_approvals": (
+                "SELECT count(*) FROM reconciliation_variance_approvals "
+                "WHERE buyer_id = :tenant_id"
+            ),
+            "disruption_buyer_decisions": (
+                "SELECT count(*) FROM disruption_buyer_decisions WHERE buyer_id = :tenant_id"
+            ),
+            "outbox_events": (
+                "SELECT count(*) FROM outbox_events WHERE aggregate_type = 'organization' "
+                "AND aggregate_id = :tenant_id"
+            ),
+        }
+        return self._counts(queries, tenant_id)
+
+    def _operator_dependency_counts(self, tenant_id: UUID) -> dict[str, int]:
+        operator = self._session.get(OperatorRow, tenant_id)
+        if operator is None:
+            raise EntityNotFoundError("tenant does not exist")
+        organization_id = operator.organization_id
+        queries = {
+            "rfqs": "SELECT count(*) FROM rfqs WHERE operator_id = :tenant_id",
+            "bookings": "SELECT count(*) FROM bookings WHERE operator_id = :tenant_id",
+            "aircraft_capacity_reservations": (
+                "SELECT count(*) FROM aircraft_capacity_reservations WHERE operator_id = :tenant_id"
+            ),
+            "contracts_operator": "SELECT count(*) FROM contracts WHERE operator_id = :tenant_id",
+            "disruption_proposals": (
+                "SELECT count(*) FROM disruption_proposals WHERE operator_id = :tenant_id"
+            ),
+            "financial_reconciliations_operator": (
+                "SELECT count(*) FROM financial_reconciliations WHERE operator_id = :tenant_id"
+            ),
+            "tender_invitations": (
+                "SELECT count(*) FROM tender_invitations WHERE operator_id = :tenant_id"
+            ),
+            "quotes": (
+                "SELECT count(*) FROM quotes q JOIN aircraft a ON a.id = q.aircraft_id "
+                "WHERE a.operator_id = :tenant_id"
+            ),
+            "aircraft_position_observations": (
+                "SELECT count(*) FROM aircraft_position_observations p "
+                "JOIN aircraft a ON a.id = p.aircraft_id WHERE a.operator_id = :tenant_id"
+            ),
+            "aircraft_availability_records": (
+                "SELECT count(*) FROM aircraft_availability_records av "
+                "JOIN aircraft a ON a.id = av.aircraft_id WHERE a.operator_id = :tenant_id"
+            ),
+            "outbox_events": (
+                "SELECT count(*) FROM outbox_events e WHERE "
+                "(e.aggregate_type = 'operator' AND e.aggregate_id = :tenant_id) OR "
+                "(e.aggregate_type = 'organization' AND e.aggregate_id = :organization_id) OR "
+                "(e.aggregate_type = 'aircraft' AND e.aggregate_id IN "
+                "(SELECT id FROM aircraft WHERE operator_id = :tenant_id))"
+            ),
+            "buyer_missions_on_operator_org": (
+                "SELECT count(*) FROM missions WHERE buyer_id = :organization_id"
+            ),
+            "buyer_approvals_on_operator_org": (
+                "SELECT count(*) FROM procurement_approvals WHERE buyer_id = :organization_id"
+            ),
+            "buyer_fx_locks_on_operator_org": (
+                "SELECT count(*) FROM fx_locks WHERE buyer_id = :organization_id"
+            ),
+            "buyer_contracts_on_operator_org": (
+                "SELECT count(*) FROM contracts WHERE buyer_id = :organization_id"
+            ),
+            "buyer_reconciliations_on_operator_org": (
+                "SELECT count(*) FROM financial_reconciliations WHERE buyer_id = :organization_id"
+            ),
+        }
+        return self._counts(queries, tenant_id, organization_id=organization_id)
+
+    def _counts(
+        self,
+        queries: dict[str, str],
+        tenant_id: UUID,
+        *,
+        organization_id: UUID | None = None,
+    ) -> dict[str, int]:
+        params = {"tenant_id": tenant_id, "organization_id": organization_id or tenant_id}
+        return {
+            name: int(self._session.execute(text(statement), params).scalar_one())
+            for name, statement in queries.items()
+        }
+
+    def _purge_derived_for_ids(self, ids: tuple[UUID, ...]) -> None:
+        for identifier in ids:
+            self._session.execute(
+                text(
+                    "DELETE FROM charter_graph_edges WHERE source_id = :id OR target_id = :id "
+                    "OR source_aggregate_id = :id"
+                ),
+                {"id": identifier},
+            )
+            self._session.execute(
+                text(
+                    "DELETE FROM charter_graph_nodes WHERE node_id = :id "
+                    "OR source_aggregate_id = :id"
+                ),
+                {"id": identifier},
+            )
+            self._session.execute(
+                text("DELETE FROM charter_graph_aggregate_cursors WHERE aggregate_id = :id"),
+                {"id": identifier},
+            )
+
+    @staticmethod
+    def _legal_hold(row: DataGovernanceLegalHoldRow) -> LegalHold:
+        return LegalHold(
+            id=row.id,
+            tenant_kind=TenantKind(row.tenant_kind),
+            tenant_id=row.tenant_id,
+            reason=row.reason,
+            status=row.status,
+            created_at=row.created_at,
+            released_at=row.released_at,
+            release_reason=row.release_reason,
+        )
+
+    @staticmethod
+    def _lifecycle(row: DataGovernanceLifecycleOperationRow) -> LifecycleOutcome:
+        return LifecycleOutcome(
+            id=row.id,
+            tenant_kind=TenantKind(row.tenant_kind),
+            tenant_id=row.tenant_id,
+            operation=LifecycleOperation(row.operation),
+            status=LifecycleStatus(row.status),
+            policy_version=row.policy_version,
+            report=row.report,
+            requested_at=row.requested_at,
+            completed_at=row.completed_at,
+            request_hash=row.request_hash,
+        )
+
+    @staticmethod
+    def _organization_record(row: OrganizationRow) -> dict[str, object]:
+        return {
+            "id": str(row.id),
+            "version": row.version,
+            "type": row.type,
+            "legal_name": row.legal_name,
+            "trading_name": row.trading_name,
+            "country": row.country,
+            "status": row.status,
+            "created_at": row.created_at.isoformat(),
+        }
+
+    @staticmethod
+    def _aircraft_record(row: AircraftRow) -> dict[str, object]:
+        cargo: Any = row.cargo_capacity
+        if isinstance(cargo, Decimal):
+            cargo = str(cargo)
+        return {
+            "id": str(row.id),
+            "version": row.version,
+            "operator_id": str(row.operator_id),
+            "registration": row.registration,
+            "aircraft_type_id": str(row.aircraft_type_id),
+            "seat_capacity": row.seat_capacity,
+            "cargo_capacity": cargo,
+            "range_nm": row.range_nm,
+            "home_base_id": str(row.home_base_id),
+            "status": row.status,
+            "created_at": row.created_at.isoformat(),
+        }
