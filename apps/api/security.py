@@ -203,6 +203,8 @@ def _enforce_abuse_budget(
     if decision.allowed:
         return
     _metrics(request).resource_budget_rejection(budget.value)
+    if budget is AbuseBudget.REPOSITIONING:
+        _metrics(request).optimizer_rejection("saturation")
     logger.warning(
         "api_resource_budget_exhausted",
         extra={
