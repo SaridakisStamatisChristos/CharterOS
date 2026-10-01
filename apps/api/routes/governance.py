@@ -247,7 +247,8 @@ def release_legal_hold(
     request: Request,
 ) -> LegalHoldResponse:
     with session.begin():
-        hold = DataGovernanceService(SqlAlchemyDataGovernanceRepository(session)).release_legal_hold(
+        repository = SqlAlchemyDataGovernanceRepository(session)
+        hold = DataGovernanceService(repository).release_legal_hold(
             hold_id=hold_id,
             reason=body.reason,
             actor_subject_digest=_actor_digest(request),
