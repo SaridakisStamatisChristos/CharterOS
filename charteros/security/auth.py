@@ -55,6 +55,9 @@ class Permission(StrEnum):
     RECONCILIATION_WRITE = "reconciliation:write"
     AUDIT_EVIDENCE_READ = "audit-evidence:read"
     TENANT_ADMIN = "tenant:admin"
+    TENANT_GOVERNANCE_READ = "tenant:governance-read"
+    TENANT_GOVERNANCE_WRITE = "tenant:governance-write"
+    TENANT_DATA_EXPORT = "tenant:data-export"
     SERVICE_OUTBOX_WORK = "service:outbox-work"
     SERVICE_GRAPH_PROJECT = "service:graph-project"
 
