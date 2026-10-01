@@ -1,0 +1,222 @@
+{
+  "schema_version": "charteros.load-plan.v1",
+  "scenarios": [
+    {
+      "name": "steady-api",
+      "purpose": "Baseline steady request throughput and API latency.",
+      "request": {
+        "method": "GET",
+        "path": "/health",
+        "expected_statuses": [
+          200
+        ]
+      },
+      "phases": [
+        {
+          "concurrency": 4,
+          "requests_per_worker": 50
+        }
+      ],
+      "post_checks": [
+        {
+          "name": "health-after-steady",
+          "method": "GET",
+          "path": "/health",
+          "expected_statuses": [
+            200
+          ]
+        },
+        {
+          "name": "readiness-after-steady",
+          "method": "GET",
+          "path": "/ready",
+          "expected_statuses": [
+            200
+          ]
+        }
+      ]
+    },
+    {
+      "name": "burst-api",
+      "purpose": "Identify bounded saturation behavior under a short burst.",
+      "request": {
+        "method": "GET",
+        "path": "/health",
+        "expected_statuses": [
+          200,
+          429,
+          503
+        ]
+      },
+      "phases": [
+        {
+          "concurrency": 8,
+          "requests_per_worker": 25
+        },
+        {
+          "concurrency": 16,
+          "requests_per_worker": 25
+        },
+        {
+          "concurrency": 32,
+          "requests_per_worker": 25
+        }
+      ],
+      "post_checks": [
+        {
+          "name": "readiness-after-burst",
+          "method": "GET",
+          "path": "/ready",
+          "expected_statuses": [
+            200
+          ]
+        }
+      ]
+    },
+    {
+      "name": "award-contention",
+      "purpose": "Concurrent awards against one prepared tender; requires staging fixture IDs.",
+      "request": {
+        "method": "POST",
+        "path": "/v1/tenders/${CHARTEROS_LOAD_TENDER_ID}/award",
+        "headers": {
+          "Authorization": "Bearer ${CHARTEROS_LOAD_ADMIN_TOKEN}",
+          "Idempotency-Key": "pr48-award-{{request_id}}"
+        },
+        "body": {
+          "quote_id": "${CHARTEROS_LOAD_QUOTE_ID}"
+        },
+        "expected_statuses": [
+          200,
+          409,
+          503
+        ]
+      },
+      "phases": [
+        {
+          "concurrency": 8,
+          "requests_per_worker": 1
+        }
+      ],
+      "post_checks": [
+        {
+          "name": "awarded-tender-remains-readable",
+          "method": "GET",
+          "path": "/v1/tenders/${CHARTEROS_LOAD_TENDER_ID}",
+          "headers": {
+            "Authorization": "Bearer ${CHARTEROS_LOAD_ADMIN_TOKEN}"
+          },
+          "expected_statuses": [
+            200
+          ]
+        }
+      ]
+    },
+    {
+      "name": "optimizer-concurrency",
+      "purpose": "Exercise optimizer concurrency and PR44 saturation bounds.",
+      "request": {
+        "method": "GET",
+        "path": "/v1/optimization/repositioning?window_start=${CHARTEROS_LOAD_WINDOW_START}&window_end=${CHARTEROS_LOAD_WINDOW_END}&evaluated_at=${CHARTEROS_LOAD_EVALUATED_AT}",
+        "headers": {
+          "Authorization": "Bearer ${CHARTEROS_LOAD_ADMIN_TOKEN}"
+        },
+        "expected_statuses": [
+          200,
+          409,
+          429,
+          503
+        ]
+      },
+      "phases": [
+        {
+          "concurrency": 4,
+          "requests_per_worker": 5
+        },
+        {
+          "concurrency": 8,
+          "requests_per_worker": 5
+        }
+      ],
+      "post_checks": [
+        {
+          "name": "optimizer-environment-ready",
+          "method": "GET",
+          "path": "/ready",
+          "expected_statuses": [
+            200
+          ]
+        }
+      ]
+    },
+    {
+      "name": "evidence-reconstruction",
+      "purpose": "Concurrent evidence reconstruction with integrity verification.",
+      "request": {
+        "method": "GET",
+        "path": "/v1/evidence/missions/${CHARTEROS_LOAD_MISSION_ID}",
+        "headers": {
+          "Authorization": "Bearer ${CHARTEROS_LOAD_ADMIN_TOKEN}",
+          "X-Buyer-Id": "${CHARTEROS_LOAD_BUYER_ID}"
+        },
+        "expected_statuses": [
+          200,
+          429,
+          503
+        ]
+      },
+      "phases": [
+        {
+          "concurrency": 4,
+          "requests_per_worker": 10
+        }
+      ],
+      "post_checks": [
+        {
+          "name": "evidence-remains-readable",
+          "method": "GET",
+          "path": "/v1/evidence/missions/${CHARTEROS_LOAD_MISSION_ID}",
+          "headers": {
+            "Authorization": "Bearer ${CHARTEROS_LOAD_ADMIN_TOKEN}",
+            "X-Buyer-Id": "${CHARTEROS_LOAD_BUYER_ID}"
+          },
+          "expected_statuses": [
+            200
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pool-pressure",
+      "purpose": "Drive concurrent DB-backed reads until checkout latency or bounded failures appear.",
+      "request": {
+        "method": "GET",
+        "path": "/ready",
+        "expected_statuses": [
+          200,
+          503
+        ]
+      },
+      "phases": [
+        {
+          "concurrency": 16,
+          "requests_per_worker": 20
+        },
+        {
+          "concurrency": 32,
+          "requests_per_worker": 20
+        }
+      ],
+      "post_checks": [
+        {
+          "name": "pool-recovers",
+          "method": "GET",
+          "path": "/ready",
+          "expected_statuses": [
+            200
+          ]
+        }
+      ]
+    }
+  ]
+}
