@@ -653,6 +653,7 @@ CharterOS currently exposes these major route families:
 | Disruptions | Booking disruption creation, proposals, requotes, decisions, resolution |
 | Reconciliation | Booking reconciliation, invoices, disputes, approvals, completion |
 | Evidence | `/v1/evidence/*` |
+| Data governance | `/v1/governance/*` — policy, legal hold, closure, erasure, tenant export |
 | FX | `/v1/fx/rates*` plus buyer FX-lock creation |
 
 For the exact schema and current endpoint inventory, run CharterOS outside production and use `/docs` or `/openapi.json`.
