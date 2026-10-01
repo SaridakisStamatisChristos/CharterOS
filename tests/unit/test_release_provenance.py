@@ -55,9 +55,7 @@ def test_release_manifest_binds_artifacts_and_detects_tampering(tmp_path: Path) 
                     "Config": {
                         "Labels": {
                             "org.opencontainers.image.revision": source_sha,
-                            "org.opencontainers.image.source": (
-                                f"https://github.com/{repository}"
-                            ),
+                            "org.opencontainers.image.source": (f"https://github.com/{repository}"),
                         }
                     },
                 }
