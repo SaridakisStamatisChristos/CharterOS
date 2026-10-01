@@ -196,9 +196,10 @@ class SqlAlchemyRecoveryVerificationRepository:
 
             child_table = reflected_table("public", child_table_name)
             parent_table = reflected_table(parent_schema, parent_table_name)
+            parent_row = parent_table.alias("recovery_parent")
             join_predicate = and_(
                 *(
-                    child_table.c[child] == parent_table.c[parent]
+                    child_table.c[child] == parent_row.c[parent]
                     for child, parent in zip(
                         child_columns,
                         parent_columns,
@@ -209,11 +210,11 @@ class SqlAlchemyRecoveryVerificationRepository:
             constrained_values_present = and_(
                 *(child_table.c[column].is_not(None) for column in child_columns)
             )
-            parent_missing = parent_table.c[parent_columns[0]].is_(None)
+            parent_missing = parent_row.c[parent_columns[0]].is_(None)
             orphan_count = int(
                 self._session.scalar(
                     select(func.count())
-                    .select_from(child_table.outerjoin(parent_table, join_predicate))
+                    .select_from(child_table.outerjoin(parent_row, join_predicate))
                     .where(constrained_values_present, parent_missing)
                 )
                 or 0
