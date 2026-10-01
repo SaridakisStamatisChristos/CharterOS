@@ -193,6 +193,7 @@ class CorrelationIdMiddleware:
                 break
         return str(uuid4())
 
+
 class OperationalMetricsMiddleware:
     """Measure bounded HTTP request outcomes without high-cardinality path labels."""
 
