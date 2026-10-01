@@ -380,6 +380,18 @@ class OperationalMetrics:
             self._histograms[key] = (buckets, counts, count, total)
 
 
+_DEFAULT_METRICS = OperationalMetrics()
+
+
+def get_operational_metrics() -> OperationalMetrics:
+    return _DEFAULT_METRICS
+
+
+def install_operational_metrics(metrics: OperationalMetrics) -> None:
+    global _DEFAULT_METRICS
+    _DEFAULT_METRICS = metrics
+
+
 def collect_persistent_metrics(
     session: Session,
     metrics: OperationalMetrics,
