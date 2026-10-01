@@ -17,8 +17,8 @@ from charteros.application.evidence import (
     EvidenceService,
     EvidenceSubjectType,
 )
-from charteros.infrastructure.db.evidence_integrity import assert_evidence_integrity
 from charteros.application.exceptions import EntityConflictError
+from charteros.infrastructure.db.evidence_integrity import assert_evidence_integrity
 from charteros.infrastructure.db.repositories.evidence import SqlAlchemyEvidenceRepository
 from charteros.observability import get_operational_metrics
 
