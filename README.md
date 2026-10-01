@@ -50,6 +50,7 @@ The result is an auditable core that can support portals, integrations, optimiza
 | Buyer procurement | Buyer-scoped sourcing, comparisons, pre-award approvals and award |
 | Operator portal | Fleet, availability, RFQ inbox, quotes, mission calendar, bookings, empty legs |
 | Booking & contract | Atomic quote award, explicit booking workflow, bilateral contract acceptance |
+| Aircraft capacity | Deterministic reservation intervals, database-enforced overlap protection, atomic release, and award-time revalidation |
 | Charter Graph | Versioned event-derived graph projection with rebuild and verification |
 | Graph queries | Bounded route, lineage, position, feasible-aircraft and empty-leg queries |
 | Repositioning | Exact deterministic deadhead/reposition optimizer with auditable economics |
