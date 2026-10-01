@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 _SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
-_ACTION_RE = re.compile(r"^\s*-\s+uses:\s+([^@\s]+)@([^\s#]+)", re.MULTILINE)
+_ACTION_RE = re.compile(r"^\s*(?:-\s+)?uses:\s+([^@\s]+)@([^\s#]+)", re.MULTILINE)
 _FROM_RE = re.compile(r"^FROM\s+(\S+)(?:\s+AS\s+\S+)?$", re.MULTILINE | re.IGNORECASE)
 
 
