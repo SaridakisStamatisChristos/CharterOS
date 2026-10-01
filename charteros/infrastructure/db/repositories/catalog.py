@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -39,6 +39,7 @@ from charteros.domain.procurement_approvals import ProcurementApproval
 from charteros.domain.quotes import Quote
 from charteros.domain.reconciliation import FinancialReconciliation
 from charteros.domain.rfqs import Rfq
+from charteros.domain.shared.exceptions import OptimisticConcurrencyError
 from charteros.domain.tenders import Tender
 from charteros.infrastructure.db.models.catalog import (
     AircraftRow,
@@ -94,6 +95,40 @@ class SqlAlchemyOrganizationRepository:
             version=row.version,
         )
 
+    def get_for_update(self, organization_id: OrganizationId) -> Organization | None:
+        row = self._session.scalar(
+            select(OrganizationRow)
+            .where(OrganizationRow.id == organization_id.value)
+            .with_for_update()
+        )
+        if row is None:
+            return None
+        return Organization(
+            OrganizationId(row.id),
+            organization_type=OrganizationType(row.type),
+            legal_name=row.legal_name,
+            trading_name=row.trading_name,
+            country=row.country,
+            status=OrganizationStatus(row.status),
+            version=row.version,
+        )
+
+    def save(self, organization: Organization, *, expected_version: int) -> None:
+        updated_id = self._session.scalar(
+            update(OrganizationRow)
+            .where(
+                OrganizationRow.id == organization.id.value,
+                OrganizationRow.version == expected_version,
+            )
+            .values(version=organization.version, status=organization.status.value)
+            .returning(OrganizationRow.id)
+        )
+        if updated_id is None:
+            raise OptimisticConcurrencyError(
+                f"expected aggregate version {expected_version} for organization {organization.id}"
+            )
+        self._session.flush()
+
 
 class SqlAlchemyOperatorRepository:
     def __init__(self, session: Session) -> None:
@@ -133,6 +168,37 @@ class SqlAlchemyOperatorRepository:
             commercial_status=CommercialStatus(row.commercial_status),
             version=row.version,
         )
+
+    def get_for_update(self, operator_id: OperatorId) -> Operator | None:
+        row = self._session.scalar(
+            select(OperatorRow).where(OperatorRow.id == operator_id.value).with_for_update()
+        )
+        if row is None:
+            return None
+        return Operator(
+            OperatorId(row.id),
+            organization_id=OrganizationId(row.organization_id),
+            aoc_reference=row.aoc_reference,
+            operating_regions=tuple(row.operating_regions),
+            verification_status=VerificationStatus(row.verification_status),
+            insurance_status=InsuranceStatus(row.insurance_status),
+            safety_documents=tuple(row.safety_documents),
+            commercial_status=CommercialStatus(row.commercial_status),
+            version=row.version,
+        )
+
+    def save(self, operator: Operator, *, expected_version: int) -> None:
+        updated_id = self._session.scalar(
+            update(OperatorRow)
+            .where(OperatorRow.id == operator.id.value, OperatorRow.version == expected_version)
+            .values(version=operator.version, commercial_status=operator.commercial_status.value)
+            .returning(OperatorRow.id)
+        )
+        if updated_id is None:
+            raise OptimisticConcurrencyError(
+                f"expected aggregate version {expected_version} for operator {operator.id}"
+            )
+        self._session.flush()
 
 
 class SqlAlchemyAirportRepository:

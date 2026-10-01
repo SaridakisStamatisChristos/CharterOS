@@ -98,3 +98,26 @@ class Organization(AggregateRoot[OrganizationId]):
             correlation_id=correlation_id,
         )
         return organization
+
+    def close_for_governance(
+        self,
+        *,
+        recorded_at: datetime,
+        correlation_id: CorrelationId,
+        policy_version: str,
+    ) -> bool:
+        if self.status is OrganizationStatus.INACTIVE:
+            return False
+        previous_status = self.status
+        self.status = OrganizationStatus.INACTIVE
+        self._record_event(
+            "ORGANIZATION_CLOSED",
+            {
+                "previous_status": previous_status.value,
+                "status": self.status.value,
+                "policy_version": policy_version,
+            },
+            recorded_at=recorded_at,
+            correlation_id=correlation_id,
+        )
+        return True

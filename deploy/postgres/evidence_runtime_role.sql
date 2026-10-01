@@ -10,3 +10,4 @@ END
 $$;
 
 SELECT charteros_apply_runtime_evidence_privileges('charteros_runtime');
+SELECT charteros_apply_runtime_governance_privileges('charteros_runtime');

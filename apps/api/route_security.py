@@ -22,6 +22,7 @@ class ResourceRequirement(StrEnum):
     TENDER_BUYER = "tender-buyer"
     INVITATION_OPERATOR = "invitation-operator"
     TENDER_INVITATION_OPERATOR = "tender-invitation-operator"
+    TENANT_PATH = "tenant-path"
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +64,28 @@ def _build_route_policies() -> dict[RouteKey, RoutePolicy]:
             if route in policies:
                 raise RuntimeError(f"duplicate route security policy: {route}")
             policies[route] = policy
+
+    add(
+        _policy(Permission.TENANT_GOVERNANCE_READ, ADMIN),
+        ("GET", "/v1/governance/policy"),
+        ("GET", "/v1/governance/tenants/{tenant_kind}/{tenant_id}/legal-holds"),
+    )
+    add(
+        _policy(Permission.TENANT_GOVERNANCE_WRITE, ADMIN),
+        ("POST", "/v1/governance/tenants/{tenant_kind}/{tenant_id}/legal-holds"),
+        ("POST", "/v1/governance/legal-holds/{hold_id}/release"),
+        ("POST", "/v1/governance/tenants/{tenant_kind}/{tenant_id}/close"),
+        ("POST", "/v1/governance/tenants/{tenant_kind}/{tenant_id}/erase"),
+    )
+    add(
+        _policy(
+            Permission.TENANT_DATA_EXPORT,
+            PARTIES,
+            resource=ResourceRequirement.TENANT_PATH,
+            abuse_budget=AbuseBudget.EVIDENCE,
+        ),
+        ("GET", "/v1/governance/tenants/{tenant_kind}/{tenant_id}/export"),
+    )
 
     add(
         _policy(Permission.CATALOG_WRITE, ADMIN),

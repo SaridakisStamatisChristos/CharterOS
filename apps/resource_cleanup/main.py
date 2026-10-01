@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from charteros.application.data_governance import assert_automated_deletion_allowed
 from charteros.infrastructure.db.engine import build_engine, build_session_factory
 from charteros.infrastructure.db.repositories.abuse import SqlAlchemyRateBudgetRepository
 from charteros.infrastructure.db.repositories.catalog import SqlAlchemyIdempotencyRepository
@@ -27,6 +28,9 @@ def cleanup_resource_state(
     if operation_time.tzinfo is None or operation_time.utcoffset() is None:
         raise ValueError("cleanup time must be timezone-aware")
     cutoff = operation_time - timedelta(days=settings.idempotency_retention_days)
+
+    assert_automated_deletion_allowed("idempotency_records")
+    assert_automated_deletion_allowed("api_rate_limit_windows")
 
     engine = build_engine(settings)
     factory = build_session_factory(engine)

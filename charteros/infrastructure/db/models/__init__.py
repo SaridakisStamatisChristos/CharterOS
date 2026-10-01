@@ -29,6 +29,11 @@ def load_models() -> None:
         AircraftPositionObservationRow,
     )
     from charteros.infrastructure.db.models.fx import FxLockConversionRow, FxLockRow, FxRateRow
+    from charteros.infrastructure.db.models.governance import (
+        DataGovernanceEventRow,
+        DataGovernanceLegalHoldRow,
+        DataGovernanceLifecycleOperationRow,
+    )
     from charteros.infrastructure.db.models.graph import (
         GraphAggregateCursorRow,
         GraphEdgeRow,
@@ -70,6 +75,9 @@ def load_models() -> None:
         DisruptionProposalRow,
         DisruptionRow,
         DecisionEvidenceSnapshotRow,
+        DataGovernanceEventRow,
+        DataGovernanceLegalHoldRow,
+        DataGovernanceLifecycleOperationRow,
         EvidenceIntegrityCheckpointRow,
         EvidenceIntegrityEntryRow,
         FinancialReconciliationRow,
