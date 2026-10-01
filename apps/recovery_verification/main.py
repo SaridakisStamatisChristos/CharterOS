@@ -5,7 +5,6 @@ import json
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NoReturn
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
@@ -237,7 +236,10 @@ def _issues(
     if evidence_violation_count:
         issues.append(f"evidence integrity violations: {evidence_violation_count}")
     if poisoned_event_count:
-        issues.append(f"poisoned outbox events require operator disposition: {poisoned_event_count}")
+        issues.append(
+            "poisoned outbox events require operator disposition: "
+            f"{poisoned_event_count}"
+        )
     if capacity_overlap_count:
         issues.append(f"active aircraft capacity overlaps: {capacity_overlap_count}")
     if orphan_count:
@@ -274,7 +276,7 @@ def _parse_timestamp(value: str) -> datetime:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
-def _json_default(value: object) -> str | NoReturn:
+def _json_default(value: object) -> str:
     if isinstance(value, datetime):
         return utc(value).isoformat().replace("+00:00", "Z")
     raise TypeError(f"cannot serialize {type(value).__name__}")
