@@ -19,14 +19,11 @@ def test_every_orm_table_has_exactly_one_data_governance_policy() -> None:
 
 
 def test_only_transient_pr44_state_allows_automated_deletion() -> None:
-    allowed = {
-        item.table for item in DATA_ASSET_POLICIES if item.automated_delete_allowed
-    }
+    allowed = {item.table for item in DATA_ASSET_POLICIES if item.automated_delete_allowed}
     assert allowed == {"idempotency_records", "api_rate_limit_windows"}
     for table in allowed:
         assert (
-            DATA_ASSET_POLICY_BY_TABLE[table].retention_action
-            is RetentionAction.POLICY_TTL_DELETE
+            DATA_ASSET_POLICY_BY_TABLE[table].retention_action is RetentionAction.POLICY_TTL_DELETE
         )
         assert_automated_deletion_allowed(table)
 
