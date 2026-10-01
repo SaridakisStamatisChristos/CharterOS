@@ -7,6 +7,7 @@ from apps.api.routes.evidence import router as evidence_router
 from apps.api.routes.fleet import router as fleet_router
 from apps.api.routes.fx import router as fx_router
 from apps.api.routes.graph_queries import router as graph_query_router
+from apps.api.routes.governance import router as governance_router
 from apps.api.routes.matching import router as matching_router
 from apps.api.routes.missions import router as mission_router
 from apps.api.routes.operator_portal import router as operator_portal_router
@@ -26,6 +27,7 @@ __all__ = [
     "fleet_router",
     "fx_router",
     "graph_query_router",
+    "governance_router",
     "matching_router",
     "mission_router",
     "operator_portal_router",
