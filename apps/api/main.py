@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -39,11 +39,20 @@ from charteros.infrastructure.db.failures import (
     DatabaseTransactionError,
     classify_database_failure,
 )
+from charteros.observability import (
+    OperationalMetrics,
+    collect_persistent_metrics,
+    install_operational_metrics,
+)
 from charteros.security.auth import AuthenticationBackend
 from charteros.shared.clock import Clock, SystemClock
 from charteros.shared.config import Settings, get_settings
 from charteros.shared.logging import configure_logging, get_logger
-from charteros.shared.middleware import CorrelationIdMiddleware, RequestBodyLimitMiddleware
+from charteros.shared.middleware import (
+    CorrelationIdMiddleware,
+    OperationalMetricsMiddleware,
+    RequestBodyLimitMiddleware,
+)
 
 
 @asynccontextmanager
@@ -67,7 +76,9 @@ def create_app(
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     configure_logging(resolved_settings)
-    engine = build_engine(resolved_settings)
+    metrics = OperationalMetrics()
+    install_operational_metrics(metrics)
+    engine = build_engine(resolved_settings, metrics=metrics)
 
     app = FastAPI(
         title="CharterOS API",
@@ -79,6 +90,7 @@ def create_app(
         swagger_ui_oauth2_redirect_url=None,
     )
     app.state.settings = resolved_settings
+    app.state.metrics = metrics
     app.state.clock = clock if clock is not None else SystemClock()
     app.state.engine = engine
     app.state.session_factory = build_session_factory(engine)
@@ -90,8 +102,10 @@ def create_app(
         max_body_bytes=resolved_settings.api_max_request_body_bytes,
         max_json_depth=resolved_settings.api_max_json_depth,
         body_read_timeout_seconds=resolved_settings.api_request_body_read_timeout_seconds,
+        metrics=metrics,
     )
     app.add_middleware(CorrelationIdMiddleware)
+    app.add_middleware(OperationalMetricsMiddleware, metrics=metrics)
 
     secured_routers = (
         catalog_router,
@@ -175,6 +189,7 @@ def create_app(
         exc: SQLAlchemyError,
     ) -> JSONResponse:
         failure = classify_database_failure(exc, phase=DatabaseFailurePhase.UNKNOWN)
+        metrics.db_connectivity_failure()
         logger = get_logger(__name__)
         logger.warning(
             "database_failure",
@@ -203,12 +218,27 @@ def create_app(
             "environment": resolved_settings.environment,
         }
 
+    @app.get("/metrics", include_in_schema=False)
+    def prometheus_metrics(request: Request) -> PlainTextResponse:
+        registry: OperationalMetrics = request.app.state.metrics
+        try:
+            with request.app.state.session_factory() as session:
+                session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+                collect_persistent_metrics(session, registry)
+        except SQLAlchemyError:
+            registry.db_connectivity_failure()
+        return PlainTextResponse(
+            registry.render_prometheus(),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
     @app.get("/ready", tags=["system"])
     def readiness(request: Request) -> JSONResponse:
         try:
             with request.app.state.engine.connect() as connection:
                 connection.execute(text("SELECT 1")).scalar_one()
         except SQLAlchemyError:
+            metrics.db_connectivity_failure()
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"status": "unavailable"},
