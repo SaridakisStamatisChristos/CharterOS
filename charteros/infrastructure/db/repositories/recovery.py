@@ -49,7 +49,9 @@ class SqlAlchemyRecoveryVerificationRepository:
         )
 
         schema_revision = self._session.scalar(text("SELECT version_num FROM alembic_version"))
-        latest_canonical_event_at = self._session.scalar(select(func.max(OutboxEventRow.recorded_at)))
+        latest_canonical_event_at = self._session.scalar(
+            select(func.max(OutboxEventRow.recorded_at))
+        )
         projected_event_count = int(
             self._session.scalar(
                 select(func.count())
