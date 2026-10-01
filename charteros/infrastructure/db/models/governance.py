@@ -150,5 +150,5 @@ class DataGovernanceEventRow(Base):
     related_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
     actor_subject_digest: Mapped[str] = mapped_column(String(64), nullable=False)
     policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
-    details: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    details: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
