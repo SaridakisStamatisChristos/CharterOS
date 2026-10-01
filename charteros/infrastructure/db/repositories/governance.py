@@ -36,7 +36,7 @@ from charteros.infrastructure.db.repositories.catalog import (
 class SqlAlchemyDataGovernanceRepository:
     """Explicit tenant lifecycle authority over canonical PostgreSQL state.
 
-    Every destructive path is dependency-aware. No FK is relaxed and no broad cascading delete is used.
+    Every destructive path is dependency-aware. No FK is relaxed and no broad cascading\n    delete is used.
     """
 
     def __init__(self, session: Session) -> None:
