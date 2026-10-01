@@ -39,8 +39,8 @@ from charteros.domain.procurement_approvals import ProcurementApproval
 from charteros.domain.quotes import Quote
 from charteros.domain.reconciliation import FinancialReconciliation
 from charteros.domain.rfqs import Rfq
-from charteros.domain.tenders import Tender
 from charteros.domain.shared.exceptions import OptimisticConcurrencyError
+from charteros.domain.tenders import Tender
 from charteros.infrastructure.db.models.catalog import (
     AircraftRow,
     AircraftTypeRow,
