@@ -191,8 +191,7 @@ class SqlAlchemyRecoveryVerificationRepository:
             parent_schema = cast(str | None, foreign_key.get("referred_schema")) or "public"
             if not child_columns or len(child_columns) != len(parent_columns):
                 raise RuntimeError(
-                    f"cannot verify malformed foreign key on {child_table_name}: "
-                    f"{foreign_key!r}"
+                    f"cannot verify malformed foreign key on {child_table_name}: {foreign_key!r}"
                 )
 
             child_table = reflected_table("public", child_table_name)
