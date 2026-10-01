@@ -110,7 +110,9 @@ class OutboxWorker:
                 self._metrics.outbox_delivery_latency(
                     max(
                         0.0,
-                        (operation_time - claim.envelope.recorded_at.astimezone(UTC)).total_seconds(),
+                        (
+                            operation_time - claim.envelope.recorded_at.astimezone(UTC)
+                        ).total_seconds(),
                     )
                 )
 
