@@ -1,7 +1,9 @@
 # CharterOS release-provenance runbook
 
-PR47 produces a signed release-evidence package for every repository-owned CI run that reaches the
-provenance job. It is release evidence, not a claim that the artifact has been deployed to production.
+PR47 introduced the signed release-evidence chain; PR48 extends the required release gate with the
+observability smoke. Every repository-owned CI run that reaches the provenance job can therefore bind
+the current quality/observability evidence to the signed release package. This is release evidence,
+not a claim that the artifact has been deployed to production.
 
 ## Release identity
 
@@ -110,7 +112,7 @@ identity for the dedicated provenance job and the attestation action uses Sigsto
 Runtime application credentials are not signing credentials. Production deployment identity must
 remain separate from release-signing identity.
 
-## What PR47 does not prove
+## What signed CI release evidence does not prove
 
 A green signed CI artifact does not prove that production deployed that exact digest, that rollback
 was exercised, or that production SLOs were met. Those require deployment and operational evidence
