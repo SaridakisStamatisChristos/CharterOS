@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from time import perf_counter
 from typing import Annotated
 from uuid import UUID
 
@@ -11,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from apps.api.dependencies import get_session
+from charteros.application.exceptions import EntityConflictError
 from charteros.application.graph_queries import GraphQueryService
 from charteros.application.repositioning import (
     MAX_QUOTED_FUTURE_LEGS,
@@ -25,6 +27,7 @@ from charteros.infrastructure.db.repositories import (
     SqlAlchemyMatchingSnapshotRepository,
     SqlAlchemyRepositionOpportunityRepository,
 )
+from charteros.observability import get_operational_metrics
 from charteros.repositioning import (
     CurrencyOptimizationPlan,
     RepositionAssignment,
@@ -187,21 +190,49 @@ def optimize_repositioning(
     empty_leg_limit: EmptyLegLimit = MAX_STRUCTURAL_EMPTY_LEGS,
     opportunity_limit: OpportunityLimit = MAX_QUOTED_FUTURE_LEGS,
 ) -> RepositionOptimizationResponse:
+    metrics = get_operational_metrics()
+    started = perf_counter()
     validate_bounded_window(
         start=window_start,
         end=window_end,
         maximum=MAX_OPTIMIZATION_WINDOW,
         name="reposition optimization window",
     )
-    with session.begin():
-        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
-        snapshot = _service(session).materialize_snapshot(
-            window_start=window_start,
-            window_end=window_end,
-            evaluated_at=evaluated_at,
-            empty_leg_limit=empty_leg_limit,
-            opportunity_limit=opportunity_limit,
+    try:
+        with session.begin():
+            session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+            snapshot = _service(session).materialize_snapshot(
+                window_start=window_start,
+                window_end=window_end,
+                evaluated_at=evaluated_at,
+                empty_leg_limit=empty_leg_limit,
+                opportunity_limit=opportunity_limit,
+            )
+        if session.in_transaction():
+            raise RuntimeError("reposition optimization must run outside the database transaction")
+        result = optimize_reposition_snapshot(snapshot)
+    except EntityConflictError as exc:
+        message = str(exc).lower()
+        reason = (
+            "incomplete_universe"
+            if "input universe is incomplete" in message
+            else "capacity_bound"
+            if "capacity" in message
+            else "conflict"
         )
-    if session.in_transaction():
-        raise RuntimeError("reposition optimization must run outside the database transaction")
-    return _response(optimize_reposition_snapshot(snapshot))
+        metrics.optimizer_rejection(reason)
+        metrics.optimizer_run(
+            candidate_count=0,
+            quoted_opportunity_count=0,
+            outcome="rejected",
+            duration_seconds=perf_counter() - started,
+        )
+        raise
+
+    metrics.optimizer_run(
+        candidate_count=len(snapshot.candidates),
+        quoted_opportunity_count=len(snapshot.opportunities),
+        outcome="success",
+        duration_seconds=perf_counter() - started,
+    )
+    return _response(result)

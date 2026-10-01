@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from time import perf_counter
 
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -32,6 +33,7 @@ from charteros.infrastructure.db.repositories.graph_verification import (
     verify_graph_projection,
 )
 from charteros.infrastructure.db.repositories.outbox import SqlAlchemyIdempotentConsumerRunner
+from charteros.observability import get_operational_metrics
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,13 +133,23 @@ class SqlAlchemyGraphProjectionStore:
     def rebuild(
         self, projection_version: int, *, now: datetime, reset_building: bool = False
     ) -> GraphVerificationReport:
+        metrics = get_operational_metrics()
+        started = perf_counter()
         when = _utc(now)
         self.prepare_version(projection_version, now=when, reset_building=reset_building)
-        for envelope in historical_graph_envelopes(self._session_factory):
-            self.consume_into_version(
-                projection_version, envelope, processed_at=envelope.recorded_at
+        try:
+            for envelope in historical_graph_envelopes(self._session_factory):
+                self.consume_into_version(
+                    projection_version, envelope, processed_at=envelope.recorded_at
+                )
+            report = self.verify(projection_version)
+        except Exception:
+            metrics.graph_operation(
+                operation="rebuild",
+                outcome="failure",
+                duration_seconds=perf_counter() - started,
             )
-        report = self.verify(projection_version)
+            raise
         if report.ok:
             with self._session_factory.begin() as session:
                 _advisory_lock(session, f"{PROJECTION_NAME}:version:{projection_version}")
@@ -150,10 +162,31 @@ class SqlAlchemyGraphProjectionStore:
                 row.state_digest = report.persisted_digest
                 row.event_count = report.event_count
                 row.verified_at = when
+        metrics.graph_operation(
+            operation="rebuild",
+            outcome="success" if report.ok else "verification_failed",
+            duration_seconds=perf_counter() - started,
+        )
         return report
 
     def verify(self, projection_version: int) -> GraphVerificationReport:
-        return verify_graph_projection(self._session_factory, projection_version)
+        metrics = get_operational_metrics()
+        started = perf_counter()
+        try:
+            report = verify_graph_projection(self._session_factory, projection_version)
+        except Exception:
+            metrics.graph_operation(
+                operation="verify",
+                outcome="failure",
+                duration_seconds=perf_counter() - started,
+            )
+            raise
+        metrics.graph_operation(
+            operation="verify",
+            outcome="success" if report.ok else "failure",
+            duration_seconds=perf_counter() - started,
+        )
+        return report
 
     def activate(self, projection_version: int, *, now: datetime, maintenance_mode: bool) -> None:
         if not maintenance_mode:

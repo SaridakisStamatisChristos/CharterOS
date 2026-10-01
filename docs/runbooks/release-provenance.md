@@ -39,7 +39,7 @@ migration head, supply-chain policy, gate markers, attestation bundles, attestat
 
 The manifest builder requires explicit pass evidence for dependency locking, supply-chain policy,
 Ruff lint/format, mypy, Bandit, pip-audit, Compose configuration, migration smoke, Alembic drift,
-recovery verification, resource cleanup, tests, PostgreSQL restart recovery, reposition benchmark,
+recovery verification, resource cleanup, observability smoke, tests, PostgreSQL restart recovery, reposition benchmark,
 application boot, secret scan, hardened-image runtime, container vulnerability scan, and SBOM
 generation.
 

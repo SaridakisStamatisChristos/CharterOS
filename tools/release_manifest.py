@@ -23,6 +23,7 @@ REQUIRED_GATES: tuple[str, ...] = (
     "alembic-drift",
     "recovery-verification",
     "resource-cleanup",
+    "observability-smoke",
     "tests",
     "postgres-restart",
     "reposition-benchmark",

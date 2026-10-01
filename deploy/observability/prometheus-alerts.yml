@@ -1,0 +1,100 @@
+groups:
+  - name: charteros-core
+    rules:
+      - alert: CharterOSApiErrorRateHigh
+        expr: |
+          sum(rate(charteros_api_requests_total{status_class="5xx"}[10m]))
+          /
+          clamp_min(sum(rate(charteros_api_requests_total[10m])), 0.001)
+          > 0.05
+        for: 10m
+        labels:
+          severity: page
+          service: charteros
+        annotations:
+          summary: CharterOS API 5xx rate is above 5%
+          runbook: docs/runbooks/production-observability.md#api-error-rate
+
+      - alert: CharterOSDatabaseConnectivityFailures
+        expr: increase(charteros_db_connectivity_failures_total[5m]) >= 3
+        for: 5m
+        labels:
+          severity: page
+          service: charteros
+        annotations:
+          summary: Repeated CharterOS database connectivity failures
+          runbook: docs/runbooks/production-observability.md#database-unavailable
+
+      - alert: CharterOSDatabasePoolSaturated
+        expr: |
+          charteros_db_pool_checked_out
+          /
+          clamp_min(charteros_db_pool_size + charteros_db_pool_overflow, 1)
+          > 0.90
+        for: 5m
+        labels:
+          severity: ticket
+          service: charteros
+        annotations:
+          summary: CharterOS database pool is above 90% utilization
+          runbook: docs/runbooks/production-observability.md#pool-saturation
+
+      - alert: CharterOSRepeatedDeadlocks
+        expr: increase(charteros_db_deadlocks_total[10m]) >= 3
+        for: 1m
+        labels:
+          severity: ticket
+          service: charteros
+        annotations:
+          summary: CharterOS observed repeated PostgreSQL deadlocks
+          runbook: docs/runbooks/production-observability.md#deadlocks-and-retry-exhaustion
+
+      - alert: CharterOSOutboxOldestPendingHigh
+        expr: charteros_outbox_oldest_pending_age_seconds > 120
+        for: 5m
+        labels:
+          severity: page
+          service: charteros
+        annotations:
+          summary: Oldest CharterOS outbox event has been pending for more than 120 seconds
+          runbook: docs/runbooks/production-observability.md#outbox-lag
+
+      - alert: CharterOSOutboxPoisoned
+        expr: charteros_outbox_events{status="poisoned"} > 0
+        for: 1m
+        labels:
+          severity: page
+          service: charteros
+        annotations:
+          summary: CharterOS has poisoned outbox events
+          runbook: docs/runbooks/production-observability.md#poisoned-outbox-event
+
+      - alert: CharterOSGraphVerificationFailure
+        expr: increase(charteros_graph_verification_failures_total[10m]) > 0
+        for: 1m
+        labels:
+          severity: page
+          service: charteros
+        annotations:
+          summary: Charter Graph verification failed
+          runbook: docs/runbooks/production-observability.md#graph-verification
+
+      - alert: CharterOSGraphProjectionLag
+        expr: charteros_graph_projection_lag_seconds > 120
+        for: 5m
+        labels:
+          severity: ticket
+          service: charteros
+        annotations:
+          summary: Charter Graph projection lag exceeds 120 seconds
+          runbook: docs/runbooks/production-observability.md#graph-lag
+
+      - alert: CharterOSEvidenceIntegrityFailure
+        expr: increase(charteros_evidence_integrity_failures_total[10m]) > 0
+        for: 1m
+        labels:
+          severity: page
+          service: charteros
+        annotations:
+          summary: CharterOS evidence integrity verification failed
+          runbook: docs/runbooks/production-observability.md#evidence-integrity

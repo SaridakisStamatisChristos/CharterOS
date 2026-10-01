@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from time import perf_counter
 from typing import Annotated
 from uuid import UUID
 
@@ -16,8 +17,10 @@ from charteros.application.evidence import (
     EvidenceService,
     EvidenceSubjectType,
 )
+from charteros.application.exceptions import EntityConflictError
 from charteros.infrastructure.db.evidence_integrity import assert_evidence_integrity
 from charteros.infrastructure.db.repositories.evidence import SqlAlchemyEvidenceRepository
+from charteros.observability import get_operational_metrics
 
 router = APIRouter(prefix="/v1/evidence", tags=["audit-evidence"])
 
@@ -59,15 +62,37 @@ def _build(
     operator_id: UUID | None,
     limit: int,
 ) -> EvidencePackageResponse:
-    with session.begin():
-        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
-        assert_evidence_integrity(session)
-        package = EvidenceService(SqlAlchemyEvidenceRepository(session)).build(
-            subject_type=subject_type,
-            subject_id=subject_id,
-            party=_party(buyer_id, operator_id),
-            event_limit=limit,
+    metrics = get_operational_metrics()
+    started = perf_counter()
+    try:
+        with session.begin():
+            session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+            try:
+                assert_evidence_integrity(session)
+            except EntityConflictError:
+                metrics.evidence_integrity_failure()
+                raise
+            package = EvidenceService(SqlAlchemyEvidenceRepository(session)).build(
+                subject_type=subject_type,
+                subject_id=subject_id,
+                party=_party(buyer_id, operator_id),
+                event_limit=limit,
+            )
+    except EntityConflictError:
+        metrics.evidence_build(
+            subject_type=subject_type.value,
+            outcome="failure",
+            completeness="unknown",
+            duration_seconds=perf_counter() - started,
         )
+        raise
+
+    metrics.evidence_build(
+        subject_type=subject_type.value,
+        outcome="success",
+        completeness=package.completeness.value,
+        duration_seconds=perf_counter() - started,
+    )
     return _response(package)
 
 
