@@ -134,7 +134,8 @@ def test_pr46_restore_verification_is_read_only_and_checks_canonical_invariants(
                 session.execute(
                     text(
                         "INSERT INTO organizations "
-                        "(id, version, type, legal_name, legal_name_key, country, status) "
+                        "(id, version, type, legal_name, legal_name_key, country, " 
+                        "status) "
                         "VALUES (:id, 1, 'buyer', 'must-not-write', 'must-not-write', 'GR', 'active')"
                     ),
                     {"id": uuid4()},
