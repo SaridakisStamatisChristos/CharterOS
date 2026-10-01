@@ -103,11 +103,11 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "char_length(request_key_digest) = 64 AND char_length(request_hash) = 64 "
             "AND char_length(actor_subject_digest) = 64",
-            name="ck_data_governance_lifecycle_digests",
+            name="ck_data_governance_lifecycle_request_digests",
         ),
         sa.CheckConstraint(
             "completed_at >= requested_at",
-            name="ck_data_governance_lifecycle_time",
+            name="ck_data_governance_lifecycle_completion_time",
         ),
     )
     op.create_index(
@@ -133,7 +133,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             "char_length(event_type) > 0",
-            name="ck_data_governance_events_type",
+            name="ck_data_governance_events_event_type",
         ),
         sa.CheckConstraint(
             "char_length(actor_subject_digest) = 64",
