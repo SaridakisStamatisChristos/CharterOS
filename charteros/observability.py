@@ -402,9 +402,7 @@ def collect_persistent_metrics(
     when = (now or datetime.now(UTC)).astimezone(UTC)
     rows = session.execute(
         select(OutboxEventRow.delivery_status, func.count())
-        .where(
-            OutboxEventRow.delivery_status.in_(("pending", "retry", "in_flight", "poisoned"))
-        )
+        .where(OutboxEventRow.delivery_status.in_(("pending", "retry", "in_flight", "poisoned")))
         .group_by(OutboxEventRow.delivery_status)
     ).all()
     outbox_counts = {str(status): int(count) for status, count in rows}
@@ -417,9 +415,7 @@ def collect_persistent_metrics(
     oldest_age = 0.0 if oldest is None else max(0.0, (when - oldest).total_seconds())
 
     active = session.scalar(
-        select(GraphProjectionVersionRow).where(
-            GraphProjectionVersionRow.active_key == "active"
-        )
+        select(GraphProjectionVersionRow).where(GraphProjectionVersionRow.active_key == "active")
     )
     active_version = active.projection_version if active is not None else None
     checkpoint = None
