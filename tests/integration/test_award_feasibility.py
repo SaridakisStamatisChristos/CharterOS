@@ -13,7 +13,7 @@ from sqlalchemy import create_engine, text
 
 from apps.api.main import create_app
 from charteros.shared.config import Settings
-from tests.integration.test_pr38_aircraft_capacity import (
+from tests.integration.test_aircraft_capacity import (
     _create_quote,
     _setup_shared_aircraft,
 )
