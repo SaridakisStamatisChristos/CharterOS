@@ -1,23 +1,16 @@
 # CharterOS architecture
 
-CharterOS is a **production-oriented modular monolith** with PostgreSQL as the canonical
-transactional system of record. The architecture keeps business transactions local and explicit
-while projection, worker, optimization, evidence, recovery, and release-assurance processes remain
-separately operable.
+CharterOS is a **production-oriented modular monolith** with PostgreSQL as the canonical transactional system of record. Business transactions remain local and explicit while projection, worker, optimization, evidence, recovery, and release-assurance processes remain separately operable.
 
-This document describes the current post-PR48 architecture. Durable design details live in the
-[ADR index](../adr/README.md).
+Durable design details live in the [ADR index](../adr/README.md).
 
 ## Architecture atlas
 
-For fast reviewer orientation, use these visual companion documents:
+For reviewer orientation:
 
-- [System context and container views](system-context.md) — actors, runtime containers, canonical and
-  derived state, code-to-runtime mapping, and deployment posture.
-- [Critical flows](critical-flows.md) — award/capacity, outbox projection, ambiguous-commit recovery,
-  disaster-recovery verification, and release-provenance sequences.
-- [Authority and trust boundaries](authority-and-trust-boundaries.md) — what may mutate business
-  truth, where external input is re-verified, and how evidence strength is classified.
+- [System context and container views](system-context.md) — actors, runtime containers, canonical and derived state, code-to-runtime mapping, and deployment posture.
+- [Critical flows](critical-flows.md) — charter procurement, award/capacity, outbox projection, ambiguous-commit recovery, disaster-recovery verification, and release provenance.
+- [Authority and trust boundaries](authority-and-trust-boundaries.md) — what may mutate business truth, where external input is re-verified, and how evidence strength is classified.
 
 ## Runtime topology
 
@@ -51,17 +44,17 @@ flowchart LR
 
 | Layer | Responsibility |
 | --- | --- |
-| `charteros/domain` | pure aggregates, value objects, invariants, exact money/time rules |
-| `charteros/application` | use-case orchestration and authority-preserving workflows |
+| `charteros/domain` | Pure aggregates, value objects, invariants, exact money/time rules |
+| `charteros/application` | Use-case orchestration and authority-preserving workflows |
 | `charteros/infrastructure` | SQLAlchemy persistence, outbox, graph storage, integrity and failure integration |
-| `charteros/security` | verified principals, permissions, OIDC/JWT verification |
-| `charteros/observability.py` | bounded-cardinality operational metrics |
+| `charteros/security` | Verified principals, permissions, OIDC/JWT verification |
+| `charteros/observability.py` | Bounded-cardinality operational metrics |
 | `apps/api` | FastAPI delivery, route security, governance/evidence/optimization surfaces |
-| `apps/outbox_worker` | leased at-least-once delivery |
-| `apps/graph_projection` | projection rebuild, verification and activation |
-| `apps/recovery_verification` | restored-database verification and recovery manifest |
-| `apps/resource_cleanup` | bounded cleanup of approved transient state |
-| `tools` | assurance, release-manifest, benchmark, boot-smoke and load-evidence tooling |
+| `apps/outbox_worker` | Leased at-least-once delivery |
+| `apps/graph_projection` | Projection rebuild, verification and activation |
+| `apps/recovery_verification` | Restored-database verification and recovery manifest |
+| `apps/resource_cleanup` | Bounded cleanup of approved transient state |
+| `tools` | Assurance, release-manifest, benchmark, boot-smoke and load-evidence tooling |
 
 ## Authority map
 
@@ -70,8 +63,8 @@ flowchart LR
 PostgreSQL owns authoritative business state:
 
 - organizations/operators and fleet/catalog state;
-- Missions, RFQs, Quotes, Tenders, approvals and Bookings;
-- Contracts, disruptions and financial reconciliation;
+- missions, RFQs, quotes, tenders, approvals and bookings;
+- contracts, disruptions and financial reconciliation;
 - FX evidence and locks;
 - aircraft capacity reservations;
 - governance lifecycle/legal-hold evidence;
@@ -91,63 +84,43 @@ The following are intentionally narrower and cannot silently become command auth
 - Prometheus metrics and alerts;
 - release/assurance manifests.
 
-The Charter Graph is rebuildable from canonical outbox history. Metrics are observations, not
-business state.
+The Charter Graph is rebuildable from canonical outbox history. Metrics are observations, not business state.
 
 ## Transaction and event reliability
 
-Authoritative mutations and their outbox events commit in one PostgreSQL transaction. Delivery is
-at-least-once with fenced leases, bounded retries, poison quarantine, stable event identity, and
-durable database-consumer receipts.
+Authoritative mutations and their outbox events commit in one PostgreSQL transaction. Delivery is at-least-once with fenced leases, bounded retries, poison quarantine, stable event identity, and durable database-consumer receipts.
 
-Transaction failure handling distinguishes execution failure, commit failure, transient retryable
-failure, and ambiguous commit. Ambiguous outcomes reconcile through durable idempotency/authority
-state instead of blindly replaying a business action.
+Transaction failure handling distinguishes execution failure, commit failure, transient retryable failure, and ambiguous commit. Ambiguous outcomes reconcile through durable idempotency/authority state instead of blindly replaying a business action.
 
 ## Aircraft commitment and award-truth chain
 
-PR38–PR42 form one integrated correctness boundary around aircraft commitment:
+Aircraft commitment is one integrated correctness boundary:
 
-1. **PR38 / ADR 0027** derives a deterministic aircraft-capacity interval and lets PostgreSQL's GiST
-   exclusion constraint arbitrate concurrent overlap.
-2. **PR39 / ADR 0028** atomically terminates eligible pre-confirmation Bookings and releases only the
-   coupled reservation.
-3. **PR40 / ADR 0029** reuses canonical `matching-v1` feasibility for same-operator disruption
-   replacement without creating a capacity hold or alternate award path.
-4. **PR41 / ADR 0030** makes global reposition optimization fail closed when the bounded input
-   universe is known to be incomplete.
-5. **PR42 / ADR 0031** revalidates the exact quoted aircraft at award time and then commits through
-   the PR38 capacity boundary.
+1. [ADR 0027](../adr/0027-aircraft-capacity-reservations.md) derives a deterministic aircraft-capacity interval and lets PostgreSQL's GiST exclusion constraint arbitrate concurrent overlap.
+2. [ADR 0028](../adr/0028-booking-termination-capacity-release.md) atomically terminates eligible pre-confirmation bookings and releases only the coupled reservation.
+3. [ADR 0029](../adr/0029-replacement-aircraft-feasibility.md) reuses canonical `matching-v1` feasibility for same-operator disruption replacement without creating a capacity hold or alternate award path.
+4. [ADR 0030](../adr/0030-reposition-optimizer-universe-completeness.md) makes global reposition optimization fail closed when the bounded input universe is known to be incomplete.
+5. [ADR 0031](../adr/0031-award-time-feasibility-truth-gate.md) revalidates the exact quoted aircraft at award time before committing through the same capacity boundary.
 
-The detailed integration map is
-[PR38–PR42 aircraft commitment hardening](../assurance/pr38-pr42-aircraft-commitment-hardening.md).
+The composed assurance map is [aircraft commitment assurance](../assurance/aircraft-commitment.md).
 
 ## Historical truth
 
-CharterOS preserves event time and knowledge time separately. Bitemporal fleet state, no-hindsight
-matching/pricing/evidence rules, immutable Quote/Tender revisions, and explicit supersession prevent
-later knowledge from silently rewriting historical decisions.
+CharterOS preserves event time and knowledge time separately. Bitemporal fleet state, no-hindsight matching/pricing/evidence rules, immutable quote/tender revisions, and explicit supersession prevent later knowledge from silently rewriting historical decisions.
 
 ## Security boundary
 
-Production authentication is asymmetric OIDC/JWT verification with deny-by-default route capability
-policy. Tenant headers are selectors, not identity.
+Production authentication is asymmetric OIDC/JWT verification with deny-by-default route capability policy. Tenant headers are selectors, not identity.
 
-General edge rate limiting belongs at trusted ingress. Application-owned expensive work uses shared
-PostgreSQL budgets and hard request/query bounds.
+General edge rate limiting belongs at trusted ingress. Application-owned expensive work uses shared PostgreSQL budgets and hard request/query bounds.
 
-`/metrics` is application-public so a monitoring plane can scrape it, but production ingress must
-restrict access to the monitoring network/identity. Metric labels are bounded and exclude tenant and
-object identifiers.
+`/metrics` is application-public so a monitoring plane can scrape it, but production ingress must restrict access to the monitoring network/identity. Metric labels are bounded and exclude tenant and object identifiers.
 
 ## Governance and evidence
 
-Commercial data governance is policy-driven and dependency-aware. Closure, erasure, legal hold,
-retention posture, and tenant export are separate concepts. Existing restrictive foreign keys and
-append-only evidence rules are not relaxed to simplify deletion.
+Commercial data governance is policy-driven and dependency-aware. Closure, erasure, legal hold, retention posture, and tenant export are separate concepts. Existing restrictive foreign keys and append-only evidence rules are not relaxed to simplify deletion.
 
-Evidence integrity is enforced in PostgreSQL and independently verifiable. Internal SHA-256 digests
-are integrity evidence, not a claim of legal signature or external notarization.
+Evidence integrity is enforced in PostgreSQL and independently verifiable. Internal SHA-256 digests are integrity evidence, not a claim of legal signature or external notarization.
 
 ## Recovery model
 
@@ -162,29 +135,21 @@ Backup/PITR creation is provider-specific. CharterOS owns the post-restore verif
 - current or rebuilt Charter Graph verification;
 - observed RTO/RPO evidence when actual timestamps are supplied.
 
-Recovery verification does not repair canonical history. Graph rebuild is explicit and never
-auto-activates a new projection.
+Recovery verification does not repair canonical history. Graph rebuild is explicit and never auto-activates a new projection.
 
 ## Release / supply-chain model
 
-The hardened container base is digest-pinned. Python dependencies are lockfile/hash/source checked.
-External GitHub Actions used by release provenance are pinned to reviewed commit SHAs.
+The hardened container base is digest-pinned. Python dependencies are lockfile/hash/source checked. External GitHub Actions used by release provenance are pinned to reviewed commit SHAs.
 
-The CI quality job has read-only repository permissions. A separate provenance job receives
-short-lived OIDC/attestation permissions and creates/verifies signed build provenance, CycloneDX SBOM
-binding, and a signed canonical release manifest.
+The CI quality job has read-only repository permissions. A separate provenance job receives short-lived OIDC/attestation permissions and creates/verifies signed build provenance, CycloneDX SBOM binding, and a signed canonical release manifest.
 
-A signed CI artifact proves source/build/evidence binding. It does not prove deployment of that exact
-digest or live production SLO attainment.
+A signed CI artifact proves source/build/evidence binding. It does not prove deployment of that exact digest or live production SLO attainment.
 
 ## Observability model
 
-PR48 adds bounded-cardinality metrics for API, database pool/transactions, award, outbox, Charter
-Graph, optimizer, and evidence paths. Persistent outbox/graph gauges are derived from PostgreSQL at
-scrape time rather than stored as a competing truth source.
+Bounded-cardinality metrics cover API, database pool/transactions, award, outbox, Charter Graph, optimizer, and evidence paths. Persistent outbox/graph gauges are derived from PostgreSQL at scrape time rather than stored as a competing truth source.
 
-Candidate SLOs, Prometheus alert rules, operator runbooks, and a reproducible load/soak harness are
-provided. Thresholds remain candidates until validated with target-environment evidence.
+Candidate SLOs, Prometheus alert rules, operator runbooks, and a reproducible load/soak harness are provided. Thresholds remain candidates until validated with target-environment evidence.
 
 ## Scaling posture
 
@@ -197,5 +162,4 @@ The modular-monolith boundary is deliberate. Scale pressure should first be hand
 - derived-state rebuildability;
 - observed load/SLO evidence.
 
-Service decomposition, Kubernetes, or new distributed authorities require measured need and an
-explicit architecture decision; they are not assumed by the current design.
+Service decomposition, Kubernetes, or new distributed authorities require measured need and an explicit architecture decision; they are not assumed by the current design.

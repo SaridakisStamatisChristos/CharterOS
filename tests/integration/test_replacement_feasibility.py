@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, text
 from apps.api.main import create_app
 from charteros.shared.config import Settings
 from tests.integration.capacity_support import seed_capacity_reference_profile
-from tests.integration.test_pr23_disruptions import _booked_operation
+from tests.integration.test_disruptions import _booked_operation
 
 
 def _settings() -> Settings:

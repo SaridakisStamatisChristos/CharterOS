@@ -2,9 +2,7 @@
 
 **Status:** candidate measurement contract, not production certification.
 
-PR48 defines what CharterOS can measure and the first thresholds to validate in staging. These
-numbers are not claims that production has achieved them. Production SLOs must be accepted only
-after a representative staging soak and then measured in the target environment.
+CharterOS defines measurable readiness signals and initial thresholds to validate in staging. These numbers are not claims that production has achieved them. Production SLOs should be accepted only after a representative staging soak and then measured in the target environment.
 
 | SLO | Candidate target | Measurement |
 | --- | --- | --- |
@@ -15,24 +13,17 @@ after a representative staging soak and then measured in the target environment.
 | Graph projection lag | < 60 s for 99% of 5-minute samples | `charteros_graph_projection_lag_seconds` |
 | Evidence generation | p95 < 5 s over 30 min | `charteros_evidence_generation_duration_seconds{outcome="success"}` |
 
-The thresholds are deliberately moderate initial candidates. They must be revised from observed
-capacity and business requirements, not tightened for presentation value.
+The thresholds are deliberately moderate initial candidates. They must be revised from observed capacity and business requirements, not tightened for presentation value.
 
 ## Error-budget interpretation
 
-A 5xx is an availability failure. Authentication/authorization denials, bounded request rejection,
-and explicit 409 business conflicts are not availability failures, but they are separately measured
-so abuse or caller mistakes cannot be hidden inside availability.
+A 5xx is an availability failure. Authentication/authorization denials, bounded request rejection, and explicit 409 business conflicts are not availability failures, but they are separately measured so abuse or caller mistakes cannot be hidden inside availability.
 
 ## Cardinality contract
 
-Metrics may label only bounded dimensions such as HTTP method, route template, status class,
-principal-denial reason, abuse budget, database failure class, award outcome, evidence subject type,
-or outbox state.
+Metrics may label only bounded dimensions such as HTTP method, route template, status class, principal-denial reason, abuse budget, database failure class, award outcome, evidence subject type, or outbox state.
 
-Never use Mission UUIDs, Booking UUIDs, tender/quote IDs, aircraft registration, tenant IDs,
-idempotency keys, JWT subjects, correlation IDs, or free-form exception text as metric labels.
-Those belong in structured logs/traces.
+Never use Mission UUIDs, Booking UUIDs, tender/quote IDs, aircraft registration, tenant IDs, idempotency keys, JWT subjects, correlation IDs, or free-form exception text as metric labels. Those belong in structured logs/traces.
 
 ## Measurement queries
 

@@ -1,19 +1,15 @@
 # Production-readiness evidence boundary
 
-PR48 closes the **code-capability** portion of the PR43-PR48 hardening roadmap. It does not create
-live-production evidence by itself.
+CharterOS includes the repository-owned **code-capability** required to measure and evaluate production readiness. Repository CI does not create live-production evidence by itself.
 
-See also [candidate SLOs](slo-definition.md), [alert matrix](alert-matrix.md),
-[load/soak plan](load-test-plan.md), and the
-[production-observability runbook](../../runbooks/production-observability.md).
+See also [candidate SLOs](slo-definition.md), [alert matrix](alert-matrix.md), [load/soak plan](load-test-plan.md), and the [production-observability runbook](../../runbooks/production-observability.md).
 
-## Code-capability evidence delivered by PR48
+## Repository-owned readiness capabilities
 
-- bounded-cardinality Prometheus exposition for API, DB pool/transactions, award, outbox, graph,
-  optimizer, and evidence paths;
+- bounded-cardinality Prometheus exposition for API, DB pool/transactions, award, outbox, graph, optimizer, and evidence paths;
 - persisted outbox/graph lag state derived from canonical PostgreSQL on scrape;
 - executable alert rules for application-owned signals;
-- runbook mappings for every required alert class;
+- runbook mappings for required alert classes;
 - candidate SLO definitions and PromQL measurement queries;
 - a reproducible HTTP load/soak harness and scenario template;
 - post-run correctness probes and result schema;
@@ -29,8 +25,6 @@ The following files are intentionally **not fabricated or committed as successfu
 - production SLO attainment reports;
 - deployment-platform restart/storage evidence.
 
-Generate those in the target environment, preserve the source SHA/release manifest identity, and
-archive them with the release evidence.
+Generate those in the target environment, preserve the source SHA/release-manifest identity, and archive them with the corresponding release evidence.
 
-A green PR48 means the repository can measure and verify these conditions. It does not mean the
-conditions have been observed in production.
+A green repository CI run demonstrates that the software can measure and verify these conditions under the tested environment. It does not mean the conditions have been observed in production.

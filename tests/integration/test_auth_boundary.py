@@ -15,7 +15,7 @@ from charteros.security.auth import (
     PrincipalType,
 )
 from charteros.shared.config import Settings
-from tests.integration.test_pr17_tenders import _setup_tender
+from tests.integration.test_tenders import _setup_tender
 
 
 class _TokenBackend:

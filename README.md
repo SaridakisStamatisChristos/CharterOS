@@ -6,931 +6,211 @@
 ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)
 ![License](https://img.shields.io/badge/license-proprietary-critical)
 
-**CharterOS is a deterministic transaction, procurement, operations, optimization, and evidence platform for B2B aviation charter.**
+**CharterOS is a deterministic, auditable operating platform for B2B aviation charter procurement and operations.**
 
-It models the charter lifecycle from buyer mission creation and supplier sourcing through RFQs, quotes, tenders, award, booking, contract, operations, disruption handling, financial reconciliation, audit evidence, and auditable FX—while keeping PostgreSQL as the canonical source of truth and making derived graph, analytical, optimization, and simulation layers explicitly non-canonical.
+It models the charter lifecycle from buyer mission creation and supplier sourcing through RFQs, quotes, tenders, award, booking, contract, operations, disruption handling, financial reconciliation, audit evidence, and auditable FX. PostgreSQL remains the canonical source of transactional truth; graph, analytics, optimization, simulation, and evidence packages have deliberately narrower authority.
 
-> **Repository status:** active development on a production-oriented modular-monolith architecture. `main` is protected by a full CI and signed-provenance chain covering supply-chain policy, static/security analysis, migrations, recovery and observability smoke checks, PostgreSQL integration tests, deterministic solver benchmarking, container hardening, vulnerability/secret scanning, CycloneDX SBOM generation, SLSA-compatible build provenance, SBOM attestation, and a signed canonical release manifest.
+## What problem it solves
 
----
+Aviation charter procurement is not only a search problem. A production-oriented system has to preserve commercial intent, supplier eligibility, aircraft continuity, bid confidentiality, exact pricing, approval authority, capacity commitment, operational changes, settlement evidence, and historical causality under concurrency and retries.
 
-## Why CharterOS exists
+CharterOS separates those concerns so that recommendation, read models, analytics, and automation cannot silently become competing sources of truth.
 
-Private aviation charter is not just a search problem. A serious B2B platform has to preserve commercial intent, supplier eligibility, aircraft continuity, bid confidentiality, exact pricing, approval authority, operational changes, settlement evidence, and historical causality under concurrency and retries.
-
-CharterOS is designed around those constraints.
-
-The system deliberately separates:
-
-- **transactional truth** from projections and analytics;
-- **event time** from system knowledge time;
-- **recommendation** from authoritative mutation;
-- **supplier pricing** from FX conversion;
-- **pre-award approval** from award;
-- **post-booking disruption decisions** from original procurement;
-- **financial reconciliation evidence** from payment settlement;
-- **synthetic simulation data** from production evidence;
-- **authentication** from caller-supplied tenant selectors.
-
-The result is an auditable core that can support portals, integrations, optimization, historical intelligence, and future automation without allowing those layers to silently become competing sources of truth.
-
----
-
-## Capabilities
+## Implemented capabilities
 
 | Area | Implemented capability |
 | --- | --- |
-| Catalog | Organizations, operators, airports, aircraft types, aircraft registration |
-| Fleet state | Bitemporal aircraft position and availability history with explicit corrections |
-| Mission lifecycle | Canonical buyer mission state with explicit lifecycle transitions |
-| Matching | Deterministic feasibility and ranking with explainable reason codes |
-| RFQ | Supplier eligibility, response deadlines, acknowledgement, decline, expiry |
-| Quotes | Immutable revision lineage, normalization, comparison, acceptance and rejection |
-| Tenders | Sealed reverse auctions, invitations, revisions, BAFO, award and admin corrections |
-| Buyer procurement | Buyer-scoped sourcing, comparisons, pre-award approvals and award |
-| Operator portal | Fleet, availability, RFQ inbox, quotes, mission calendar, bookings, empty legs |
-| Booking & contract | Atomic quote award, explicit booking workflow, bilateral contract acceptance |
-| Aircraft capacity | Deterministic reservation intervals, database-enforced overlap protection, atomic release, and award-time revalidation |
-| Charter Graph | Versioned event-derived graph projection with rebuild and verification |
-| Graph queries | Bounded route, lineage, position, feasible-aircraft and empty-leg queries |
-| Repositioning | Exact deterministic deadhead/reposition optimizer with auditable economics |
-| Market simulation | Deterministic synthetic market scenarios isolated from production truth |
-| Pricing intelligence | Read-only historical feature/outcome dataset with no-hindsight semantics |
-| Disruption management | Explicit replacement, commercial-change, buyer-decision and resolution evidence |
-| Reconciliation | Immutable invoice revisions, disputes, variance approvals and final payable |
-| Audit evidence | Deterministic evidence reconstruction with policy/version provenance |
-| FX | Bitemporal immutable rate evidence and short-lived executable buyer FX locks |
-| Security | Deny-by-default OIDC/JWT capability authorization with exhaustive route policy |
-| Abuse resistance | Bounded bodies/queries, shared expensive-work budgets, JWKS storm suppression and replay-state retention |
-| Evidence integrity | PostgreSQL-enforced immutability plus deterministic hash-chained integrity streams |
-| Event delivery | Transactional outbox, fenced leases, retry/poison handling and durable deduplication |
-| Data governance | Policy-driven legal hold, tenant closure, dependency-aware erasure and privacy-safe export |
-| Disaster recovery | Read-only restored-state verification, corruption checks, graph rebuild verification and observed RTO/RPO evidence |
-| Release provenance | Digest-pinned build inputs, signed build/SBOM attestations and signed canonical release manifest |
-| Observability | Bounded-cardinality API/DB/award/outbox/graph/optimizer/evidence metrics, alerts, candidate SLOs and load-assurance tooling |
+| Catalog | Organizations, operators, airports, aircraft types and aircraft registration |
+| Fleet state | Bitemporal position and availability history with explicit corrections |
+| Missions | Buyer mission lifecycle and deterministic supplier/aircraft matching |
+| Procurement | RFQs, immutable quote revisions, comparisons, tenders and buyer approvals |
+| Award | Atomic quote award, booking creation, aircraft-capacity reservation and award-time feasibility revalidation |
+| Contracts | Bilateral contract acceptance without rewriting original quote evidence |
+| Operations | Booking lifecycle, disruption handling and replacement-aircraft feasibility |
+| Reconciliation | Invoice revisions, disputes, variance approvals and final payable evidence |
+| FX | Immutable bitemporal rate evidence and short-lived executable buyer FX locks |
+| Charter Graph | Versioned event-derived read model with rebuild and verification |
+| Optimization | Deterministic matching and exact reposition/deadhead optimization |
+| Evidence | Deterministic evidence reconstruction and hash-chained PostgreSQL integrity streams |
+| Security | Deny-by-default OIDC/JWT capability authorization and tenant-membership enforcement |
+| Delivery | Transactional outbox with fenced leases, retry/poison handling and durable deduplication |
+| Governance | Legal hold, tenant closure, dependency-aware erasure and privacy-safe export |
+| Recovery | Read-only restored-state verification and graph rebuild verification |
+| Supply chain | Locked dependencies, hardened container checks, SBOM and signed provenance/manifest evidence |
+| Observability | Bounded-cardinality API, DB, award, outbox, graph, optimizer and evidence metrics |
 
----
+## Architecture
 
-## System architecture
-
-CharterOS remains a **modular monolith** on purpose. Business transactions stay local and explicit while worker, projection, query, optimization, simulation, and integration seams remain independently evolvable.
-
-**Architecture atlas:** [overview](docs/architecture/README.md) · [system context & containers](docs/architecture/system-context.md) · [critical flows](docs/architecture/critical-flows.md) · [authority & trust boundaries](docs/architecture/authority-and-trust-boundaries.md) · [glossary](docs/glossary.md)
+CharterOS is intentionally a **modular monolith**: authoritative business transactions stay local and explicit, while workers, projections, queries, optimization and integration seams remain independently evolvable.
 
 ```mermaid
 flowchart LR
-    C[Buyer / Operator / Admin / Service] --> API[FastAPI delivery layer]
-
+    U[Buyer / Operator / Admin / Service] --> API[FastAPI API]
     API --> AUTH[Deny-by-default auth + capability policy]
     AUTH --> APP[Application services]
-    APP --> DOMAIN[Pure domain model]
+    APP --> DOMAIN[Domain model + invariants]
 
-    DOMAIN --> PG[(PostgreSQL\nCanonical transactional state)]
-    APP --> PG
-    APP --> OUTBOX[(Transactional outbox)]
+    APP --> PG[(PostgreSQL\nCanonical authority)]
+    DOMAIN --> PG
+    APP --> OB[(Transactional outbox)]
 
-    OUTBOX --> WORKER[Outbox worker]
-    WORKER --> GRAPH[(Charter Graph projection)]
-    WORKER --> LOG[Structured event publisher]
+    OB --> WORKER[Outbox worker]
+    WORKER --> GRAPH[(Charter Graph\nDerived read model)]
+    WORKER --> EVENTS[Structured event publisher]
 
     PG --> MATCH[Deterministic matching]
     PG --> OPT[Reposition optimizer]
+    PG --> PI[Pricing intelligence]
+    PG --> EVIDENCE[Audit evidence]
     GRAPH --> GQ[Bounded graph queries]
-    PG --> PI[Historical pricing intelligence]
-    PG --> EVIDENCE[Audit evidence reconstruction]
 
     FX[Auditable FX evidence] --> APP
-    SIM[Deterministic market simulator] -. synthetic only .-> TESTS[Testbench / experimentation]
-
-    EVIDENCE --> INTEGRITY[(Evidence integrity streams)]
+    SIM[Deterministic market simulation] -. synthetic only .-> TEST[Research / testbench]
 ```
 
-### Layering
+### Core code boundaries
 
-| Layer | Responsibility |
+| Path | Responsibility |
 | --- | --- |
-| `charteros/domain` | Aggregates, value objects, invariants, exact money/time rules; no FastAPI or ORM dependency |
-| `charteros/application` | Use-case orchestration, ports, transaction-level business workflows |
-| `charteros/infrastructure` | SQLAlchemy persistence, projection storage, outbox adapters, integrity integration |
-| `apps` | FastAPI, outbox worker, graph projection CLI, pricing-intelligence CLI |
-| `charteros/matching` | Deterministic matching primitives and policy |
+| `charteros/domain` | Aggregates, value objects, invariants, exact money/time rules |
+| `charteros/application` | Use-case orchestration, ports and transactional workflows |
+| `charteros/infrastructure` | SQLAlchemy persistence, outbox, graph storage and integrity integration |
+| `charteros/matching` | Deterministic feasibility and ranking |
 | `charteros/repositioning` | Reposition economics and exact assignment solver |
-| `charteros/simulation` | Deterministic synthetic market model |
-| `charteros/pricing_intelligence` | Canonical historical dataset representation |
 | `charteros/security` | Authentication identities, permissions and OIDC/JWT verification |
-| `charteros/shared` | Configuration, clock, logging, request context and shared runtime primitives |
+| `charteros/simulation` | Deterministic synthetic market scenarios |
+| `charteros/pricing_intelligence` | Historical read-only pricing dataset construction |
+| `charteros/shared` | Configuration, clock, logging and shared runtime primitives |
+| `apps` | API, outbox worker, graph projection, cleanup, recovery and analysis CLIs |
 
-PostgreSQL is the canonical operational store. The Charter Graph, evidence packages, historical datasets, optimizer outputs, and simulator outputs have explicitly narrower authority.
+See the [architecture atlas](docs/architecture/README.md), [authority and trust boundaries](docs/architecture/authority-and-trust-boundaries.md), [critical flows](docs/architecture/critical-flows.md), and [domain glossary](docs/glossary.md).
 
----
-
-## Core procurement flow
+## Charter lifecycle
 
 ```mermaid
 flowchart LR
-    M[Mission] --> S[Supplier matching]
-    S --> R[RFQs]
-    R --> Q[Quote revisions]
-    Q --> C[Normalize + compare]
-
-    C --> A[Buyer approval]
-    A --> B[Atomic award / Booking]
-
+    M[Mission / buyer intent] --> MATCH[Deterministic matching]
+    MATCH --> RFQ[RFQs]
+    RFQ --> Q[Quote revisions]
+    Q --> CMP[Normalize + compare]
     Q --> T[Tender / reverse auction]
-    T --> B
-
-    B --> K[Contract]
-    K --> O[Booking operations]
-    O --> D[Disruption handling]
-    O --> F[Financial reconciliation]
-
-    D --> F
-    F --> E[Audit evidence]
-
-    FX[FX rate evidence + short lock] --> C
-    FX --> A
+    CMP --> APPROVAL[Buyer approval]
+    T --> APPROVAL
+    APPROVAL --> AWARD[Authoritative award\nBookingService]
+    AWARD --> CAP[Aircraft capacity reservation]
+    AWARD --> BOOK[Booking]
+    BOOK --> CONTRACT[Contract]
+    CONTRACT --> OPS[Booking operations]
+    OPS --> DISRUPT[Disruption / recovery]
+    OPS --> RECON[Financial reconciliation]
+    DISRUPT --> RECON
+    RECON --> EVIDENCE[Audit evidence]
+    FX[FX rate evidence + short lock] --> CMP
+    FX --> APPROVAL
 ```
 
 ### Authority boundaries
 
-The lifecycle is intentionally not implemented as one mutable mega-record.
-
-- A **Mission** owns buyer intent and sourcing lifecycle.
-- An **RFQ** is supplier-directed procurement evidence.
-- A **Quote** is immutable commercial revision evidence.
-- A **Tender** governs sealed multi-supplier competition where applicable.
-- A **ProcurementApproval** records a buyer decision before award; it is not award authority.
+- **Mission** owns buyer intent and sourcing lifecycle.
+- **RFQ** is supplier-directed procurement evidence.
+- **Quote** is immutable commercial revision evidence.
+- **Tender** governs sealed multi-supplier competition where applicable.
+- **ProcurementApproval** records a buyer decision before award; it is not award authority.
 - **BookingService** is the canonical award serialization boundary.
-- A **Contract** records bilateral acceptance without rewriting the original Quote.
-- A **Disruption** records post-booking operational changes without rewriting original award history.
-- **FinancialReconciliation** records invoice/dispute/variance evidence without claiming payment settlement.
-- **FxLock** records a bounded cross-currency commitment without mutating supplier Quotes.
+- **Aircraft capacity reservations** are database-enforced commitments created with award and released only through eligible booking transitions.
+- **Contract** records bilateral acceptance without rewriting the accepted quote.
+- **Disruption** records post-booking operational changes without rewriting original procurement history.
+- **FinancialReconciliation** records invoice/dispute/variance evidence; it does not claim payment settlement.
+- **Charter Graph**, optimizer output, analytics and simulation are not command authority.
 
-### Aircraft commitment hardening
-
-PR38–PR42 are one connected hardening sequence:
-
-- **PR38 / ADR 0027** — database-enforced capacity reservations prevent overlapping commitments for
-  the same aircraft.
-- **PR39 / ADR 0028** — eligible pre-confirmation Booking termination atomically releases the coupled
-  reservation.
-- **PR40 / ADR 0029** — disruption replacement reuses canonical `matching-v1` feasibility without
-  creating an alternate capacity or award authority.
-- **PR41 / ADR 0030** — reposition optimization fails closed when its bounded input universe is known
-  to be incomplete.
-- **PR42 / ADR 0031** — every award path revalidates the quoted aircraft immediately before capacity
-  commitment.
-
-See the integrated
-[PR38–PR42 hardening assurance map](docs/assurance/pr38-pr42-aircraft-commitment-hardening.md).
-
----
+The aircraft-commitment chain is documented in [aircraft commitment assurance](docs/assurance/aircraft-commitment.md).
 
 ## Design invariants
 
-### 1. PostgreSQL is authoritative
+1. **PostgreSQL is authoritative.** Derived graph, analytical and optimization state is rebuildable/advisory.
+2. **Money is exact and currency is explicit.** Core pricing uses integer minor units; FX uses controlled `Decimal` arithmetic.
+3. **Time is explicit.** Domain logic receives a `Clock`; event time, recorded time and validity intervals are distinct.
+4. **Historical decisions are no-hindsight.** Evidence learned later is not visible at an earlier knowledge cutoff.
+5. **Commercial lineage is immutable.** Revisions supersede; they do not rewrite history.
+6. **Recommendation is not mutation.** Matching and optimization cannot silently commit business state.
+7. **Ambiguity fails closed.** Missing FX, missing authorization, incomplete optimizer universes and unresolved commit outcomes do not invent success.
 
-Transactional business state lives in PostgreSQL. The Charter Graph is a rebuildable read model. Analytics, simulation, optimization, and evidence packages cannot silently become command authority.
+## Aircraft commitment and operational correctness
 
-### 2. Exact money, explicit currency
+Capacity, award and disruption handling are one composed correctness boundary:
 
-Money is represented as signed 64-bit integer minor units with explicit currency. Core pricing logic does not use floating-point money.
+- PostgreSQL exclusion constraints prevent overlapping active reservations for the same aircraft.
+- Eligible pre-confirmation booking termination releases its coupled reservation atomically.
+- Replacement-aircraft feasibility reuses canonical matching policy and remains non-authoritative for capacity commitment.
+- Reposition optimization fails closed when its bounded input universe is incomplete.
+- Every award path revalidates the exact quoted aircraft immediately before committing capacity.
 
-Cross-currency comparison is unavailable unless explicit FX evidence exists.
+See ADRs [0027](docs/adr/0027-aircraft-capacity-reservations.md), [0028](docs/adr/0028-booking-termination-capacity-release.md), [0029](docs/adr/0029-replacement-aircraft-feasibility.md), [0030](docs/adr/0030-reposition-optimizer-universe-completeness.md), and [0031](docs/adr/0031-award-time-feasibility-truth-gate.md).
 
-### 3. Time is explicit
+## Authentication and authorization
 
-CharterOS distinguishes:
+Every `/v1` route is protected by a centralized deny-by-default policy. Production authentication uses OIDC-compatible asymmetric JWT verification against configured HTTPS JWKS and validates algorithm, key ID, signature, issuer, audience, temporal claims, subject and CharterOS principal/permission claims.
 
-- `occurred_at` — when a business fact occurred;
-- `recorded_at` — when CharterOS learned/recorded it;
-- domain validity intervals;
-- decision/evaluation cutoffs.
+`X-Buyer-Id` and `X-Operator-Id` are selectors, not authentication. A verified token may select only signed memberships unless an administrator has explicit tenant-administration capability.
 
-Domain code does not read the system wall clock directly. Temporal authority is passed explicitly through the shared `Clock` boundary.
+Public runtime endpoints are `GET /health`, `GET /ready`, and `GET /metrics`. Production disables API docs/OpenAPI. If OIDC configuration is absent, protected routes fail closed.
 
-Naive datetimes fail closed; accepted timestamps are UTC-aware.
+For local authenticated evaluation without weakening the runtime boundary, see [EVALUATION.md](EVALUATION.md).
 
-### 4. No hindsight
+## Deterministic optimization
 
-Historical decisions do not see evidence learned later.
+Matching produces explainable feasibility/ranking evidence rather than opaque learned authority. The reposition optimizer evaluates continuity-adjusted economics with deterministic tie semantics and does not auto-book.
 
-Examples include aircraft position lookup, matching snapshots, pricing-intelligence features, graph knowledge cutoffs, and FX-rate resolution. Historical event time alone is insufficient if the system did not know the fact at the decision cutoff.
+The currently validated application/API envelope is 100 structural empty legs, 2,000 quoted future legs and approximately 200,000 dense candidate edges. Larger workloads are unvalidated rather than declared impossible. See [ADR 0018](docs/adr/0018-repositioning-deadhead-optimizer.md).
 
-### 5. Immutable commercial lineage
+## Event delivery and Charter Graph
 
-Quote revisions, tender bid revisions, disruption proposals, commercial changes, operator invoices, FX rate corrections, and decision evidence retain explicit supersession/lineage instead of rewriting history.
+Domain mutations append canonical events in the same PostgreSQL transaction as business state. The outbox provides at-least-once delivery using stable event identity, aggregate-version causality, fenced leases, deterministic retries, poison quarantine and durable receipts.
 
-### 6. Recommendation is not mutation
-
-Matching and repositioning produce deterministic decision support. The reposition optimizer does not auto-book or silently mutate procurement state.
-
-### 7. Fail closed on ambiguity
-
-CharterOS prefers explicit failure over invented state:
-
-- no hidden FX;
-- no reciprocal-rate inference;
-- no FX triangulation;
-- no graph-as-authority shortcut;
-- no missing Tender capability bypass;
-- no stale approval award;
-- no historical evidence gaps silently skipped;
-- no unconfigured protected API route.
-
----
-
-## Deterministic matching and reposition optimization
-
-### Matching
-
-The matching layer performs deterministic aircraft/supplier feasibility and ranking using canonical Mission, fleet, operator, aircraft, position, availability, and reference-profile evidence.
-
-The output is explainable and includes feasibility/ranking evidence rather than an opaque learned score. Machine learning is not part of the production matching authority.
-
-### Repositioning / deadhead optimizer
-
-The reposition optimizer evaluates whether a structural empty-leg window can profitably contain one quoted revenue mission while preserving aircraft continuity.
-
-It evaluates:
-
-- previous revenue-flight timing;
-- aircraft availability;
-- baseline direct reposition feasibility;
-- pre-reposition;
-- candidate revenue leg;
-- post-reposition;
-- turnaround buffers;
-- aircraft/operator eligibility;
-- exact operating-cost economics;
-- quote revenue and pricing-confidence evidence.
-
-The current `reposition-v2` policy uses an **exact shortest-augmenting-path Hungarian assignment** with deterministic canonical tie semantics. The objective remains continuity-adjusted margin; tie handling cannot override the documented economic objective.
-
-### Validated capacity envelope
-
-Current application and API contracts deliberately enforce:
-
-| Dimension | Validated bound |
-| --- | ---: |
-| Structural empty legs | **100** |
-| Quoted future legs | **2,000** |
-| Approximate dense candidate edges | **200,000** |
-
-The canonical final tie-break uses mixed-radix lexicographic encoding whose integer width grows approximately as:
-
-```text
-(R + 1)^L
-```
-
-where `L` is the structural empty-leg count and `R` is the right-side Mission count.
-
-A workload above 100 structural empty legs is **unvalidated**, not declared mathematically invalid. Raising the cap requires new benchmark evidence; CI contains a deterministic solver benchmark rather than a flaky hosted-runner latency threshold.
-
-See [ADR 0018](docs/adr/0018-repositioning-deadhead-optimizer.md).
-
----
-
-## Event model and transactional outbox
-
-Domain mutations emit immutable canonical events in the same PostgreSQL transaction as business state.
-
-The outbox provides **at-least-once delivery** with:
-
-- stable event IDs;
-- aggregate type / aggregate ID / aggregate version causality;
-- `SELECT ... FOR UPDATE SKIP LOCKED` claiming;
-- lease owner + UUID fencing token;
-- lease expiry and crash recovery;
-- deterministic capped exponential retry;
-- poison quarantine;
-- explicit poison requeue;
-- lifetime and current-cycle attempt counters;
-- durable consumer receipts;
-- PostgreSQL advisory locking for idempotent database consumers.
-
-CharterOS does **not** claim generic exactly-once external side effects. Consumers must honor stable event identity.
-
-Ordering authority is per aggregate, not a fictional global timestamp order. Causal continuity is:
-
-```text
-aggregate_type + aggregate_id + aggregate_version
-```
-
-The regression suite explicitly covers reversed delivery, gaps, worker races, worker crashes before/after projection commit, poison/requeue convergence, delayed duplicates, and full projection rebuild convergence.
-
----
-
-## Charter Graph
-
-The Charter Graph is a versioned, event-derived read model stored in PostgreSQL.
-
-It projects aviation/procurement relationships such as:
-
-- operator → aircraft;
-- aircraft → home base;
-- aircraft → position history;
-- mission → origin/destination;
-- mission → RFQs;
-- RFQ → operator / Quotes;
-- Quote → aircraft;
-- Quote supersession;
-- Mission → Booking;
-- Booking → accepted Quote / operator / aircraft.
-
-### Projection lifecycle
-
-```text
-building -> verified -> active -> retired
-```
-
-Projection changes require a version. Rebuilds never overwrite the active projection.
-
-Verification independently reconstructs expected state from immutable event history and checks:
-
-- projected event count;
-- durable consumer receipts;
-- aggregate cursor continuity;
-- nodes and edges;
-- edge endpoints;
-- checkpoint state;
-- deterministic graph digest.
-
-Operational commands:
+The Charter Graph is a versioned PostgreSQL-backed read model. Rebuild verification independently reconstructs expected state from immutable event history and compares event counts, cursors, nodes/edges and a deterministic digest. Rebuilds never silently replace canonical business state.
 
 ```bash
 make graph-status
 make graph-rebuild
 make graph-verify
-
-# Direct CLI equivalents
-python -m apps.graph_projection.main status
-python -m apps.graph_projection.main rebuild --target-version 1
-python -m apps.graph_projection.main verify --version 1
-python -m apps.graph_projection.main activate --version 1 --maintenance-mode
 ```
-
-Activation requires explicit maintenance mode because the final pointer switch assumes writers/workers are quiesced.
-
----
-
-## Bitemporal fleet state and no-hindsight queries
-
-Aircraft position and availability are historical evidence rather than lossy “current state” fields.
-
-Fleet reads support:
-
-- position observations with event and recording time;
-- availability intervals;
-- explicit correction via supersession;
-- half-open temporal semantics;
-- `known_as_of` knowledge cutoffs;
-- historical state reconstruction.
-
-The same temporal discipline is reused by matching, operator views, pricing intelligence, disruption recovery, graph queries, and FX.
-
----
-
-## Tender / reverse auction
-
-Tender procurement supports:
-
-- explicit open/deadline window;
-- supplier invitations;
-- acceptance/decline;
-- initial bids;
-- immutable bid revisions;
-- optional best-and-final round;
-- bid withdrawal;
-- closing;
-- award;
-- append-only administrative corrections.
-
-Supplier-side changes at or after the authoritative deadline fail closed.
-
-Sealed Tender evidence is intentionally protected from generic Quote, analytics, audit, and portal surfaces while the confidentiality window is active.
-
-Tender workflows reuse the existing Mission/RFQ/Quote/Booking authorities rather than creating a second procurement engine.
-
----
-
-## Buyer and operator portals
-
-CharterOS exposes scoped workflow composition surfaces rather than portal-specific duplicate databases.
-
-### Buyer portal
-
-Representative operations:
-
-- create/open Mission;
-- deterministic supplier search;
-- issue/read RFQs;
-- compare current Quotes;
-- create short-lived FX locks;
-- approve an immutable Quote revision;
-- award through canonical Booking authority;
-- retrieve resulting Booking;
-- inspect bounded procurement event metadata.
-
-### Operator portal
-
-Representative operations:
-
-- fleet list/detail/creation;
-- bitemporal availability;
-- RFQ inbox/detail;
-- acknowledgement/decline;
-- Quote submit/revise/withdraw;
-- own-Quote access under sealed Tender rules;
-- mission calendar;
-- booking list/detail;
-- structural and optimized empty-leg visibility.
-
-Portal contexts are authorization scopes, not alternate domain authority.
-
----
-
-## Disruption management
-
-CharterOS models post-booking disruption as explicit evidence rather than editing the original award.
-
-Supported disruption categories include delay, aircraft unavailable, crew unavailable, airport restriction, technical, weather, and other.
-
-A Disruption can preserve:
-
-- immutable replacement/remediation proposal revisions;
-- canonical aircraft/operator version evidence;
-- bitemporal availability evidence;
-- immutable commercial-change revisions;
-- buyer approval/rejection bound to exact evidence;
-- terminal resolution with observed Booking state.
-
-The original accepted Quote and Booking lineage remain intact.
-
-Cross-operator recovery is deliberately not smuggled through the disruption workflow as a second award path.
-
----
-
-## Financial reconciliation
-
-A completed Booking may enter one canonical FinancialReconciliation.
-
-The model preserves:
-
-- immutable booked commercial reference;
-- immutable operator invoice revisions;
-- invoice line items;
-- exact invoice totals;
-- exact variance;
-- disputes tied to the current invoice revision;
-- variance approvals;
-- final payable;
-- atomic transition of the Booking to reconciled state.
-
-CharterOS does **not** claim to move money, settle payment rails, or post an accounting ledger. `final_payable` is reconciliation evidence.
-
----
-
-## Auditable FX
-
-Supplier Quotes remain canonical in their original currency.
-
-FX is a separate evidence layer with two concepts:
-
-### `FxRateObservation`
-
-Immutable directional rate evidence with:
-
-- source and target currency;
-- exact decimal rate string;
-- minor-unit exponents;
-- source identity;
-- market/effective timestamp;
-- recorded timestamp;
-- append-only correction lineage.
-
-No reciprocal-rate inference and no triangulation are performed.
-
-### `FxLock`
-
-A short-lived executable buyer commitment containing the exact:
-
-- buyer and Mission;
-- eligible immutable Quote revisions;
-- original normalized totals;
-- rate evidence IDs;
-- converted totals;
-- global score/rank;
-- policy versions;
-- deterministic digest;
-- lock and expiry timestamps;
-- consumption evidence.
-
-Current policy uses a **30-second half-open lock window**.
-
-Conversion uses `Decimal` under controlled precision and rounds only at the target minor-unit boundary. No floating-point FX math is allowed.
-
-The lock is consumed at approval; later market changes do not rewrite historical approval evidence.
-
----
-
-## Audit evidence and database-enforced integrity
-
-### Evidence reconstruction
-
-The `audit-evidence-v1` layer reconstructs bounded evidence packages for Missions, Bookings, Disruptions, and Financial Reconciliations.
-
-Packages contain curated facts, canonical source references, policy/version identifiers, event lineage, decision snapshots, and a deterministic SHA-256 content digest.
-
-Evidence reads execute under `REPEATABLE READ, READ ONLY`.
-
-The digest is reproducibility/tamper-detection evidence—not a digital signature, external timestamp, or notarization claim.
-
-### PostgreSQL integrity boundary
-
-PR28 hardening moves important evidence immutability below the ORM layer.
-
-Protected evidence uses:
-
-- runtime privilege separation;
-- append-only tables where appropriate;
-- `ENABLE ALWAYS` mutation guards for immutable fields;
-- delete rejection;
-- deterministic `evidence_integrity_entries` streams;
-- per-stream advisory locks;
-- monotonic sequence;
-- previous-digest linkage;
-- SHA-256 integrity digest;
-- optional internal checkpoints;
-- source-row verification.
-
-Production application/worker identities should use the non-owner runtime role configured via `CHARTEROS_DATABASE_RUNTIME_ROLE`. The schema owner remains reserved for migrations, controlled recovery, and forensic operations.
-
-See [database-enforced evidence integrity](docs/evidence-integrity.md).
-
----
-
-## Authentication and authorization
-
-Every `/v1` route is protected by a centralized **deny-by-default** policy.
-
-Production authentication uses OIDC-compatible asymmetric JWT verification against configured JWKS.
-
-Validation includes:
-
-- allowed asymmetric algorithm;
-- `kid`;
-- cryptographic signature;
-- issuer;
-- audience;
-- `exp`;
-- `iat`;
-- `nbf` when present;
-- `sub`;
-- CharterOS principal/permission claims.
-
-`alg=none` and symmetric HMAC authentication are rejected.
-
-### Principal types
-
-- buyer
-- operator
-- administrator
-- service
-
-### Tenant selectors
-
-`X-Buyer-Id` and `X-Operator-Id` are **selectors only**. They do not authenticate the caller.
-
-A verified token can select only memberships present in its signed claims unless an administrator also has the explicit `tenant:admin` capability.
-
-### Exhaustive route policy
-
-`apps/api/route_security.py::ROUTE_POLICIES` is the authoritative protected-route inventory.
-
-Tests compare it with the actual FastAPI `/v1` routes. Adding a protected route without an explicit policy fails CI.
-
-### Public runtime endpoints
-
-- `GET /health` — process health metadata;
-- `GET /ready` — PostgreSQL readiness;
-- `GET /metrics` — aggregate Prometheus-format operational metrics.
-
-`/metrics` is application-public so a monitoring plane can scrape it, but production ingress must
-restrict it to the monitoring network or monitoring identity. Metric labels are bounded and exclude
-tenant/object identifiers and other high-cardinality identity data.
-
-In non-production environments, `/docs` and `/openapi.json` are enabled. Production disables both.
-
-If OIDC configuration is absent, the protected API fails closed. There is no production header or environment-variable authentication bypass.
-
-See [authentication and authorization](docs/authentication-authorization.md).
-
----
-
-## API abuse and resource bounds
-
-CharterOS separates **general edge rate limiting** from **application-owned computation bounds**.
-
-Staging and production require trusted ingress/API-gateway rate limiting for general and anonymous traffic. The application does not pretend a process-local counter would be correct across replicas.
-
-Inside CharterOS, PostgreSQL-backed fixed-window budgets are shared across API replicas for matching, reposition optimization / optimized empty-leg visibility, evidence reconstruction, and Charter Graph queries. Budget identity is SHA-256-derived from the verified principal plus validated tenant selector; raw principal/tenant identifiers are not persisted in the limiter table.
-
-Additional hard bounds include:
-
-- 1 MiB default request body;
-- JSON nesting depth 32;
-- 10-second request-body receive timeout;
-- bounded Pydantic collection counts and item lengths;
-- 366-day fleet/calendar query windows;
-- 31-day optimization/empty-leg windows;
-- JWKS document/key/refresh bounds and short unknown-key negative caching;
-- 256 KiB database-enforced idempotency response storage;
-- 90-day default idempotency replay-retention policy with bounded cleanup batches.
-
-See [ADR 0033](docs/adr/0033-api-abuse-resource-bounds.md).
-
----
-
-## API surfaces
-
-CharterOS currently exposes these major route families:
-
-| Surface | Prefix / representative routes |
-| --- | --- |
-| Catalog | `/v1/organizations`, `/v1/operators`, `/v1/airports`, `/v1/aircraft` |
-| Fleet timeline | `/v1/aircraft/{id}/positions`, `/availability`, `/timeline` |
-| Missions | `/v1/missions/*` |
-| Matching | `/v1/missions/{id}/matches` |
-| RFQs | `/v1/missions/{id}/rfqs`, `/v1/rfqs/*` |
-| Quotes | `/v1/rfqs/{id}/quotes`, `/v1/quotes/*`, Mission comparison |
-| Bookings | Quote acceptance plus explicit Booking lifecycle transitions |
-| Contracts | Booking contract creation and bilateral acceptance |
-| Tenders | `/v1/tenders/*` and `/v1/tender-invitations/*` |
-| Charter Graph | `/v1/graph/*` |
-| Repositioning | `GET /v1/optimization/repositioning` |
-| Buyer portal | `/v1/buyer-portal/*` |
-| Operator portal | `/v1/operator-portal/*` |
-| Disruptions | Booking disruption creation, proposals, requotes, decisions, resolution |
-| Reconciliation | Booking reconciliation, invoices, disputes, approvals, completion |
-| Evidence | `/v1/evidence/*` |
-| Data governance | `/v1/governance/*` — policy, legal hold, closure, erasure, tenant export |
-| FX | `/v1/fx/rates*` plus buyer FX-lock creation |
-
-For the exact schema and current endpoint inventory, run CharterOS outside production and use `/docs` or `/openapi.json`.
-
----
-
-## Deterministic simulation and historical intelligence
-
-### Market simulator
-
-`charteros.simulation` provides `market-sim-v1` deterministic synthetic scenarios.
-
-Random-looking choices are derived from SHA-256-addressed semantic labels rather than process-global RNG order. The same policy, seed, and configuration/reference state produce the same scenario.
-
-Simulation output is explicitly marked synthetic and never writes canonical Mission, Quote, Booking, Tender, outbox, or Charter Graph state.
-
-### Pricing intelligence
-
-The historical pricing builder creates `pricing-dataset-v1` from canonical PostgreSQL history.
-
-Features include route, aircraft category, lead time, weekday/season, operator, quote-time aircraft position, quote revision, normalized totals, pricing confidence, and later outcome labels.
-
-Important constraints:
-
-- quote-time features are separated from later labels;
-- no-hindsight position rules are enforced;
-- Quote normalization is reused rather than reimplemented;
-- active sealed-Tender evidence is excluded;
-- multi-currency datasets remain globally incomparable without FX;
-- source reads use `REPEATABLE READ, READ ONLY`;
-- v1 is bounded to 5,000 rows and a 3,660-day source window.
-
-Example:
-
-```bash
-python -m apps.pricing_intelligence.main \
-  --window-start 2026-01-01T00:00:00+00:00 \
-  --window-end 2026-02-01T00:00:00+00:00 \
-  --limit 1000
-```
-
----
 
 ## Quick start
 
 ### Requirements
 
-- Python **3.13+**
-- PostgreSQL **17** recommended
+- Python 3.13+
+- PostgreSQL 17 recommended
 - Docker + Docker Compose
 - GNU Make optional
-- `uv 0.12.21` for the repository's pinned workflow
-
-### 1. Configure
+- `uv 0.12.21` for the pinned repository workflow
 
 ```bash
 cp .env.example .env
-```
-
-Replace the development PostgreSQL password in `.env`. Never use the example password in a real deployment.
-
-### 2. Install
-
-```bash
 python -m pip install "uv==0.12.21"
 uv sync --frozen --extra dev
-```
-
-### 3. Start PostgreSQL
-
-```bash
 docker compose up -d postgres
-```
-
-### 4. Apply migrations
-
-```bash
 uv run alembic upgrade head
-```
-
-### 5. Run the API
-
-```bash
 uv run python -m apps.api
 ```
 
-Then:
+Development endpoints:
 
-- health: `http://127.0.0.1:8000/health`
-- readiness: `http://127.0.0.1:8000/ready`
-- development docs: `http://127.0.0.1:8000/docs`
+- `http://127.0.0.1:8000/health`
+- `http://127.0.0.1:8000/ready`
+- `http://127.0.0.1:8000/docs`
 
-Protected `/v1` routes require a valid configured OIDC/JWT identity. With no OIDC configuration, the protected API intentionally rejects requests.
+Protected `/v1` routes require configured OIDC/JWT identity. The [local evaluation kit](EVALUATION.md) generates an ephemeral loopback HTTPS identity service and short-lived test tokens while exercising the real authentication path.
 
-### Docker Compose runtime
-
-After migrations:
+After migrations, the hardened Compose services can be started with:
 
 ```bash
 docker compose up --build api outbox-worker
 ```
 
-The Compose services run with a read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`, and a bounded `/tmp` tmpfs.
+## Testing and release evidence
 
----
-
-## Configuration
-
-Runtime settings use the `CHARTEROS_` prefix.
-
-Important settings include:
-
-| Setting | Purpose |
-| --- | --- |
-| `CHARTEROS_DATABASE_URL` | Required PostgreSQL SQLAlchemy URL |
-| `CHARTEROS_DATABASE_RUNTIME_ROLE` | Optional non-owner runtime role |
-| `CHARTEROS_DATABASE_POOL_SIZE` | Bounded persistent connection pool size |
-| `CHARTEROS_DATABASE_MAX_OVERFLOW` | Bounded overflow connections |
-| `CHARTEROS_DATABASE_POOL_TIMEOUT_SECONDS` | Maximum pool checkout wait |
-| `CHARTEROS_DATABASE_POOL_RECYCLE_SECONDS` | Connection recycle interval |
-| `CHARTEROS_DATABASE_CONNECT_TIMEOUT_SECONDS` | PostgreSQL connect timeout |
-| `CHARTEROS_ENVIRONMENT` | development / test / staging / production |
-| `CHARTEROS_API_HOST` / `PORT` | API bind configuration |
-| `CHARTEROS_API_MAX_REQUEST_BODY_BYTES` | Maximum buffered request body |
-| `CHARTEROS_API_MAX_JSON_DEPTH` | Maximum JSON object/array nesting |
-| `CHARTEROS_API_REQUEST_BODY_READ_TIMEOUT_SECONDS` | Pre-route body receive timeout |
-| `CHARTEROS_TRUSTED_INGRESS_RATE_LIMIT_ENFORCED` | Required staging/production ingress contract |
-| `CHARTEROS_API_*_REQUESTS_PER_WINDOW` | Shared expensive-work request budgets |
-| `CHARTEROS_AUTH_ISSUER` | OIDC issuer |
-| `CHARTEROS_AUTH_AUDIENCE` | OIDC audience |
-| `CHARTEROS_AUTH_JWKS_URL` | JWKS endpoint |
-| `CHARTEROS_AUTH_ALLOWED_ALGORITHMS` | Allowed asymmetric JWT algorithms |
-| `CHARTEROS_AUTH_JWKS_MAX_DOCUMENT_BYTES` | Maximum JWKS document size |
-| `CHARTEROS_AUTH_JWKS_REFRESH_MIN_INTERVAL_SECONDS` | Refresh-storm suppression interval |
-| `CHARTEROS_IDEMPOTENCY_RETENTION_DAYS` | Replay-record retention contract |
-| `CHARTEROS_IDEMPOTENCY_CLEANUP_BATCH_SIZE` | Bounded cleanup work per invocation |
-| `CHARTEROS_OUTBOX_BATCH_SIZE` | Worker claim batch |
-| `CHARTEROS_OUTBOX_LEASE_SECONDS` | Delivery lease duration |
-| `CHARTEROS_OUTBOX_MAX_ATTEMPTS` | Retry budget |
-| `CHARTEROS_OUTBOX_BACKOFF_*` | Deterministic retry policy |
-
-Staging and production require the complete issuer/audience/JWKS tuple and explicit trusted-ingress rate-limit enforcement. Production rejects DEBUG logging and known development database passwords.
-
-See [.env.example](.env.example).
-
----
-
-## Operational processes
-
-### Outbox worker
-
-```bash
-make outbox-worker
-make outbox-worker-once
-
-# Requeue one explicitly poisoned event
-python -m apps.outbox_worker.main --requeue-poison <event-uuid> --once
-```
-
-The worker publishes into the active Charter Graph projection and the structured JSON event publisher through one composite publisher boundary.
-
-### Charter Graph
-
-```bash
-make graph-status
-make graph-rebuild
-make graph-verify
-```
-
-### Replay / abuse transient-state cleanup
-
-Run one bounded cleanup batch:
-
-```bash
-make resource-cleanup
-# or
-python -m apps.resource_cleanup.main
-```
-
-Schedule repeated invocations externally. The command deletes only expired idempotency replay records and transient API rate-window rows; it does not delete authoritative business/evidence data.
-
-### Database runtime role
-
-After schema migration, provision/apply the restricted runtime role using:
-
-```text
-deploy/postgres/evidence_runtime_role.sql
-```
-
-Do not run ordinary application traffic as the schema owner or PostgreSQL superuser.
-
-### Commercial data governance
-
-The governance API supports policy inspection, legal holds, idempotent tenant closure,
-dependency-aware erasure, and bounded evidence-verified tenant export.
-
-See the [data-governance runbook](docs/runbooks/data-governance.md) and
-[data classification](docs/assurance/data-governance-classification.md).
-
-### Disaster recovery
-
-Post-restore verification is repository-owned; provider-specific backup/PITR creation is not.
-
-```bash
-uv run python -m apps.recovery_verification.main \
-  --database-id <recovery-environment-id> \
-  --manifest recovery-manifest.json
-```
-
-See the [disaster-recovery runbook](docs/runbooks/disaster-recovery.md).
-
-### Release provenance and supply chain
-
-CI binds the source SHA, dependency lock, supply-chain policy, container archive, CycloneDX SBOM,
-quality-gate evidence, build provenance, SBOM attestation, and canonical release manifest.
-
-See the [release-provenance runbook](docs/runbooks/release-provenance.md).
-
-### Observability and production-readiness evidence
-
-`GET /metrics` exposes bounded aggregate operational metrics. Candidate SLOs and executable
-Prometheus alert rules are documented under
-[production-readiness assurance](docs/assurance/production-readiness/README.md).
-
-A reproducible HTTP load harness is available at `tools/http_load_assurance.py`. Repository CI
-proves instrumentation wiring; it does not claim live production SLO attainment.
-
----
-
-## Quality gate
-
-The GitHub Actions pipeline on pull requests and `main` performs the current release gate:
-
-1. pinned Python and checksum-verified `uv`;
-2. frozen dependency-lock verification and machine-enforced supply-chain policy;
-3. Ruff lint/format, strict mypy, Bandit and `pip-audit`;
-4. Docker Compose validation;
-5. Alembic upgrade and schema-drift checks;
-6. disaster-recovery verification smoke;
-7. bounded resource-cleanup smoke;
-8. observability/privacy smoke, including PostgreSQL-derived outbox/graph gauges;
-9. full pytest suite against PostgreSQL 17;
-10. PostgreSQL restart / stale-connection recovery smoke;
-11. deterministic reposition-solver benchmark;
-12. API boot smoke;
-13. checksum-verified Trivy install and repository secret scan;
-14. digest-pinned hardened container build and read-only/capability-dropped runtime smoke;
-15. HIGH/CRITICAL container vulnerability gate;
-16. CycloneDX SBOM generation;
-17. immutable release-subject packaging and artifact transfer;
-18. isolated OIDC-enabled provenance job;
-19. signed SLSA-compatible build provenance and CycloneDX SBOM attestation;
-20. cryptographic attestation verification;
-21. canonical release-manifest build/verification and separate manifest attestation.
-
-Run the primary developer gate locally:
+Primary local checks:
 
 ```bash
 uv lock --check
@@ -939,152 +219,52 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy apps charteros tests tools
 uv run bandit -q -r apps charteros tools
-uv export --frozen --no-dev --no-emit-project --no-hashes \
-  --format requirements-txt \
-  --output-file /tmp/runtime-requirements.txt
-uv run pip-audit --strict --no-deps -r /tmp/runtime-requirements.txt
-docker compose config
-uv run alembic upgrade head
-uv run alembic check
 uv run pytest
-uv run python tools/benchmark_reposition_solver.py
-uv run python tools/app_boot_smoke.py
 ```
 
-`make quality` remains a shorter developer convenience target; GitHub CI is the authoritative full
-release/provenance gate.
+GitHub Actions runs the full release gate on pull requests and pushes to `main`, including dependency policy/audit, migrations and schema drift, recovery/cleanup/observability checks, PostgreSQL integration tests, database restart recovery, deterministic solver benchmark, secret scanning, hardened container smoke, HIGH/CRITICAL fixable-vulnerability scanning, CycloneDX SBOM generation, signed build/SBOM attestations, canonical release-manifest construction and attestation verification.
 
-Test markers distinguish integration, property, regression, and concurrency suites.
+Repository CI proves the build and verification chain. It does **not** by itself certify a live production deployment, infrastructure SLO attainment, backup-provider behavior, or external payment/accounting integration.
 
----
+## Operations and documentation
+
+- [Documentation index](docs/README.md)
+- [Architecture](docs/architecture/README.md)
+- [Assurance evidence](docs/assurance/README.md)
+- [Authentication and authorization](docs/authentication-authorization.md)
+- [Evidence integrity](docs/evidence-integrity.md)
+- [Runbooks](docs/runbooks/)
+- [ADRs](docs/adr/)
+
+Operational commands include the outbox worker, graph rebuild/verification, bounded resource cleanup, recovery verification and restricted PostgreSQL runtime-role provisioning. Detailed procedures live in the linked runbooks instead of the product overview.
+
+## Current boundaries
+
+CharterOS currently does **not** claim:
+
+- generic exactly-once external side effects;
+- payment-rail settlement or accounting-ledger posting;
+- autonomous ML authority for matching or award;
+- provider-independent backup/PITR creation;
+- live production SLO attainment from repository CI alone;
+- that optimizer workloads beyond the validated envelope are production-qualified;
+- that derived graph, analytics, simulation or evidence packages are transactional authority.
+
+Roadmap work must remain clearly separate from implemented capability and does not become a product claim until code and verification evidence exist.
 
 ## Repository layout
 
 ```text
-CharterOS/
-├── apps/
-│   ├── api/                    # FastAPI delivery + route security
-│   ├── graph_projection/       # rebuild / verify / activate CLI
-│   ├── outbox_worker/          # leased asynchronous delivery worker
-│   ├── pricing_intelligence/   # deterministic historical dataset CLI
-│   ├── recovery_verification/  # restored-state / recovery-manifest verifier
-│   └── resource_cleanup/       # bounded transient-state cleanup CLI
-├── charteros/
-│   ├── application/            # use cases and application ports
-│   ├── domain/                 # pure business model and invariants
-│   ├── infrastructure/         # SQLAlchemy, repositories, projections, integrity
-│   ├── matching/               # deterministic matching policy
-│   ├── outbox/                 # delivery engine abstractions
-│   ├── pricing_intelligence/   # historical dataset model
-│   ├── repositioning/          # exact optimizer + economics
-│   ├── security/               # authentication model and JWT verification
-│   ├── shared/                 # config, clock, logging, context
-│   ├── simulation/             # deterministic synthetic market simulator
-│   └── observability.py        # bounded operational metrics registry
-├── deploy/
-│   ├── observability/          # executable Prometheus alert rules
-│   └── postgres/               # database runtime-role hardening
-├── docs/
-│   ├── README.md               # documentation navigation root
-│   ├── adr/                    # durable architecture decisions
-│   ├── architecture/           # current architecture overview
-│   ├── assurance/              # governance / production-readiness evidence contracts
-│   └── runbooks/               # operator procedures
-├── migrations/versions/        # Alembic schema history
-├── test-assets/                # deterministic reference assets
-├── tests/                      # unit, property, regression, concurrency, integration
-├── tools/
-│   ├── app_boot_smoke.py
-│   ├── benchmark_reposition_solver.py
-│   ├── check_supply_chain_policy.py
-│   ├── http_load_assurance.py
-│   └── release_manifest.py
-├── Dockerfile
-├── docker-compose.yml
-├── supply-chain-policy.json
-├── pyproject.toml
-└── uv.lock
+apps/                    Runtime entry points and operational CLIs
+charteros/               Domain, application and infrastructure implementation
+deploy/                   Deployment/runtime-role assets
+docs/                     Architecture, ADRs, assurance and runbooks
+migrations/               Alembic schema history
+tests/                    Unit and PostgreSQL-backed integration tests
+tools/                    Verification, benchmark, load and release-evidence utilities
+EVALUATION.md             Authenticated local product walkthrough
 ```
-
----
-
-## Architecture Decision Records
-
-The complete design-history index is maintained in
-[docs/adr/README.md](docs/adr/README.md). The latest enterprise-hardening decisions are:
-
-| ADR | Decision |
-| --- | --- |
-| [0027](docs/adr/0027-aircraft-capacity-reservations.md) | Aircraft capacity reservations |
-| [0028](docs/adr/0028-booking-termination-capacity-release.md) | Booking termination / capacity release |
-| [0029](docs/adr/0029-canonical-replacement-aircraft-feasibility.md) | Canonical replacement-aircraft feasibility |
-| [0030](docs/adr/0030-reposition-optimizer-input-completeness.md) | Reposition optimizer input completeness |
-| [0031](docs/adr/0031-award-time-aircraft-feasibility-truth-gate.md) | Award-time aircraft feasibility truth gate |
-| [0032](docs/adr/0032-transaction-failure-and-ambiguous-commit.md) | Transaction failure / ambiguous commit |
-| [0033](docs/adr/0033-api-abuse-resource-bounds.md) | API abuse / resource bounds |
-| [0034](docs/adr/0034-commercial-data-governance.md) | Commercial data governance |
-| [0035](docs/adr/0035-disaster-recovery-assurance.md) | Disaster-recovery assurance |
-| [0036](docs/adr/0036-release-supply-chain-provenance.md) | Verifiable release / supply-chain provenance |
-| [0037](docs/adr/0037-production-observability.md) | Production observability / failure evidence |
-
-For a task-oriented entry point, see the [documentation index](docs/README.md).
-
----
-
-## Explicit boundaries
-
-CharterOS intentionally does **not** claim capabilities it does not provide.
-
-Current boundaries include:
-
-- no graph-backed transactional business authority;
-- no generic exactly-once guarantee for arbitrary external effects;
-- no hidden or implicit FX;
-- no floating-point money;
-- no automatic booking from optimizer recommendations;
-- no production ML ranking/award authority;
-- no cross-operator disruption re-award shortcut;
-- no payment-rail settlement or accounting ledger;
-- no claim that internal SHA-256 evidence digests are legal signatures;
-- release provenance uses GitHub keyless artifact attestations; no independent KMS/HSM signing or external notarization is claimed unless separately implemented and exercised;
-- no production authentication bypass when OIDC is absent;
-- commercial data-governance controls are engineering controls, not a claim of legal/regulatory certification;
-- candidate SLO/alert thresholds are measurement contracts, not proof of production attainment;
-- signed CI provenance does not prove that production deployed the attested artifact digest.
-
-These boundaries are part of the architecture, not missing error handling.
-
----
-
-## Technology
-
-- **Python 3.13**
-- **FastAPI**
-- **Pydantic v2 / pydantic-settings**
-- **SQLAlchemy 2**
-- **PostgreSQL 17**
-- **Alembic**
-- **PyJWT + asymmetric JWKS/OIDC**
-- **uv**
-- **pytest + Hypothesis**
-- **Ruff**
-- **mypy strict**
-- **Bandit**
-- **pip-audit**
-- **Docker / Docker Compose**
-- **Trivy**
-- **CycloneDX SBOM**
-
-No Redis, Kafka, Celery, external graph database, or Kubernetes dependency is required by the current architecture.
-
----
 
 ## License
 
-**CharterOS is proprietary software. It is not open source.**
-
-Public repository visibility grants only the limited non-commercial internal evaluation rights stated in [LICENSE](LICENSE).
-
-Without a separate written agreement, the license does not authorize production use, commercial use, redistribution, derivative works, hosted/managed-service use, competitive implementation, AI/ML training use, sublicensing, or broader exploitation.
-
-Copyright © 2026 Stamatis-Christos Saridakis. All Rights Reserved.
+CharterOS is distributed under the **CharterOS Proprietary License v1.0** in [LICENSE](LICENSE). Public source visibility does not grant open-source rights; use, redistribution and commercial rights are governed by that license.

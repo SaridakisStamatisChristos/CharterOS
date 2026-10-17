@@ -132,13 +132,13 @@ jobs:
           set -euo pipefail
           uv run python -m apps.recovery_verification.main \
             --database-id ci-postgres \
-            --manifest /tmp/pr46-recovery-manifest.json
+            --manifest /tmp/charteros-recovery-manifest.json
           uv run python - <<'PY'
           import json
           from pathlib import Path
 
           document = json.loads(
-              Path("/tmp/pr46-recovery-manifest.json").read_text(encoding="utf-8")
+              Path("/tmp/charteros-recovery-manifest.json").read_text(encoding="utf-8")
           )
           assert document["schema_version"] == "charteros.recovery-manifest.v1"
           assert document["ok"] is True
@@ -209,7 +209,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f /tmp/pr43-db-connection-ready /tmp/pr43-db-restarted
+          rm -f /tmp/charteros-db-connection-ready /tmp/charteros-db-restarted
 
           uv run python - <<'PY' &
           import time
@@ -226,10 +226,10 @@ jobs:
           connection = engine.connect()
           try:
               assert connection.execute(text("SELECT 1")).scalar_one() == 1
-              Path("/tmp/pr43-db-connection-ready").touch()
+              Path("/tmp/charteros-db-connection-ready").touch()
 
               deadline = time.monotonic() + 30
-              while not Path("/tmp/pr43-db-restarted").exists():
+              while not Path("/tmp/charteros-db-restarted").exists():
                   if time.monotonic() >= deadline:
                       raise SystemExit("database restart signal was not received")
                   time.sleep(0.05)
@@ -259,7 +259,7 @@ jobs:
           probe_pid=$!
 
           for attempt in $(seq 1 100); do
-            if [ -f /tmp/pr43-db-connection-ready ]; then
+            if [ -f /tmp/charteros-db-connection-ready ]; then
               break
             fi
             if ! kill -0 "$probe_pid" 2>/dev/null; then
@@ -268,12 +268,12 @@ jobs:
             fi
             sleep 0.05
           done
-          test -f /tmp/pr43-db-connection-ready
+          test -f /tmp/charteros-db-connection-ready
 
           postgres_id="$(docker ps --filter "publish=5432" --format '{{.ID}}' | head -n1)"
           test -n "$postgres_id"
           docker restart "$postgres_id" >/dev/null
-          touch /tmp/pr43-db-restarted
+          touch /tmp/charteros-db-restarted
           wait "$probe_pid"
           touch release-evidence/gates/postgres-restart.passed
 
@@ -571,4 +571,3 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
-

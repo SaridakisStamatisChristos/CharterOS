@@ -1,7 +1,6 @@
 # Alert matrix
 
-The executable rules live in `deploy/observability/prometheus-alerts.yml`. Thresholds are initial
-operating candidates and must be calibrated with staging evidence.
+The executable rules live in `deploy/observability/prometheus-alerts.yml`. Thresholds are initial operating candidates and must be calibrated with staging evidence.
 
 | Alert | Meaning | Initial threshold | Severity | Required action |
 | --- | --- | --- | --- | --- |
@@ -17,5 +16,4 @@ operating candidates and must be calibrated with staging evidence.
 | Container restart loop | deployment repeatedly restarts CharterOS | platform-specific equivalent of >=3 restarts/10m | page | inspect termination reason, health/readiness, memory and DB dependency |
 | Disk/storage pressure | platform storage approaches unsafe threshold | platform-specific >=85% used | ticket/page by growth rate | protect PostgreSQL/WAL/log retention first; expand or clean only per runbook |
 
-Container restart and storage pressure require deployment-platform metrics. PR48 intentionally does
-not invent Kubernetes or cloud-specific metrics in application code.
+Container restart and storage pressure require deployment-platform metrics. CharterOS intentionally does not invent Kubernetes or cloud-specific metrics in application code.

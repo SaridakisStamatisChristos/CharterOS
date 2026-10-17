@@ -12,9 +12,9 @@ from sqlalchemy.orm import Session
 from apps.api.main import create_app
 from charteros.infrastructure.db.models.matching import MatchingReferenceProfileRow
 from charteros.shared.config import Settings
-from tests.integration.test_pr13_booking_workflow_api import _create_accepted_contract
-from tests.integration.test_pr17_tenders import _setup_tender
-from tests.integration.test_pr23_disruptions import _booked_operation
+from tests.integration.test_booking_workflow_api import _create_accepted_contract
+from tests.integration.test_disruptions import _booked_operation
+from tests.integration.test_tenders import _setup_tender
 
 
 def _settings() -> Settings:
