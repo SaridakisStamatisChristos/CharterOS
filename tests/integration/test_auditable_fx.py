@@ -16,7 +16,7 @@ from charteros.domain.shared.currency import Currency
 from charteros.infrastructure.db.models.fx import FxLockRow
 from charteros.infrastructure.db.repositories.fx import SqlAlchemyFxRateRepository
 from charteros.shared.config import Settings
-from tests.integration.test_pr25_audit_evidence import (
+from tests.integration.test_audit_evidence import (
     _airport,
     _insert_profile,
     _operator_and_aircraft,
