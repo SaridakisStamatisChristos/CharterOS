@@ -64,7 +64,7 @@ def _isolate_integration_database(request: pytest.FixtureRequest) -> Iterator[No
     engine = create_engine(database_url)
     try:
         with engine.begin() as connection:
-            table_names = list(
+            table_names: list[str] = list(
                 connection.execute(
                     text(
                         "SELECT tablename FROM pg_tables "
