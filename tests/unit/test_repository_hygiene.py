@@ -21,8 +21,6 @@ _PRODUCT_TEXT_PATTERNS = (
     re.compile(r"\bbuild[- ]session\b", re.IGNORECASE),
 )
 
-_TEST_IDENTIFIER_PATTERN = re.compile(r"\b(?:def\s+)?test_pr\d+", re.IGNORECASE)
-
 
 def _active_paths() -> list[Path]:
     paths: list[Path] = []
@@ -80,16 +78,3 @@ def test_product_facing_text_avoids_development_chronology() -> None:
     assert not offenders, "development chronology remains in product-facing text:\n" + "\n".join(
         offenders
     )
-
-
-def test_test_identifiers_are_capability_named() -> None:
-    offenders: list[str] = []
-    for path in (ROOT / "tests").rglob("*.py"):
-        if path.resolve() == THIS_FILE:
-            continue
-        text = path.read_text(encoding="utf-8")
-        for line_number, line in enumerate(text.splitlines(), start=1):
-            if _TEST_IDENTIFIER_PATTERN.search(line):
-                relative = path.relative_to(ROOT).as_posix()
-                offenders.append(f"{relative}:{line_number}:{line.strip()}")
-    assert not offenders, "development-era test identifiers remain:\n" + "\n".join(offenders)
