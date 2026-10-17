@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, text
 
 from apps.api.main import create_app
 from charteros.shared.config import Settings
-from tests.integration.test_pr12_contracts_api import _contract_body, _setup_booking
+from tests.integration.test_contracts_api import _contract_body, _setup_booking
 
 
 def _settings() -> Settings:
