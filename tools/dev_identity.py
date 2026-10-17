@@ -360,7 +360,7 @@ def mint_token(
 class _IdentityRequestHandler(BaseHTTPRequestHandler):
     server_version = "CharterOSDevIdentity/1"
 
-    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+    def do_GET(self) -> None:
         server = self.server
         if not isinstance(server, _IdentityServer):
             self.send_error(500)
