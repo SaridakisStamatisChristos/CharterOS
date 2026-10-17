@@ -81,7 +81,7 @@
         "path": "/v1/tenders/${CHARTEROS_LOAD_TENDER_ID}/award",
         "headers": {
           "Authorization": "Bearer ${CHARTEROS_LOAD_ADMIN_TOKEN}",
-          "Idempotency-Key": "pr48-award-{{request_id}}"
+          "Idempotency-Key": "load-award-{{request_id}}"
         },
         "body": {
           "quote_id": "${CHARTEROS_LOAD_QUOTE_ID}"
@@ -114,7 +114,7 @@
     },
     {
       "name": "optimizer-concurrency",
-      "purpose": "Exercise optimizer concurrency and PR44 saturation bounds.",
+      "purpose": "Exercise optimizer concurrency and bounded saturation behavior.",
       "request": {
         "method": "GET",
         "path": "/v1/optimization/repositioning?window_start=${CHARTEROS_LOAD_WINDOW_START}&window_end=${CHARTEROS_LOAD_WINDOW_END}&evaluated_at=${CHARTEROS_LOAD_EVALUATED_AT}",
