@@ -1,25 +1,16 @@
-# CharterOS assurance documentation
+# Assurance documentation
 
-Assurance documents explain what the repository can prove, what it tests, and where live execution
-evidence is still required.
+This directory contains durable engineering assurance material for CharterOS. It documents correctness boundaries, reproducible verification methods, and operational evidence that remain useful independent of the sequence in which the implementation was developed.
 
-## Core assurance documents
+## Core assurance maps
 
-- [Data-governance classification](data-governance-classification.md) — data classes, retention
-  posture, exportability, legal-hold applicability, and governance authority.
-- [PR31 event ordering / projection assurance](pr31-event-ordering-projection.md)
-- [PR32 solver-boundary performance assurance](pr32-solver-boundary-performance.md)
-- [PR33 determinism / clock assurance](pr33-determinism-clock.md)
-- [PR38–PR42 aircraft commitment hardening](pr38-pr42-aircraft-commitment-hardening.md) — cross-PR
-  capacity, release, replacement-feasibility, optimizer-completeness, and award-truth invariant map.
-- [Production-readiness index](production-readiness/README.md)
+- [Event ordering and graph projection](event-ordering-and-projection.md) — aggregate causality, outbox delivery, projection cursors, replay and convergence.
+- [Reposition solver boundary and performance](reposition-solver-boundary-and-performance.md) — deterministic optimizer scope, benchmark contract and validated workload envelope.
+- [Determinism and clock](determinism-and-clock.md) — temporal authority and deterministic distance semantics.
+- [Aircraft commitment](aircraft-commitment.md) — award-time feasibility, capacity reservation, release, replacement feasibility and optimizer completeness.
+- [Production readiness](production-readiness/README.md) — observability, recovery, provenance and operational qualification evidence.
+- [Data governance classification](data-governance-classification.md) — data categories and governance assumptions.
 
-## Evidence interpretation
+## Reading rule
 
-Assurance material is intentionally conservative:
-
-- code-level tests establish implementation behavior within the tested boundary;
-- CI release evidence establishes which source, lockfile, SBOM, image archive, and attestations belong
-  together;
-- recovery verification establishes restored-state consistency when executed against a restore;
-- load/SLO/alert evidence is environment-specific and must not be inferred from code alone.
+Assurance documents describe implemented invariants and verified boundaries. They are not release notes, deployment certification, or evidence that a live environment is meeting production SLOs. When an assurance document references an ADR, the ADR remains the durable architectural decision record.

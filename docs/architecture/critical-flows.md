@@ -1,9 +1,33 @@
 # CharterOS critical flows
 
-These sequence diagrams document the paths where correctness depends on more than one subsystem.
-They are reviewer aids, not substitutes for the ADRs or tests.
+These diagrams document paths where correctness depends on more than one subsystem. They are reviewer aids, not substitutes for ADRs or tests.
 
-## 1. Quote award and aircraft-capacity commitment
+## 1. Charter procurement and operations lifecycle
+
+```mermaid
+flowchart LR
+    M[Mission / buyer intent] --> MATCH[Deterministic matching]
+    MATCH --> RFQ[RFQs]
+    RFQ --> Q[Quote revisions]
+    Q --> C[Normalize + compare]
+    Q --> T[Tender / reverse auction]
+    C --> A[Buyer approval]
+    T --> A
+    A --> B[Authoritative award / Booking]
+    B --> CAP[Aircraft capacity reservation]
+    B --> K[Contract]
+    K --> O[Booking operations]
+    O --> D[Disruption / recovery]
+    O --> F[Financial reconciliation]
+    D --> F
+    F --> E[Audit evidence]
+    FX[Auditable FX evidence] --> C
+    FX --> A
+```
+
+Buyer approval records a decision but does not reserve capacity. Award authority remains at the booking boundary, where the exact quoted aircraft is revalidated and the booking/capacity commitment is committed atomically.
+
+## 2. Quote award and aircraft-capacity commitment
 
 ```mermaid
 sequenceDiagram
@@ -30,11 +54,9 @@ sequenceDiagram
     API-->>B: success
 ```
 
-The critical property is that pre-award approval and recommendation do not reserve capacity. The
-authoritative commitment happens at BookingService, after award-time feasibility revalidation, under
-database-enforced overlap protection.
+The authoritative commitment happens at `BookingService` after award-time feasibility revalidation and under database-enforced overlap protection.
 
-## 2. Outbox delivery and Charter Graph projection
+## 3. Outbox delivery and Charter Graph projection
 
 ```mermaid
 sequenceDiagram
@@ -54,11 +76,9 @@ sequenceDiagram
     W->>DB: mark delivery complete
 ```
 
-Delivery is at-least-once. Stable event identity, aggregate version continuity, fenced leases, durable
-receipts, and idempotent projection logic provide replay and crash safety. CharterOS does not claim
-generic exactly-once external side effects.
+Delivery is at-least-once. Stable event identity, aggregate-version continuity, fenced leases, durable receipts and idempotent projection logic provide replay and crash safety. CharterOS does not claim generic exactly-once external side effects.
 
-## 3. Ambiguous commit recovery
+## 4. Ambiguous commit recovery
 
 ```mermaid
 sequenceDiagram
@@ -82,10 +102,9 @@ sequenceDiagram
     end
 ```
 
-An ambiguous commit is not treated as an ordinary retryable exception. Recovery consults durable
-authority/idempotency state before any replay decision.
+An ambiguous commit is not treated as an ordinary retryable exception. Recovery consults durable authority/idempotency state before replay.
 
-## 4. Disaster-recovery verification
+## 5. Disaster-recovery verification
 
 ```mermaid
 flowchart LR
@@ -102,10 +121,9 @@ flowchart LR
     RESTORE --> ALEMBIC --> CHAIN --> FK --> CAP --> OUT --> TIME --> GRAPH --> MANIFEST
 ```
 
-CharterOS verifies restored state; backup/PITR creation itself is provider-specific. Verification does
-not rewrite canonical history, and a rebuilt graph is not auto-activated.
+CharterOS verifies restored state; backup/PITR creation itself is provider-specific. Verification does not rewrite canonical history, and a rebuilt graph is not auto-activated.
 
-## 5. Release provenance
+## 6. Release provenance
 
 ```mermaid
 flowchart LR
@@ -128,16 +146,12 @@ flowchart LR
     MAN --> SIGN
 ```
 
-Release evidence binds source, dependency lock/policy, built artifact, SBOM, provenance, and the
-canonical manifest. It proves repository/build lineage; it does not by itself prove that production is
-running that digest or meeting production SLOs.
+Release evidence binds source, dependency lock/policy, built artifact, SBOM, provenance and the canonical manifest. It proves repository/build lineage; it does not by itself prove that production is running that digest or meeting production SLOs.
 
-## 6. Operational reading order
-
-For incident or assurance work, pair these flows with:
+## Operational reading order
 
 - [Authority and trust boundaries](authority-and-trust-boundaries.md)
 - [ADR 0032 — Transaction failure and ambiguous commit](../adr/0032-transaction-failure-and-ambiguous-commit.md)
 - [ADR 0035 — Disaster-recovery assurance](../adr/0035-disaster-recovery-assurance.md)
 - [ADR 0036 — Release and supply-chain provenance](../adr/0036-release-supply-chain-provenance.md)
-- [PR38–PR42 aircraft commitment hardening](../assurance/pr38-pr42-aircraft-commitment-hardening.md)
+- [Aircraft commitment assurance](../assurance/aircraft-commitment.md)

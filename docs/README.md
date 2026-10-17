@@ -1,51 +1,39 @@
 # CharterOS documentation
 
-This directory is the navigation root for CharterOS technical, operational, and assurance
-documentation.
+This directory contains durable product, architecture, assurance and operational documentation for the current CharterOS system.
 
-## Start here
+## Architecture
 
-- [Architecture overview](architecture/README.md) — current system shape, authority boundaries, runtime
-  processes, and scaling posture.
-- [System context and container views](architecture/system-context.md) — C4-inspired visual atlas of
-  actors, runtime containers, canonical persistence, derived state, and deployment posture.
-- [Critical flows](architecture/critical-flows.md) — sequence diagrams for award/capacity commitment,
-  outbox projection, ambiguous commit recovery, disaster recovery, and release provenance.
-- [Authority and trust boundaries](architecture/authority-and-trust-boundaries.md) — explicit map of
-  command authority, trust re-establishment, failure posture, and evidence classes.
-- [Glossary](glossary.md) — canonical terminology for domain, temporal, eventing, assurance, and
-  operational concepts.
-- [Architecture Decision Records](adr/README.md) — durable design decisions from ADR 0001 through ADR
-  0037.
-- [Authentication and authorization](authentication-authorization.md) — OIDC/JWT verification,
-  principals, capability policy, tenant selectors, and public runtime endpoints.
-- [Database-enforced evidence integrity](evidence-integrity.md) — append-only evidence protections,
-  integrity chains, checkpoints, and recovery boundary.
-- [Assurance index](assurance/README.md) — governance classification, production-readiness evidence,
-  SLOs, alerts, load plans, and focused hardening evidence.
-- [Runbook index](runbooks/README.md) — operator procedures for governance, disaster recovery, release
-  provenance, and production observability.
+- [Architecture atlas](architecture/README.md)
+- [System context and containers](architecture/system-context.md)
+- [Critical flows](architecture/critical-flows.md)
+- [Authority and trust boundaries](architecture/authority-and-trust-boundaries.md)
+- [Domain glossary](glossary.md)
 
-## Operational hardening map
+## Security and integrity
 
-| Area | Design authority | Operator / assurance documentation |
-| --- | --- | --- |
-| Aircraft capacity / cross-Mission overlap | [ADR 0027](adr/0027-aircraft-capacity-reservations.md) | [PR38–PR42 hardening lineage](assurance/pr38-pr42-aircraft-commitment-hardening.md) |
-| Booking termination / capacity release | [ADR 0028](adr/0028-booking-termination-capacity-release.md) | [PR38–PR42 hardening lineage](assurance/pr38-pr42-aircraft-commitment-hardening.md) |
-| Replacement-aircraft feasibility | [ADR 0029](adr/0029-canonical-replacement-aircraft-feasibility.md) | [PR38–PR42 hardening lineage](assurance/pr38-pr42-aircraft-commitment-hardening.md) |
-| Optimizer input completeness | [ADR 0030](adr/0030-reposition-optimizer-input-completeness.md) | [PR38–PR42 hardening lineage](assurance/pr38-pr42-aircraft-commitment-hardening.md) |
-| Award-time feasibility truth gate | [ADR 0031](adr/0031-award-time-aircraft-feasibility-truth-gate.md) | [PR38–PR42 hardening lineage](assurance/pr38-pr42-aircraft-commitment-hardening.md) |
-| Transaction failures / ambiguous commit | [ADR 0032](adr/0032-transaction-failure-and-ambiguous-commit.md) | Main README operational/quality sections |
-| API abuse/resource bounds | [ADR 0033](adr/0033-api-abuse-resource-bounds.md) | Authentication docs + resource-cleanup command |
-| Commercial data governance | [ADR 0034](adr/0034-commercial-data-governance.md) | [Data-governance runbook](runbooks/data-governance.md), [classification](assurance/data-governance-classification.md) |
-| Disaster recovery | [ADR 0035](adr/0035-disaster-recovery-assurance.md) | [Disaster-recovery runbook](runbooks/disaster-recovery.md) |
-| Release provenance | [ADR 0036](adr/0036-release-supply-chain-provenance.md) | [Release-provenance runbook](runbooks/release-provenance.md) |
-| Production observability | [ADR 0037](adr/0037-production-observability.md) | [Production observability runbook](runbooks/production-observability.md), [production-readiness assurance](assurance/production-readiness/README.md) |
+- [Authentication and authorization](authentication-authorization.md)
+- [Database-enforced evidence integrity](evidence-integrity.md)
+- [Assurance index](assurance/README.md)
+- [Data-governance classification](assurance/data-governance-classification.md)
 
-## Evidence status
+## Operational assurance
 
-Repository documentation distinguishes implementation capability from live operational evidence.
+The aircraft-commitment boundary is documented as one durable chain rather than as an implementation sequence:
 
-A green CI run proves repository-owned checks passed for that source revision. It does not by itself
-prove a production deployment, production SLO attainment, live alert delivery, a real restore drill,
-or a production load/soak result. Those require retained environment-specific evidence.
+- [ADR 0027 — Aircraft capacity reservations](adr/0027-aircraft-capacity-reservations.md)
+- [ADR 0028 — Booking termination and capacity release](adr/0028-booking-termination-capacity-release.md)
+- [ADR 0029 — Replacement-aircraft feasibility](adr/0029-replacement-aircraft-feasibility.md)
+- [ADR 0030 — Reposition optimizer universe completeness](adr/0030-reposition-optimizer-universe-completeness.md)
+- [ADR 0031 — Award-time feasibility truth gate](adr/0031-award-time-feasibility-truth-gate.md)
+- [Aircraft commitment assurance](assurance/aircraft-commitment.md)
+
+Additional durable assurance maps cover [event ordering/projection](assurance/event-ordering-and-projection.md), [reposition solver bounds](assurance/reposition-solver-boundary-and-performance.md), [determinism/clock behavior](assurance/determinism-and-clock.md), and [production readiness](assurance/production-readiness/README.md).
+
+## Runbooks
+
+Operational procedures live under [runbooks](runbooks/), including data governance, disaster recovery and release provenance. Runbooks define repository-owned responsibilities and explicitly distinguish them from provider-owned infrastructure behavior.
+
+## Architectural decision records
+
+ADRs under [adr](adr/) preserve the durable reasons behind important design choices. Their numeric identifiers are architectural record identities, not development milestones, and are intentionally retained.
