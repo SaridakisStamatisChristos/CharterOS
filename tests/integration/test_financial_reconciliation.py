@@ -10,9 +10,9 @@ from sqlalchemy import create_engine, text
 
 from apps.api.main import create_app
 from charteros.shared.config import Settings
-from tests.integration.test_pr12_contracts_api import _setup_booking
-from tests.integration.test_pr13_booking_workflow_api import _create_accepted_contract
-from tests.integration.test_pr23_disruptions import _booked_operation
+from tests.integration.test_booking_workflow_api import _create_accepted_contract
+from tests.integration.test_contracts_api import _setup_booking
+from tests.integration.test_disruptions import _booked_operation
 
 
 def _settings() -> Settings:
